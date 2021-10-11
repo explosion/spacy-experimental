@@ -1,0 +1,21 @@
+[package]
+name = "mst"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+ndarray = "0.15"
+numpy = "0.14"
+ordered-float = "2"
+pyo3 = { version = "0.14", features = ["extension-module"] }
+
+[build-dependencies]
+pyo3-build-config = "0.14"
+
+[dev-dependencies]
+ndarray-rand = "0.14"
+rand_xorshift = "0.3"
+
+[lib]
+name = "mst"
+crate-type = ["cdylib"]
