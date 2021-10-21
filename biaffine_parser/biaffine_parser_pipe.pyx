@@ -16,6 +16,7 @@ from spacy.util import registry
 from thinc.api import Model, NumpyOps, Ops, Optimizer, Ragged, get_current_ops
 from thinc.types import Ints1d, Ragged, Tuple
 
+from .eval import score_deps
 from .mst import chu_liu_edmonds
 
 def sents2lens(docs: List[Doc], *, ops: Optional[Ops] = None) -> Ints1d:
@@ -30,16 +31,10 @@ def sents2lens(docs: List[Doc], *, ops: Optional[Ops] = None) -> Ints1d:
     return ops.asarray1i(lengths)
 
 
+
+
 def parser_score(examples, **kwargs):
-    def dep_getter(token, attr):
-        dep = getattr(token, attr)
-        dep = token.vocab.strings.as_string(dep).lower()
-        return dep
-
-    kwargs.setdefault("getter", dep_getter)
-    kwargs.setdefault("ignore_labels", ("p", "punct"))
-
-    return Scorer.score_deps(examples, "dep", **kwargs)
+    return score_deps(examples)
 
 
 @registry.scorers("biaffine.parser_scorer.v1")
