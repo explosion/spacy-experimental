@@ -14,30 +14,20 @@ from spacy.tokens.doc cimport Doc, set_children_from_heads
 from spacy.training import Example, validate_get_examples, validate_examples
 from spacy.util import registry
 from thinc.api import Model, Ops, Optimizer, Ragged, get_current_ops
-from thinc.types import Ragged, Tuple
+from thinc.types import Ints1d, Ragged, Tuple
 
 
-def sents2spans(docs: List[Doc], *, ops: Optional[Ops] = None) -> Ragged:
+def sents2lens(docs: List[Doc], *, ops: Optional[Ops] = None) -> Ints1d:
     if ops is None:
         ops = get_current_ops()
 
-    spans = []
     lengths = []
     for doc in docs:
-        length = 0
         for sent in doc.sents:
-            spans.append([sent.start, sent.end])
-            length += 2
-        lengths.append(length)
+            lengths.append(sent.end - sent.start)
 
-    if len(spans) > 0:
-        output = Ragged(ops.xp.vstack(ops.asarray2i(spans)), ops.asarray1i(lengths))
-    else:
-        output = Ragged(ops.xp.zeros((0, 0)), ops.asarray1i(lengths))
+    return ops.asarray1i(lengths)
 
-    assert output.dataXd.ndim == 2
-
-    return output
 
 def parser_score(examples, **kwargs):
     def dep_getter(token, attr):
@@ -85,47 +75,30 @@ cdef class BiaffineParser(TrainablePipe):
         cfg = {"labels": [], "overwrite": overwrite}
         self.cfg = dict(sorted(cfg.items()))
         self.scorer = scorer
-        self.steps = 0
 
     def get_loss(self, examples: Iterable[Example], scores) -> Tuple[float, float]:
         validate_examples(examples, "BiaffineParser.get_loss")
 
         def loss_func(guesses, target, mask):
-            #print(guesses[0], guesses[0].argmax())
-            #print(target[0], target[0].argmax())
             d_scores = guesses - target
             d_scores *= mask.reshape(d_scores.shape[0], 1)
-            # print(d_scores[0])
-            # d_scores /= d_scores.shape[0]
-            # print(d_scores.max(-1)[:5], d_scores.min(-1)[:5])
-            #print("%s\t%.2f" % (guesses.shape, (guesses.argmax(-1) == target.argmax(-1)).sum() / mask.sum()))
             loss = (d_scores ** 2).sum()
-            #loss /= d_scores.shape[0]
             return d_scores, loss
 
-        # spans = Ragged(self.model.ops.to_numpy(spans.data), self.model.ops.to_numpy(spans.lengths))
-        target = np.zeros_like(scores.data)
-        mask = np.zeros(scores.data.shape[0], dtype=scores.data.dtype)
+        target = np.zeros_like(scores)
+        mask = np.zeros(scores.shape[0], dtype=scores.dtype)
 
         offset = 0
         for eg in examples:
-            # XXX: use gold segmentation during development. Requires gold_preproc.
-            # XXX: mask out losses for which we do not have a head...
             aligned_heads, _ = eg.get_aligned_parse(projectivize=False)
             for sent in eg.predicted.sents:
-                sent_heads = []
                 for token in sent:
                     head = aligned_heads[token.i]
-                    if head is not None:
-                        if head >= sent.start and head < sent.end:
-                            mask[offset] = 1
-                            target[offset, head - sent.start] = 1.0
-                            #sent_heads.append(str(head-sent.start))
+                    if head is not None and head >= sent.start and head < sent.end:
+                        mask[offset] = 1
+                        target[offset, head - sent.start] = 1.0
 
                     offset += 1
-
-                #print(" ".join([f"{idx}:{token}" for idx, token in enumerate(sent)]))
-                #print(" ".join(sent_heads))
 
         assert offset == target.shape[0]
 
@@ -133,8 +106,6 @@ cdef class BiaffineParser(TrainablePipe):
         mask = self.model.ops.asarray_f(mask)
 
         d_scores, loss = loss_func(scores.data, target, mask)
-
-        d_scores = Ragged(np.array(d_scores), scores.lengths)
 
         return loss, d_scores
 
@@ -159,7 +130,7 @@ cdef class BiaffineParser(TrainablePipe):
             gold_labels = example.get_aligned("DEP", as_string=True)
             gold_array = [[1.0 if tag == gold_tag else 0.0 for tag in self.labels] for gold_tag in gold_labels]
             label_sample.append(self.model.ops.asarray(gold_array, dtype="float32"))
-        span_sample = sents2spans(doc_sample, ops=self.model.ops)
+        span_sample = sents2lens(doc_sample, ops=self.model.ops)
         self.model.initialize(X=(doc_sample, span_sample), Y=label_sample)
 
     @property
@@ -168,7 +139,7 @@ cdef class BiaffineParser(TrainablePipe):
 
     def predict(self, docs: Iterable[Doc]):
         docs = list(docs)
-        spans = sents2spans(docs, ops=self.model.ops)
+        spans = sents2lens(docs, ops=self.model.ops)
         scores = self.model.predict((docs, spans))
         return spans, scores
 
@@ -183,20 +154,22 @@ cdef class BiaffineParser(TrainablePipe):
         indices, scores = spans_scores
 
         offset = 0
-        predicted_heads = scores.data.argmax(-1)
+        predicted_heads = scores.argmax(-1)
         for doc in docs:
             for sent in doc.sents:
                 for token in sent:
                     head_id = sent.start + predicted_heads[offset]
-                    if head_id >= sent.start and head_id < sent.end:
-                        doc.c[token.i].head = head_id - token.i
-                        doc.c[token.i].dep = self.vocab.strings['dep']
+                    assert head_id >= sent.start and head_id < sent.end
+                    doc.c[token.i].head = head_id - token.i
+                    doc.c[token.i].dep = self.vocab.strings['dep']
                     offset += 1
 
             for i in range(doc.length):
                 if doc.c[i].head == 0:
                     doc.c[i].dep = self.vocab.strings['ROOT']
-            #set_children_from_heads(doc.c, 0, doc.length)
+            # XXX: we should enable this, but clears sentence boundaries
+            # set_children_from_heads(doc.c, 0, doc.length)
+
         assert offset == predicted_heads.shape[0]
 
     def update(
@@ -212,18 +185,14 @@ cdef class BiaffineParser(TrainablePipe):
         losses.setdefault(self.name, 0.0)
         validate_examples(examples, "BiaffineParser.update")
 
-        #self.steps += 1
-        #if self.steps < 1000:
-        #    return
-
         if not any(len(eg.predicted) if eg.predicted else 0 for eg in examples):
             # Handle cases where there are no tokens in any docs.
             return losses
 
         docs = [eg.predicted for eg in examples]
 
-        spans = sents2spans(docs, ops=self.model.ops)
-        if spans.lengths.sum() == 0:
+        spans = sents2lens(docs, ops=self.model.ops)
+        if spans.sum() == 0:
             return losses
 
         # set_dropout_rate(self.model, drop)

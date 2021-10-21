@@ -11,6 +11,7 @@ from thinc.api import (
     Ragged,
     chain,
     get_width,
+    list2array,
     list2ragged,
     with_array,
     with_getitem,
@@ -18,8 +19,8 @@ from thinc.api import (
     xp2torch,
     torch2xp,
 )
-from thinc.types import ArgsKwargs, Floats2d, Floats3d
-from typing import Any, Optional, List, cast
+from thinc.types import ArgsKwargs, Array2d, Floats2d, Floats3d, Ints1d
+from typing import Any, Optional, List, Tuple, cast
 
 from .pytorch_biaffine_model import BiaffineModel as PyTorchBiaffineModel
 
@@ -41,7 +42,7 @@ def build_biaffine_model(
         attrs={"hidden_size": hidden_size},
     )
     model = chain(
-        with_getitem(0, chain(tok2vec, list2ragged())), extract_spans(), biaffine
+        with_getitem(0, chain(tok2vec, list2array())), biaffine
     )
     return model
 
@@ -73,24 +74,24 @@ def biaffine_init(model: Model, X=None, Y=None):
 def biaffine_forward(model: Model, X, is_train: bool):
     return model.layers[0](X, is_train)
 
-
-def convert_inputs(model: Model, Xr: Ragged, is_train: bool = False):
+def convert_inputs(model: Model, Xr_lenghts: Tuple[Ragged, Ints1d], is_train: bool = False):
     flatten = model.ops.flatten
     unflatten = model.ops.unflatten
     pad = model.ops.pad
     unpad = model.ops.unpad
 
-    def convert_from_torch_backward(d_inputs: ArgsKwargs) -> Padded:
-        dX = torch2xp(d_inputs.args[0])
-        return Ragged(flatten(unpad(dX, Xr.lengths)), Xr.lengths)  # type: ignore
+    Xr, lengths = Xr_lenghts
 
-    Xt = xp2torch(pad(unflatten(Xr.data, Xr.lengths)), requires_grad=True)
-    Lt = xp2torch(Xr.lengths, requires_grad=False)
+    Xt = xp2torch(pad(unflatten(Xr, lengths)), requires_grad=True)
+    Lt = xp2torch(lengths)
+
+    def convert_from_torch_backward(d_inputs: ArgsKwargs) -> Tuple[Floats2d, Ints1d]:
+        dX = cast(Floats3d, torch2xp(d_inputs.args[0]))
+        return flatten(unpad(dX, list(lengths))), lengths
 
     output = ArgsKwargs(args=(Xt, Lt), kwargs={})
 
     return output, convert_from_torch_backward
-
 
 def convert_outputs(model, inputs_outputs, is_train):
     flatten = model.ops.flatten
@@ -98,14 +99,13 @@ def convert_outputs(model, inputs_outputs, is_train):
     pad = model.ops.pad
     unpad = model.ops.unpad
 
-    Xr, Ytorch = inputs_outputs
+    (_, lengths), Ytorch = inputs_outputs
 
-    def convert_for_torch_backward(dYr: Ragged) -> ArgsKwargs:
-        dYtorch = xp2torch(pad(unflatten(dYr.data, dYr.lengths)))
+    def convert_for_torch_backward(dY: Floats2d) -> ArgsKwargs:
+        dYtorch = xp2torch(pad(unflatten(dY, lengths)))
         return ArgsKwargs(args=(Ytorch,), kwargs={"grad_tensors": dYtorch})
 
     Y = cast(Floats3d, torch2xp(Ytorch))
+    Y = flatten(unpad(Y, lengths))
 
-    Yr = Ragged(flatten(unpad(Y, Xr.lengths)), Xr.lengths)
-
-    return Yr, convert_for_torch_backward
+    return Y, convert_for_torch_backward
