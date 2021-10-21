@@ -101,9 +101,9 @@ cdef class BiaffineParser(TrainablePipe):
         target = self.model.ops.asarray_f(target)
         mask = self.model.ops.asarray_f(mask)
 
-        d_scores, loss = loss_func(scores.data, target, mask)
+        d_scores, loss = loss_func(scores, target, mask)
 
-        return loss, d_scores
+        return float(loss), d_scores
 
     def initialize(
         self, get_examples: Callable[[], Iterable[Example]], *, nlp: Language = None
@@ -143,11 +143,11 @@ cdef class BiaffineParser(TrainablePipe):
         cdef Doc doc
         cdef Token token
 
-        # XXX: move scores to CPU
         # XXX: predict best in `predict`
-        # XXX: MST decoding
 
         lengths, scores = spans_scores
+        lengths = lengths.get()
+        scores = scores.get()
 
         sent_offset = 0
         predicted_heads = scores.argmax(-1)
