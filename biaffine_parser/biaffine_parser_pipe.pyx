@@ -13,9 +13,10 @@ from spacy.tokens.token cimport Token
 from spacy.tokens.doc cimport Doc, set_children_from_heads
 from spacy.training import Example, validate_get_examples, validate_examples
 from spacy.util import registry
-from thinc.api import Model, Ops, Optimizer, Ragged, get_current_ops
+from thinc.api import Model, NumpyOps, Ops, Optimizer, Ragged, get_current_ops
 from thinc.types import Ints1d, Ragged, Tuple
 
+from .mst import chu_liu_edmonds
 
 def sents2lens(docs: List[Doc], *, ops: Optional[Ops] = None) -> Ints1d:
     if ops is None:
@@ -139,9 +140,9 @@ cdef class BiaffineParser(TrainablePipe):
 
     def predict(self, docs: Iterable[Doc]):
         docs = list(docs)
-        spans = sents2lens(docs, ops=self.model.ops)
-        scores = self.model.predict((docs, spans))
-        return spans, scores
+        lengths = sents2lens(docs, ops=self.model.ops)
+        scores = self.model.predict((docs, lengths))
+        return lengths, scores
 
     def set_annotations(self, docs: Iterable[Doc], spans_scores):
         cdef Doc doc
@@ -151,26 +152,32 @@ cdef class BiaffineParser(TrainablePipe):
         # XXX: predict best in `predict`
         # XXX: MST decoding
 
-        indices, scores = spans_scores
+        lengths, scores = spans_scores
 
-        offset = 0
+        sent_offset = 0
         predicted_heads = scores.argmax(-1)
         for doc in docs:
             for sent in doc.sents:
-                for token in sent:
-                    head_id = sent.start + predicted_heads[offset]
-                    assert head_id >= sent.start and head_id < sent.end
-                    doc.c[token.i].head = head_id - token.i
-                    doc.c[token.i].dep = self.vocab.strings['dep']
-                    offset += 1
+                heads = mst_decode(scores[sent_offset:sent_offset + lengths[0], :lengths[0]])
+                for i, head in enumerate(heads):
+                    dep_i = sent.start + i
+                    head_i = sent.start + head
+                    doc.c[dep_i].head = head_i - dep_i
+                    doc.c[dep_i].dep = self.vocab.strings['dep']
+
+                sent_offset += lengths[0]
+                lengths = lengths[1:]
+
 
             for i in range(doc.length):
                 if doc.c[i].head == 0:
                     doc.c[i].dep = self.vocab.strings['ROOT']
+
             # XXX: we should enable this, but clears sentence boundaries
             # set_children_from_heads(doc.c, 0, doc.length)
 
-        assert offset == predicted_heads.shape[0]
+        assert len(lengths) == 0
+        assert sent_offset == predicted_heads.shape[0]
 
     def update(
         self,
@@ -214,3 +221,36 @@ cdef class BiaffineParser(TrainablePipe):
         self.cfg["labels"].append(label)
         self.vocab.strings.add(label)
         return 1
+
+def mst_decode(sent_scores):
+    """Apply MST decoding"""
+
+    # Within spacy, a root is encoded as a token that attaches to itself
+    # (relative offset 0). However, the decoder uses a specific vertex,
+    # typically 0. So, we stub an additional root vertex to accomodate
+    # this.
+
+    # We expect a biaffine attention matrix.
+    assert sent_scores.shape[0] == sent_scores.shape[1]
+
+    seq_len = sent_scores.shape[0]
+
+    # Create score matrix with root row/column.
+    with_root = np.full((seq_len+1, seq_len+1), -10000, dtype=sent_scores.dtype)
+    with_root[1:,1:] = sent_scores
+
+    with_root[1:,0] = sent_scores.diagonal()
+    with_root[np.diag_indices(with_root.shape[0])] = -10000
+
+    heads = chu_liu_edmonds(with_root.T, 0)
+
+    # Remove root vertex
+    heads = heads[1:]
+
+    for idx, head in enumerate(heads):
+        if head == 0:
+            heads[idx] = idx
+        else:
+            heads[idx] = head - 1
+
+    return heads
