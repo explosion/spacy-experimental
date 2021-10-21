@@ -72,7 +72,7 @@ class PairwiseBilinear(nn.Module):
         #return torch.einsum("blu,uov,bmv->bmlo", u, self.weight, v)
 
 class BiaffineModel(nn.Module):
-    def __init__(self, nI: int, nO: int, *, activation=nn.ReLU(), hidden_size=128):
+    def __init__(self, nI: int, nO: int, *, activation=nn.GELU(), hidden_size=128):
         super(BiaffineModel, self).__init__()
 
         self.activation = activation
