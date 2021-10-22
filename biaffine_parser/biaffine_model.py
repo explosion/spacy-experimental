@@ -19,7 +19,7 @@ from thinc.api import (
     xp2torch,
     torch2xp,
 )
-from thinc.types import ArgsKwargs, Array2d, Floats2d, Floats3d, Ints1d
+from thinc.types import ArgsKwargs, Array2d, Floats2d, Floats3d, Floats4d, Ints1d
 from typing import Any, Optional, List, Tuple, cast
 
 from .pytorch_biaffine_model import BiaffineModel as PyTorchBiaffineModel
@@ -28,7 +28,6 @@ from .pytorch_biaffine_model import BiaffineModel as PyTorchBiaffineModel
 @registry.architectures("BiaffineModel.v1")
 def build_biaffine_model(
     tok2vec: Model[List[Doc], List[Floats2d]],
-    nO: Optional[int] = None,
     *,
     hidden_size: int = 128,
     mixed_precision: bool = False,
@@ -38,7 +37,7 @@ def build_biaffine_model(
         "biaffine-model",
         forward=biaffine_forward,
         init=biaffine_init,
-        dims={"nI": None, "nO": nO},
+        dims={"nI": None, "nO": None},
         attrs={"hidden_size": hidden_size},
     )
     model = chain(
@@ -99,13 +98,17 @@ def convert_outputs(model, inputs_outputs, is_train):
     pad = model.ops.pad
     unpad = model.ops.unpad
 
-    (_, lengths), Ytorch = inputs_outputs
+    (_, lengths), (Y_arc_t, Y_label_t) = inputs_outputs
 
-    def convert_for_torch_backward(dY: Floats2d) -> ArgsKwargs:
-        dYtorch = xp2torch(pad(unflatten(dY, lengths)))
-        return ArgsKwargs(args=(Ytorch,), kwargs={"grad_tensors": dYtorch})
+    def convert_for_torch_backward(dY: Tuple[Floats2d, Floats3d]) -> ArgsKwargs:
+        dY_arc, dY_label = dY
+        dY_arc_t = xp2torch(pad(unflatten(dY_arc, lengths)))
+        dY_label_t = xp2torch(pad(unflatten(dY_label, lengths)))
+        return ArgsKwargs(args=([Y_arc_t, Y_label_t],), kwargs={"grad_tensors": [dY_arc_t, dY_label_t]})
 
-    Y = cast(Floats3d, torch2xp(Ytorch))
-    Y = flatten(unpad(Y, lengths))
+    Y_arc = cast(Floats3d, torch2xp(Y_arc_t))
+    Y_arc = flatten(unpad(Y_arc, lengths))
+    Y_label = cast(Floats4d, torch2xp(Y_label_t))
+    Y_label = flatten(unpad(Y_label, lengths))
 
-    return Y, convert_for_torch_backward
+    return (Y_arc, Y_label), convert_for_torch_backward

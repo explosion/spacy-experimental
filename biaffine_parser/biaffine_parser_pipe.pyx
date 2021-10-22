@@ -32,8 +32,6 @@ def sents2lens(docs: List[Doc], *, ops: Optional[Ops] = None) -> Ints1d:
     return ops.asarray1i(lengths)
 
 
-
-
 def parser_score(examples, **kwargs):
     return score_deps(examples)
 
@@ -56,7 +54,7 @@ def make_biaffine_parser(
     return BiaffineParser(nlp.vocab, model, name, scorer=scorer)
 
 
-cdef class BiaffineParser(TrainablePipe):
+class BiaffineParser(TrainablePipe):
     def __init__(
         self,
         vocab: Vocab,
@@ -72,39 +70,56 @@ cdef class BiaffineParser(TrainablePipe):
         cfg = {"labels": [], "overwrite": overwrite}
         self.cfg = dict(sorted(cfg.items()))
         self.scorer = scorer
+        self._label_to_i = None
 
     def get_loss(self, examples: Iterable[Example], scores) -> Tuple[float, float]:
         validate_examples(examples, "BiaffineParser.get_loss")
 
         def loss_func(guesses, target, mask):
             d_scores = guesses - target
-            d_scores *= mask.reshape(d_scores.shape[0], 1)
+            d_scores *= mask
             loss = (d_scores ** 2).sum()
             return d_scores, loss
 
-        target = np.zeros_like(scores)
-        mask = np.zeros(scores.shape[0], dtype=scores.dtype)
+        arc_scores, label_scores = scores
+
+        arc_target = np.zeros_like(arc_scores)
+        label_target = np.zeros_like(label_scores)
+
+        arc_mask = np.zeros(arc_scores.shape[0], dtype=arc_scores.dtype)
+        label_mask = np.zeros(label_scores.shape[:2], dtype=label_scores.dtype)
 
         offset = 0
         for eg in examples:
-            aligned_heads, _ = eg.get_aligned_parse(projectivize=False)
+            aligned_heads, aligned_labels = eg.get_aligned_parse(projectivize=False)
             for sent in eg.predicted.sents:
                 for token in sent:
-                    head = aligned_heads[token.i]
-                    if head is not None and head >= sent.start and head < sent.end:
-                        mask[offset] = 1
-                        target[offset, head - sent.start] = 1.0
+                    gold_head = aligned_heads[token.i]
+                    if gold_head is not None:
+                        if gold_head >= sent.start and gold_head < sent.end:
+                            gold_head_idx = gold_head - sent.start
+
+                            arc_target[offset, gold_head_idx] = 1.0
+                            arc_mask[offset] = 1
+
+                            gold_label = aligned_labels[token.i]
+                            if gold_label is not None:
+                                label_target[offset, gold_head_idx, self._label_to_i[gold_label]] = 1.0
+                                label_mask[offset, gold_head_idx] = 1.0
 
                     offset += 1
 
-        assert offset == target.shape[0]
+        assert offset == arc_target.shape[0]
 
-        target = self.model.ops.asarray_f(target)
-        mask = self.model.ops.asarray_f(mask)
+        arc_target = self.model.ops.asarray_f(arc_target)
+        arc_mask = self.model.ops.asarray_f(np.expand_dims(arc_mask, -1))
+        label_target = self.model.ops.asarray_f(label_target)
+        label_mask = self.model.ops.asarray_f(np.expand_dims(label_mask, -1))
 
-        d_scores, loss = loss_func(scores, target, mask)
+        d_arc_scores, arc_loss = loss_func(arc_scores, arc_target, arc_mask)
+        d_label_scores, label_loss = loss_func(label_scores, label_target, label_mask)
 
-        return float(loss), d_scores
+        return float(arc_loss) + float(label_loss), (d_arc_scores, d_label_scores)
 
     def initialize(
         self, get_examples: Callable[[], Iterable[Example]], *, nlp: Language = None
@@ -118,6 +133,7 @@ cdef class BiaffineParser(TrainablePipe):
                     labels.add(token.dep_)
         for label in sorted(labels):
             self.add_label(label)
+        self._label_to_i = {label: i for i, label in enumerate(self.labels)}
 
         doc_sample = []
         label_sample = []
@@ -146,20 +162,21 @@ cdef class BiaffineParser(TrainablePipe):
 
         # XXX: predict best in `predict`
 
-        lengths, scores = spans_scores
+        lengths, (arc_scores, label_scores) = spans_scores
+        label_scores = label_scores.argmax(-1)
         lengths = to_numpy(lengths)
-        scores = to_numpy(scores)
+        arc_scores = to_numpy(arc_scores)
 
         sent_offset = 0
-        predicted_heads = scores.argmax(-1)
         for doc in docs:
             for sent in doc.sents:
-                heads = mst_decode(scores[sent_offset:sent_offset + lengths[0], :lengths[0]])
+                heads = mst_decode(arc_scores[sent_offset:sent_offset + lengths[0], :lengths[0]])
                 for i, head in enumerate(heads):
                     dep_i = sent.start + i
                     head_i = sent.start + head
                     doc.c[dep_i].head = head_i - dep_i
-                    doc.c[dep_i].dep = self.vocab.strings['dep']
+                    label = self.cfg["labels"][label_scores[sent_offset + i, head]]
+                    doc.c[dep_i].dep = self.vocab.strings[label]
 
                 sent_offset += lengths[0]
                 lengths = lengths[1:]
@@ -173,7 +190,7 @@ cdef class BiaffineParser(TrainablePipe):
             # set_children_from_heads(doc.c, 0, doc.length)
 
         assert len(lengths) == 0
-        assert sent_offset == predicted_heads.shape[0]
+        assert sent_offset == arc_scores.shape[0]
 
     def update(
         self,
