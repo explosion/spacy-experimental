@@ -2,6 +2,8 @@ from typing import Iterable
 from spacy.scorer import PRFScore
 from spacy.training import Example
 
+# Warning: use of this should be replaced by spaCy's score_deps. This
+# is just for development, no proper evaluation.
 def score_deps(examples: Iterable[Example]):
     """Dependency scoring function that takes into account incorrect
     boundaries."""
