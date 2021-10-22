@@ -7,9 +7,9 @@ def score_deps(examples: Iterable[Example]):
     boundaries."""
     unlabelled = PRFScore()
     offset = 0
-    gold_deps = set()
-    pred_deps = set()
     for example in examples:
+        gold_deps = set()
+        pred_deps = set()
         aligned_gold, _ = example.get_aligned_parse(projectivize=False)
         for sent in example.predicted.sents:
             for token in sent:
@@ -22,7 +22,7 @@ def score_deps(examples: Iterable[Example]):
                     continue
                 gold_deps.add((token.i, gold_head))
                 pred_deps.add((token.i, token.head.i))
-    unlabelled.score_set(pred_deps, gold_deps)
+        unlabelled.score_set(pred_deps, gold_deps)
 
     return {
         "dep_uas": unlabelled.fscore,
