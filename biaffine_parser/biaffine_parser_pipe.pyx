@@ -14,6 +14,7 @@ from spacy.tokens.doc cimport Doc, set_children_from_heads
 from spacy.training import Example, validate_get_examples, validate_examples
 from spacy.util import registry
 from thinc.api import Model, NumpyOps, Ops, Optimizer, Ragged, get_current_ops
+from thinc.api import to_numpy
 from thinc.types import Ints1d, Ragged, Tuple
 
 from .eval import score_deps
@@ -146,8 +147,8 @@ cdef class BiaffineParser(TrainablePipe):
         # XXX: predict best in `predict`
 
         lengths, scores = spans_scores
-        lengths = lengths.get()
-        scores = scores.get()
+        lengths = to_numpy(lengths)
+        scores = to_numpy(scores)
 
         sent_offset = 0
         predicted_heads = scores.argmax(-1)
