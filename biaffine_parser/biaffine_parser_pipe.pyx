@@ -163,7 +163,7 @@ class BiaffineParser(TrainablePipe):
         # XXX: predict best in `predict`
 
         lengths, (arc_scores, label_scores) = spans_scores
-        label_scores = label_scores.argmax(-1)
+        label_scores = to_numpy(label_scores.argmax(-1))
         lengths = to_numpy(lengths)
         arc_scores = to_numpy(arc_scores)
 
