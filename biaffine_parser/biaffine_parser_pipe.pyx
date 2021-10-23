@@ -12,7 +12,7 @@ from spacy.symbols cimport dep, root
 from spacy.tokens.token cimport Token
 from spacy.tokens.doc cimport Doc, set_children_from_heads
 from spacy.training import Example, validate_get_examples, validate_examples
-from spacy.util import registry
+from spacy.util import minibatch, registry
 from thinc.api import Model, NumpyOps, Ops, Optimizer, Ragged, get_current_ops
 from thinc.api import to_numpy
 from thinc.types import Ints1d, Ragged, Tuple
@@ -149,6 +149,22 @@ class BiaffineParser(TrainablePipe):
     @property
     def labels(self):
         return tuple(self.cfg["labels"])
+
+    def pipe(self, docs, *, int batch_size=128):
+        cdef Doc doc
+        error_handler = self.get_error_handler()
+        for batch in minibatch(docs, size=batch_size):
+            batch_in_order = list(batch)
+            try:
+                by_length = sorted(batch, key=lambda doc: len(doc))
+                for subbatch in minibatch(by_length, size=max(batch_size//4, 2)):
+                    subbatch = list(subbatch)
+                    predictions = self.predict(subbatch)
+                    self.set_annotations(subbatch, predictions)
+                yield from batch_in_order
+            except Exception as e:
+                error_handler(self.name, self, batch_in_order, e)
+
 
     def predict(self, docs: Iterable[Doc]):
         docs = list(docs)
