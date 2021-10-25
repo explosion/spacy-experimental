@@ -5,7 +5,6 @@ import numpy as np
 from typing import Callable, Dict, Iterable, List, Optional
 from spacy import Language, Vocab
 from spacy.errors import Errors
-from spacy.ml import extract_spans
 from spacy.pipeline.trainable_pipe cimport TrainablePipe
 from spacy.scorer import Scorer
 from spacy.symbols cimport dep, root
@@ -24,12 +23,12 @@ def sents2lens(docs: List[Doc], *, ops: Optional[Ops] = None) -> Ints1d:
     if ops is None:
         ops = get_current_ops()
 
-    lengths = []
+    lens = []
     for doc in docs:
         for sent in doc.sents:
-            lengths.append(sent.end - sent.start)
+            lens.append(sent.end - sent.start)
 
-    return ops.asarray1i(lengths)
+    return ops.asarray1i(lens)
 
 
 def parser_score(examples, **kwargs):
@@ -168,25 +167,25 @@ class BiaffineParser(TrainablePipe):
 
     def predict(self, docs: Iterable[Doc]):
         docs = list(docs)
-        lengths = sents2lens(docs, ops=self.model.ops)
-        scores = self.model.predict((docs, lengths))
-        return lengths, scores
+        lens = sents2lens(docs, ops=self.model.ops)
+        scores = self.model.predict((docs, lens))
+        return lens, scores
 
-    def set_annotations(self, docs: Iterable[Doc], spans_scores):
+    def set_annotations(self, docs: Iterable[Doc], lens_scores):
         cdef Doc doc
         cdef Token token
 
         # XXX: predict best in `predict`
 
-        lengths, (arc_scores, label_scores) = spans_scores
+        lens, (arc_scores, label_scores) = lens_scores
         label_scores = to_numpy(label_scores.argmax(-1))
-        lengths = to_numpy(lengths)
+        lens = to_numpy(lens)
         arc_scores = to_numpy(arc_scores)
 
         sent_offset = 0
         for doc in docs:
             for sent in doc.sents:
-                heads = mst_decode(arc_scores[sent_offset:sent_offset + lengths[0], :lengths[0]])
+                heads = mst_decode(arc_scores[sent_offset:sent_offset + lens[0], :lens[0]])
                 for i, head in enumerate(heads):
                     dep_i = sent.start + i
                     head_i = sent.start + head
@@ -194,8 +193,8 @@ class BiaffineParser(TrainablePipe):
                     label = self.cfg["labels"][label_scores[sent_offset + i, head]]
                     doc.c[dep_i].dep = self.vocab.strings[label]
 
-                sent_offset += lengths[0]
-                lengths = lengths[1:]
+                sent_offset += lens[0]
+                lens = lens[1:]
 
 
             for i in range(doc.length):
@@ -205,7 +204,7 @@ class BiaffineParser(TrainablePipe):
             # XXX: we should enable this, but clears sentence boundaries
             # set_children_from_heads(doc.c, 0, doc.length)
 
-        assert len(lengths) == 0
+        assert len(lens) == 0
         assert sent_offset == arc_scores.shape[0]
 
     def update(
@@ -227,12 +226,12 @@ class BiaffineParser(TrainablePipe):
 
         docs = [eg.predicted for eg in examples]
 
-        spans = sents2lens(docs, ops=self.model.ops)
-        if spans.sum() == 0:
+        lens = sents2lens(docs, ops=self.model.ops)
+        if lens.sum() == 0:
             return losses
 
         # set_dropout_rate(self.model, drop)
-        scores, backprop_scores = self.model.begin_update((docs, spans))
+        scores, backprop_scores = self.model.begin_update((docs, lens))
         loss, d_scores = self.get_loss(examples, scores)
         backprop_scores(d_scores)
 
