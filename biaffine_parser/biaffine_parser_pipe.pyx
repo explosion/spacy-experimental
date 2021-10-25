@@ -264,6 +264,9 @@ def mst_decode(sent_scores):
 
     seq_len = sent_scores.shape[0]
 
+    # The MST decoder expects float32, but the input could e.g. be float16.
+    sent_scores = sent_scores.astype(np.float32)
+
     # Create score matrix with root row/column.
     with_root = np.full((seq_len+1, seq_len+1), -10000, dtype=sent_scores.dtype)
     with_root[1:,1:] = sent_scores

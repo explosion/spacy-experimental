@@ -38,11 +38,13 @@ def build_biaffine_model(
         forward=biaffine_forward,
         init=biaffine_init,
         dims={"nI": None, "nO": None},
-        attrs={"hidden_size": hidden_size},
+        attrs={
+            "hidden_size": hidden_size,
+            "mixed_precision": mixed_precision,
+            "grad_scaler": grad_scaler,
+        },
     )
-    model = chain(
-        with_getitem(0, chain(tok2vec, list2array())), biaffine
-    )
+    model = chain(with_getitem(0, chain(tok2vec, list2array())), biaffine)
     return model
 
 
@@ -56,6 +58,8 @@ def biaffine_init(model: Model, X=None, Y=None):
         model.set_dim("nO", get_width(Y))
 
     hidden_size = model.attrs["hidden_size"]
+    mixed_precision = model.attrs["mixed_precision"]
+    grad_scaler = model.attrs["grad_scaler"]
 
     model._layers = [
         PyTorchWrapper_v2(
@@ -66,6 +70,8 @@ def biaffine_init(model: Model, X=None, Y=None):
             ),
             convert_inputs=convert_inputs,
             convert_outputs=convert_outputs,
+            mixed_precision=mixed_precision,
+            grad_scaler=grad_scaler,
         )
     ]
 
@@ -81,7 +87,7 @@ def convert_inputs(model: Model, Xr_lenghts: Tuple[Ragged, Ints1d], is_train: bo
 
     Xr, lengths = Xr_lenghts
 
-    Xt = xp2torch(pad(unflatten(Xr, lengths)), requires_grad=True)
+    Xt = xp2torch(pad(unflatten(Xr, lengths)), requires_grad=is_train)
     Lt = xp2torch(lengths)
 
     def convert_from_torch_backward(d_inputs: ArgsKwargs) -> Tuple[Floats2d, Ints1d]:
