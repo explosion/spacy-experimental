@@ -29,7 +29,8 @@ from .pytorch_biaffine_model import BiaffineModel as PyTorchBiaffineModel
 def build_biaffine_model(
     tok2vec: Model[List[Doc], List[Floats2d]],
     *,
-    hidden_size: int = 128,
+    arc_hidden_size: int = 128,
+    dep_hidden_size: int = 256,
     mixed_precision: bool = False,
     grad_scaler: Optional[PyTorchGradScaler] = None
 ):
@@ -39,7 +40,8 @@ def build_biaffine_model(
         init=biaffine_init,
         dims={"nI": None, "nO": None},
         attrs={
-            "hidden_size": hidden_size,
+            "arc_hidden_size": arc_hidden_size,
+            "dep_hidden_size": dep_hidden_size,
             "mixed_precision": mixed_precision,
             "grad_scaler": grad_scaler,
         },
@@ -57,7 +59,8 @@ def biaffine_init(model: Model, X=None, Y=None):
     if Y is not None and model.has_dim("nO") is None:
         model.set_dim("nO", get_width(Y))
 
-    hidden_size = model.attrs["hidden_size"]
+    arc_hidden_size = model.attrs["arc_hidden_size"]
+    dep_hidden_size = model.attrs["dep_hidden_size"]
     mixed_precision = model.attrs["mixed_precision"]
     grad_scaler = model.attrs["grad_scaler"]
 
@@ -66,7 +69,8 @@ def biaffine_init(model: Model, X=None, Y=None):
             PyTorchBiaffineModel(
                 model.get_dim("nI"),
                 model.get_dim("nO"),
-                hidden_size=hidden_size,
+                arc_hidden_size=arc_hidden_size,
+                dep_hidden_size=dep_hidden_size,
             ),
             convert_inputs=convert_inputs,
             convert_outputs=convert_outputs,

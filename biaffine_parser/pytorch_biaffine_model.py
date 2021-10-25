@@ -72,18 +72,26 @@ class PairwiseBilinear(nn.Module):
         #return torch.einsum("blu,uov,bmv->bmlo", u, self.weight, v)
 
 class BiaffineModel(nn.Module):
-    def __init__(self, nI: int, nO: int, *, activation=nn.GELU(), hidden_size=128):
+    def __init__(
+        self,
+        nI: int,
+        nO: int,
+        *,
+        activation=nn.GELU(),
+        arc_hidden_size=128,
+        dep_hidden_size=256
+    ):
         super(BiaffineModel, self).__init__()
 
         self.activation = activation
 
-        self.head_arc = nn.Linear(nI, hidden_size)
-        self.dependent_arc = nn.Linear(nI, hidden_size)
-        self.bilinear_arc = PairwiseBilinear(hidden_size, 1)
+        self.head_arc = nn.Linear(nI, arc_hidden_size)
+        self.dependent_arc = nn.Linear(nI, arc_hidden_size)
+        self.bilinear_arc = PairwiseBilinear(arc_hidden_size, 1)
 
-        self.head_label = nn.Linear(nI, hidden_size)
-        self.dependent_label = nn.Linear(nI, hidden_size)
-        self.bilinear_label = PairwiseBilinear(hidden_size, nO)
+        self.head_label = nn.Linear(nI, dep_hidden_size)
+        self.dependent_label = nn.Linear(nI, dep_hidden_size)
+        self.bilinear_label = PairwiseBilinear(dep_hidden_size, nO)
 
         self.dropout = VariationalDropout()
 
