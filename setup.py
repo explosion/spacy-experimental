@@ -3,9 +3,7 @@ from setuptools import Extension, setup
 from setuptools_rust import RustExtension
 from Cython.Build import cythonize
 
-include_dirs = [
-    np.get_include()
-]
+include_dirs = [np.get_include()]
 
 COMPILER_DIRECTIVES = {
     "language_level": -3,
@@ -33,9 +31,7 @@ ext_modules = cythonize(ext_modules, compiler_directives=COMPILER_DIRECTIVES)
 
 setup(
     name="biaffine-parser",
-    rust_extensions=[
-        RustExtension("biaffine_parser.mst", "rust/mst/Cargo.toml")
-    ],
+    rust_extensions=[RustExtension("biaffine_parser.mst", "rust/mst/Cargo.toml")],
     ext_modules=ext_modules,
     zip_safe=False,
 )

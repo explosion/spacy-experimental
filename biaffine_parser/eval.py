@@ -30,7 +30,9 @@ def score_deps(examples: Iterable[Example]):
                 pred_deps.add((token.i, token.head.i, token.dep_))
 
         labelled.score_set(pred_deps, gold_deps)
-        unlabelled.score_set({dep[:2] for dep in pred_deps}, {dep[:2] for dep in gold_deps})
+        unlabelled.score_set(
+            {dep[:2] for dep in pred_deps}, {dep[:2] for dep in gold_deps}
+        )
 
     return {
         "dep_las": labelled.fscore,

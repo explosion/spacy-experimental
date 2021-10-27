@@ -69,7 +69,8 @@ class PairwiseBilinear(nn.Module):
         # the shape [batch_size, seq_len, seq_len, out_features].
         return torch.einsum("bmv,blov->bmlo", v, intermediate)
 
-        #return torch.einsum("blu,uov,bmv->bmlo", u, self.weight, v)
+        # return torch.einsum("blu,uov,bmv->bmlo", u, self.weight, v)
+
 
 class BiaffineModel(nn.Module):
     def __init__(
@@ -99,7 +100,7 @@ class BiaffineModel(nn.Module):
         max_seq_len = x.shape[1]
 
         token_mask = torch.arange(max_seq_len).unsqueeze(0) < seq_lens.unsqueeze(1)
-        logits_mask = (token_mask.float() - 1.) * 10000.
+        logits_mask = (token_mask.float() - 1.0) * 10000.0
         logits_mask = logits_mask.unsqueeze(1)
 
         # Create representations of tokens as heads and dependents.

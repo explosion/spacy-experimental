@@ -83,7 +83,10 @@ def biaffine_init(model: Model, X=None, Y=None):
 def biaffine_forward(model: Model, X, is_train: bool):
     return model.layers[0](X, is_train)
 
-def convert_inputs(model: Model, Xr_lenghts: Tuple[Ragged, Ints1d], is_train: bool = False):
+
+def convert_inputs(
+    model: Model, Xr_lenghts: Tuple[Ragged, Ints1d], is_train: bool = False
+):
     flatten = model.ops.flatten
     unflatten = model.ops.unflatten
     pad = model.ops.pad
@@ -102,6 +105,7 @@ def convert_inputs(model: Model, Xr_lenghts: Tuple[Ragged, Ints1d], is_train: bo
 
     return output, convert_from_torch_backward
 
+
 def convert_outputs(model, inputs_outputs, is_train):
     flatten = model.ops.flatten
     unflatten = model.ops.unflatten
@@ -114,7 +118,10 @@ def convert_outputs(model, inputs_outputs, is_train):
         dY_arc, dY_label = dY
         dY_arc_t = xp2torch(pad(unflatten(dY_arc, lengths)))
         dY_label_t = xp2torch(pad(unflatten(dY_label, lengths)))
-        return ArgsKwargs(args=([Y_arc_t, Y_label_t],), kwargs={"grad_tensors": [dY_arc_t, dY_label_t]})
+        return ArgsKwargs(
+            args=([Y_arc_t, Y_label_t],),
+            kwargs={"grad_tensors": [dY_arc_t, dY_label_t]},
+        )
 
     Y_arc = cast(Floats3d, torch2xp(Y_arc_t))
     Y_arc = flatten(unpad(Y_arc, lengths))

@@ -110,10 +110,10 @@ class BiaffineParser(TrainablePipe):
 
         assert offset == arc_target.shape[0]
 
-        arc_target = self.model.ops.asarray_f(arc_target)
-        arc_mask = self.model.ops.asarray_f(np.expand_dims(arc_mask, -1))
-        label_target = self.model.ops.asarray_f(label_target)
-        label_mask = self.model.ops.asarray_f(np.expand_dims(label_mask, -1))
+        arc_target = self.model.ops.asarray3f(arc_target)
+        arc_mask = self.model.ops.asarray3f(np.expand_dims(arc_mask, -1))
+        label_target = self.model.ops.asarray4f(label_target)
+        label_mask = self.model.ops.asarray4f(np.expand_dims(label_mask, -1))
 
         d_arc_scores, arc_loss = loss_func(arc_scores, arc_target, arc_mask)
         d_label_scores, label_loss = loss_func(label_scores, label_target, label_mask)
