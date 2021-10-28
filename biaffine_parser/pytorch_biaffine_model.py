@@ -11,7 +11,7 @@ class VariationalDropout(nn.Module):
         super(VariationalDropout, self).__init__()
         self.p = p
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         if not self.training:
             return x
 
@@ -37,16 +37,14 @@ class PairwiseBilinear(nn.Module):
 
         self.weight = nn.parameter.Parameter(
             torch.empty(
-                in_features + bias_u_dim, out_features, in_features + bias_v_dim
+                out_features, in_features + bias_u_dim, in_features + bias_v_dim
             )
         )
 
         self.reset_parameters()
 
     def reset_parameters(self):
-        # Similar to Torch bilinear
-        bound = 1 / math.sqrt(self.weight.size(0))
-        nn.init.uniform_(self.weight, -bound, bound)
+        nn.init.xavier_uniform_(self.weight)
 
     def forward(self, u: torch.Tensor, v: torch.Tensor):
         assert u.shape == v.shape, "Inputs to PairwiseBilinear must have the same shape"
@@ -63,13 +61,13 @@ class PairwiseBilinear(nn.Module):
             v = torch.cat([v, ones], -1)
 
         # [batch_size, seq_len, out_features, v features].
-        intermediate = torch.einsum("blu,uov->blov", u, self.weight)
+        intermediate = torch.einsum("blu,ouv->blov", u, self.weight)
 
         # Perform a matrix multiplication to get the output with
         # the shape [batch_size, seq_len, seq_len, out_features].
         return torch.einsum("bmv,blov->bmlo", v, intermediate)
 
-        # return torch.einsum("blu,uov,bmv->bmlo", u, self.weight, v)
+        # return torch.einsum("blu,ouv,bmv->bmlo", u, self.weight, v)
 
 
 class BiaffineModel(nn.Module):
