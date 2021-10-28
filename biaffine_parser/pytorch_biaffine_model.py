@@ -77,24 +77,24 @@ class BiaffineModel(nn.Module):
         nO: int,
         *,
         activation=nn.GELU(),
-        arc_hidden_size=128,
-        dep_hidden_size=256
+        arc_hidden_width=128,
+        dep_hidden_width=256
     ):
         super(BiaffineModel, self).__init__()
 
         self.activation = activation
 
-        self.head_arc = nn.Linear(nI, arc_hidden_size)
-        self.dependent_arc = nn.Linear(nI, arc_hidden_size)
-        self.bilinear_arc = PairwiseBilinear(arc_hidden_size, 1)
+        self.head_arc = nn.Linear(nI, arc_hidden_width)
+        self.dependent_arc = nn.Linear(nI, arc_hidden_width)
+        self.bilinear_arc = PairwiseBilinear(arc_hidden_width, 1)
 
-        self.head_label = nn.Linear(nI, dep_hidden_size)
-        self.dependent_label = nn.Linear(nI, dep_hidden_size)
-        self.bilinear_label = PairwiseBilinear(dep_hidden_size, nO)
+        self.head_label = nn.Linear(nI, dep_hidden_width)
+        self.dependent_label = nn.Linear(nI, dep_hidden_width)
+        self.bilinear_label = PairwiseBilinear(dep_hidden_width, nO)
 
         self.dropout = VariationalDropout()
 
-    def forward(self, x, seq_lens):
+    def forward(self, x: torch.Tensor, seq_lens: torch.Tensor):
         max_seq_len = x.shape[1]
 
         token_mask = torch.arange(max_seq_len).unsqueeze(0) < seq_lens.unsqueeze(1)
@@ -108,8 +108,8 @@ class BiaffineModel(nn.Module):
         dependent_label = self.dropout(self.activation(self.dependent_label(x)))
 
         # Compute biaffine attention matrix. This computes from the hidden
-        # representations of the shape [batch_size, seq_len, hidden_size] the
-        # attention matrices [batch_size, seq_len, seq_len].
+        # representations of the shape [batch_size, seq_len, hidden_width] the
+        # attention matrices [batch_size, seq_len, seq_len, n_O].
         logits_arc = self.bilinear_arc(head_arc, dependent_arc).squeeze(-1)
 
         logits_label = self.bilinear_label(head_label, dependent_label)
