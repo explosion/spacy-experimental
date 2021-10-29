@@ -18,6 +18,7 @@ from thinc.api import (
     with_padded,
     xp2torch,
     torch2xp,
+    tuplify,
 )
 from thinc.types import ArgsKwargs, Array2d, Floats2d, Floats3d, Floats4d, Ints1d
 from typing import Any, Optional, List, Tuple, cast
@@ -30,23 +31,40 @@ def build_biaffine_model(
     tok2vec: Model[List[Doc], List[Floats2d]],
     *,
     arc_hidden_width: int = 128,
-    dep_hidden_width: int = 256,
+    label_hidden_width: int = 256,
     mixed_precision: bool = False,
     grad_scaler: Optional[PyTorchGradScaler] = None
 ):
-    biaffine = Model(
-        "biaffine-model",
+    arc_biaffine = Model(
+        "arc_biaffine",
         forward=biaffine_forward,
         init=biaffine_init,
-        dims={"nI": None, "nO": None},
+        dims={"nI": None, "nO": 1},
         attrs={
-            "arc_hidden_width": arc_hidden_width,
-            "dep_hidden_width": dep_hidden_width,
+            "hidden_width": arc_hidden_width,
             "mixed_precision": mixed_precision,
             "grad_scaler": grad_scaler,
         },
     )
-    model = chain(with_getitem(0, chain(tok2vec, list2array())), biaffine)
+    label_biaffine = Model(
+        "label_biaffine",
+        forward=biaffine_forward,
+        init=biaffine_init,
+        dims={"nI": None, "nO": None},
+        attrs={
+            "hidden_width": label_hidden_width,
+            "mixed_precision": mixed_precision,
+            "grad_scaler": grad_scaler,
+        },
+    )
+
+    model = chain(
+        with_getitem(0, chain(tok2vec, list2array())),
+        tuplify(arc_biaffine, label_biaffine),
+    )
+    model.set_ref("arc_biaffine", arc_biaffine)
+    model.set_ref("label_biaffine", label_biaffine)
+
     return model
 
 
@@ -59,8 +77,7 @@ def biaffine_init(model: Model, X=None, Y=None):
     if Y is not None and model.has_dim("nO") is None:
         model.set_dim("nO", get_width(Y))
 
-    arc_hidden_width = model.attrs["arc_hidden_width"]
-    dep_hidden_width = model.attrs["dep_hidden_width"]
+    hidden_width = model.attrs["hidden_width"]
     mixed_precision = model.attrs["mixed_precision"]
     grad_scaler = model.attrs["grad_scaler"]
 
@@ -69,8 +86,7 @@ def biaffine_init(model: Model, X=None, Y=None):
             PyTorchBiaffineModel(
                 model.get_dim("nI"),
                 model.get_dim("nO"),
-                arc_hidden_width=arc_hidden_width,
-                dep_hidden_width=dep_hidden_width,
+                hidden_width=hidden_width,
             ),
             convert_inputs=convert_inputs,
             convert_outputs=convert_outputs,
@@ -112,20 +128,16 @@ def convert_outputs(model, inputs_outputs, is_train):
     pad = model.ops.pad
     unpad = model.ops.unpad
 
-    (_, lengths), (Y_arc_t, Y_label_t) = inputs_outputs
+    (_, lengths), Y_t = inputs_outputs
 
     def convert_for_torch_backward(dY: Tuple[Floats2d, Floats3d]) -> ArgsKwargs:
-        dY_arc, dY_label = dY
-        dY_arc_t = xp2torch(pad(unflatten(dY_arc, lengths)))
-        dY_label_t = xp2torch(pad(unflatten(dY_label, lengths)))
+        dY_t = xp2torch(pad(unflatten(dY, lengths)))
         return ArgsKwargs(
-            args=([Y_arc_t, Y_label_t],),
-            kwargs={"grad_tensors": [dY_arc_t, dY_label_t]},
+            args=([Y_t],),
+            kwargs={"grad_tensors": [dY_t]},
         )
 
-    Y_arc = cast(Floats3d, torch2xp(Y_arc_t))
-    Y_arc = flatten(unpad(Y_arc, lengths))
-    Y_label = cast(Floats4d, torch2xp(Y_label_t))
-    Y_label = flatten(unpad(Y_label, lengths))
+    Y = cast(Floats4d, torch2xp(Y_t))
+    Y = flatten(unpad(Y, lengths))
 
-    return (Y_arc, Y_label), convert_for_torch_backward
+    return Y, convert_for_torch_backward

@@ -77,21 +77,14 @@ class BiaffineModel(nn.Module):
         nO: int,
         *,
         activation=nn.GELU(),
-        arc_hidden_width=128,
-        dep_hidden_width=256
+        hidden_width=128,
     ):
         super(BiaffineModel, self).__init__()
 
+        self.head = nn.Linear(nI, hidden_width)
+        self.dependent = nn.Linear(nI, hidden_width)
+        self.bilinear = PairwiseBilinear(hidden_width, nO)
         self.activation = activation
-
-        self.head_arc = nn.Linear(nI, arc_hidden_width)
-        self.dependent_arc = nn.Linear(nI, arc_hidden_width)
-        self.bilinear_arc = PairwiseBilinear(arc_hidden_width, 1)
-
-        self.head_label = nn.Linear(nI, dep_hidden_width)
-        self.dependent_label = nn.Linear(nI, dep_hidden_width)
-        self.bilinear_label = PairwiseBilinear(dep_hidden_width, nO)
-
         self.dropout = VariationalDropout()
 
     def forward(self, x: torch.Tensor, seq_lens: torch.Tensor):
@@ -99,30 +92,26 @@ class BiaffineModel(nn.Module):
 
         token_mask = torch.arange(max_seq_len).unsqueeze(0) < seq_lens.unsqueeze(1)
         logits_mask = (token_mask.float() - 1.0) * 10000.0
-        logits_mask = logits_mask.unsqueeze(1)
+        logits_mask = logits_mask.unsqueeze(1).unsqueeze(-1)
 
         # Create representations of tokens as heads and dependents.
-        head_arc = self.dropout(self.activation(self.head_arc(x)))
-        dependent_arc = self.dropout(self.activation(self.dependent_arc(x)))
-        head_label = self.dropout(self.activation(self.head_label(x)))
-        dependent_label = self.dropout(self.activation(self.dependent_label(x)))
+        head = self.dropout(self.activation(self.head(x)))
+        dependent = self.dropout(self.activation(self.dependent(x)))
 
         # Compute biaffine attention matrix. This computes from the hidden
         # representations of the shape [batch_size, seq_len, hidden_width] the
         # attention matrices [batch_size, seq_len, seq_len, n_O].
-        logits_arc = self.bilinear_arc(head_arc, dependent_arc).squeeze(-1)
-
-        logits_label = self.bilinear_label(head_label, dependent_label)
+        logits = self.bilinear(head, dependent)
 
         # Mask out head candidates that are padding time steps. The logits mask
         # has shape [batch_size, seq_len], we reshape it to [batch_size, 1,
         # seq_len] to mask out the head predictions.
-        logits_arc += logits_mask
-        logits_label += logits_mask.unsqueeze(-1)
+        logits += logits_mask
+
+        # If there is only one output feature, remove the last dimension.
+        logits = logits.squeeze(-1)
 
         if self.training:
-            # Compute head probability distribution.
-            logits_arc = logits_arc.softmax(-1)
-            logits_label = logits_label.softmax(-1)
-
-        return logits_arc, logits_label
+            return logits.softmax(-1)
+        else:
+            return logits

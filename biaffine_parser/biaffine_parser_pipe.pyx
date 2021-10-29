@@ -134,6 +134,9 @@ class BiaffineParser(TrainablePipe):
             self.add_label(label)
         self._label_to_i = {label: i for i, label in enumerate(self.labels)}
 
+        # nO can not be inferred on a tuplify layer in a chain.
+        self.model.get_ref("label_biaffine").set_dim("nO", len(self.labels))
+
         doc_sample = []
         label_sample = []
         for example in islice(get_examples(), 10):
@@ -143,7 +146,7 @@ class BiaffineParser(TrainablePipe):
             gold_array = [[1.0 if tag == gold_tag else 0.0 for tag in self.labels] for gold_tag in gold_labels]
             label_sample.append(self.model.ops.asarray(gold_array, dtype="float32"))
         span_sample = sents2lens(doc_sample, ops=self.model.ops)
-        self.model.initialize(X=(doc_sample, span_sample), Y=label_sample)
+        self.model.initialize(X=(doc_sample, span_sample), Y=(None, label_sample))
 
     @property
     def labels(self):
