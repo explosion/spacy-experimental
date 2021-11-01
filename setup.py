@@ -12,7 +12,7 @@ COMPILER_DIRECTIVES = {
 }
 
 MOD_NAMES = [
-    "biaffine_parser.biaffine_parser_pipe",
+    "biaffine_parser.biaffine_parser",
 ]
 
 ext_modules = []
