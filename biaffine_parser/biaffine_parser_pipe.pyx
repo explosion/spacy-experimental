@@ -3,6 +3,7 @@
 from itertools import islice
 import numpy as np
 from typing import Callable, Dict, Iterable, List, Optional
+import spacy
 from spacy import Language, Vocab
 from spacy.errors import Errors
 from spacy.pipeline.trainable_pipe cimport TrainablePipe
@@ -12,7 +13,8 @@ from spacy.tokens.token cimport Token
 from spacy.tokens.doc cimport Doc, set_children_from_heads
 from spacy.training import Example, validate_get_examples, validate_examples
 from spacy.util import minibatch, registry
-from thinc.api import Model, NumpyOps, Ops, Optimizer, Ragged, get_current_ops
+import srsly
+from thinc.api import Config, Model, NumpyOps, Ops, Optimizer, Ragged, get_current_ops
 from thinc.api import to_numpy
 from thinc.types import Ints1d, Ragged, Tuple
 
@@ -39,10 +41,31 @@ def parser_score(examples, **kwargs):
 def make_parser_scorer():
     return parser_score
 
+default_model_config = """
+[model]
+@architectures = "BiaffineModel.v1"
+arc_hidden_width = 64
+label_hidden_width = 64
+
+[model.tok2vec]
+@architectures = "spacy.HashEmbedCNN.v2"
+pretrained_vectors = null
+width = 96
+depth = 4
+embed_size = 2000
+window_size = 1
+maxout_pieces = 3
+subword_features = true
+"""
+DEFAULT_BIAFFINE_PARSER_MODEL = Config().from_str(default_model_config)["model"]
 
 @Language.factory(
     "biaffine_parser",
-    default_config={"scorer": {"@scorers": "biaffine.parser_scorer.v1"}},
+    assigns=["token.dep", "token.head"],
+    default_config={
+        "model": DEFAULT_BIAFFINE_PARSER_MODEL,
+        "scorer": {"@scorers": "biaffine.parser_scorer.v1"}
+    },
 )
 def make_biaffine_parser(
     nlp: Language,
@@ -252,6 +275,74 @@ class BiaffineParser(TrainablePipe):
         self.cfg["labels"].append(label)
         self.vocab.strings.add(label)
         return 1
+
+    def from_bytes(self, bytes_data, *, exclude=tuple()):
+        deserializers = {
+            "cfg": lambda b: self.cfg.update(srsly.json_loads(b)),
+            "vocab": lambda b: self.vocab.from_bytes(b, exclude=exclude),
+        }
+        spacy.util.from_bytes(bytes_data, deserializers, exclude)
+
+        self._initialize_from_labels()
+
+        model_deserializers = {
+            "model": lambda b: self.model.from_bytes(b),
+        }
+        spacy.util.from_bytes(bytes_data, model_deserializers, exclude)
+
+        return self
+
+    def to_bytes(self, *, exclude=tuple()):
+        serializers = {
+            "cfg": lambda: srsly.json_dumps(self.cfg),
+            "model": lambda: self.model.to_bytes(),
+            "vocab": lambda: self.vocab.to_bytes(exclude=exclude),
+        }
+
+        return spacy.util.to_bytes(serializers, exclude)
+
+    def to_disk(self, path, exclude=tuple()):
+        path = spacy.util.ensure_path(path)
+        serializers = {
+            "cfg": lambda p: srsly.write_json(p, self.cfg),
+            "model": lambda p: self.model.to_disk(p),
+            "vocab": lambda p: self.vocab.to_disk(p, exclude=exclude),
+        }
+        spacy.util.to_disk(path, serializers, exclude)
+
+    def from_disk(self, path, exclude=tuple()):
+        def load_model(p):
+            try:
+                with open(p, "rb") as mfile:
+                    self.model.from_bytes(mfile.read())
+            except AttributeError:
+                raise ValueError(Errors.E149) from None
+
+        deserializers = {
+            "cfg": lambda p: self.cfg.update(srsly.read_json(p)),
+            "vocab": lambda p: self.vocab.from_disk(p, exclude=exclude),
+        }
+        spacy.util.from_disk(path, deserializers, exclude)
+
+        self._initialize_from_labels()
+
+        model_deserializers = {
+            "model": load_model,
+        }
+        spacy.util.from_disk(path, model_deserializers, exclude)
+
+        return self
+
+    def _initialize_from_labels(self):
+        self._label_to_i = {label: i for i, label in enumerate(self.labels)}
+
+        # The PyTorch model is constructed lazily, so we need to
+        # explicitly initialize the model before deserialization.
+        label_model = self.model.get_ref("label_biaffine")
+        if label_model.has_dim("nO") is None:
+            label_model.set_dim("nO", len(self.labels))
+        self.model.initialize()
+
 
 def mst_decode(sent_scores):
     """Apply MST decoding"""

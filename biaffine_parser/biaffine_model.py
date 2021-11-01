@@ -35,11 +35,15 @@ def build_biaffine_model(
     mixed_precision: bool = False,
     grad_scaler: Optional[PyTorchGradScaler] = None
 ):
+    nI = None
+    if tok2vec.has_dim("nO") is True:
+        nI = tok2vec.get_dim("nO")
+
     arc_biaffine = Model(
         "arc_biaffine",
         forward=biaffine_forward,
         init=biaffine_init,
-        dims={"nI": None, "nO": 1},
+        dims={"nI": nI, "nO": 1},
         attrs={
             "hidden_width": arc_hidden_width,
             "mixed_precision": mixed_precision,
@@ -50,7 +54,7 @@ def build_biaffine_model(
         "label_biaffine",
         forward=biaffine_forward,
         init=biaffine_init,
-        dims={"nI": None, "nO": None},
+        dims={"nI": nI, "nO": None},
         attrs={
             "hidden_width": label_hidden_width,
             "mixed_precision": mixed_precision,
