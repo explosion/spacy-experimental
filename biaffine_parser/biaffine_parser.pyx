@@ -18,7 +18,7 @@ from thinc.api import Config, Model, NumpyOps, Ops, Optimizer, Ragged, get_curre
 from thinc.api import to_numpy
 from thinc.types import Ints1d, Ragged, Tuple
 
-from .eval import score_deps
+from .eval import parser_score
 from .mst import chu_liu_edmonds
 
 def sents2lens(docs: List[Doc], *, ops: Optional[Ops] = None) -> Ints1d:
@@ -32,14 +32,6 @@ def sents2lens(docs: List[Doc], *, ops: Optional[Ops] = None) -> Ints1d:
 
     return ops.asarray1i(lens)
 
-
-def parser_score(examples, **kwargs):
-    return score_deps(examples)
-
-
-@registry.scorers("biaffine.parser_scorer.v1")
-def make_parser_scorer():
-    return parser_score
 
 default_model_config = """
 [model]
