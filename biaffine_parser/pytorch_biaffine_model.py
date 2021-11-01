@@ -60,14 +60,7 @@ class PairwiseBilinear(nn.Module):
         if self.bias_v:
             v = torch.cat([v, ones], -1)
 
-        # [batch_size, seq_len, out_features, v features].
-        intermediate = torch.einsum("blu,ouv->blov", u, self.weight)
-
-        # Perform a matrix multiplication to get the output with
-        # the shape [batch_size, seq_len, seq_len, out_features].
-        return torch.einsum("bmv,blov->bmlo", v, intermediate)
-
-        # return torch.einsum("blu,ouv,bmv->bmlo", u, self.weight, v)
+        return torch.einsum("blu,ouv,bmv->bmlo", u, self.weight, v)
 
 
 class BiaffineModel(nn.Module):
