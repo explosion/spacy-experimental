@@ -1,2 +1,2 @@
-from biaffine_parser.biaffine_parser_pipe import make_biaffine_parser
+from biaffine_parser.biaffine_parser import make_biaffine_parser
 from biaffine_parser.biaffine_model import build_biaffine_model
