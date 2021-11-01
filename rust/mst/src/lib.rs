@@ -25,7 +25,7 @@ fn chu_liu_edmonds(
 }
 
 #[pymodule]
-fn mst(_py: Python, m: &PyModule) -> PyResult<()> {
+fn mst_rust(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(chu_liu_edmonds, m)?)?;
     Ok(())
 }
