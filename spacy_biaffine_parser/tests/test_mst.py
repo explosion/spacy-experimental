@@ -1,7 +1,7 @@
-from biaffine_parser.mst import chu_liu_edmonds
 import numpy as np
 import pytest
 
+from spacy_biaffine_parser.mst import chu_liu_edmonds
 
 def random_scores(n_tokens: int):
     return np.random.rand(n_tokens * n_tokens).astype("f").reshape(n_tokens, n_tokens)

@@ -12,7 +12,7 @@ COMPILER_DIRECTIVES = {
 }
 
 MOD_NAMES = [
-    "biaffine_parser.biaffine_parser",
+    "spacy_biaffine_parser.biaffine_parser",
 ]
 
 ext_modules = []
@@ -31,7 +31,7 @@ ext_modules = cythonize(ext_modules, compiler_directives=COMPILER_DIRECTIVES)
 
 setup(
     name="biaffine-parser",
-    rust_extensions=[RustExtension("biaffine_parser.mst_rust", "rust/mst/Cargo.toml")],
+    rust_extensions=[RustExtension("spacy_biaffine_parser.mst_rust", "rust/mst/Cargo.toml")],
     ext_modules=ext_modules,
     zip_safe=False,
 )
