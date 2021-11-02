@@ -23,13 +23,13 @@ from thinc.api import (
 from thinc.types import ArgsKwargs, Array2d, Floats2d, Floats3d, Floats4d, Ints1d
 from typing import Any, Optional, List, Tuple, cast
 
-from .pytorch_biaffine_model import BiaffineModel as PyTorchBiaffineModel
+from .pytorch_pairwise_bilinear import PairwiseBilinearModel as PyTorchPairwiseBilinearModel
 
 
-@registry.architectures("BiaffineModel.v1")
-def build_biaffine_model(
+@registry.architectures("PairwiseBilinear.v1")
+def build_pairwise_bilinear(
     tok2vec: Model[List[Doc], List[Floats2d]],
-    nO = None,
+    nO=None,
     *,
     hidden_width: int = 128,
     mixed_precision: bool = False,
@@ -39,10 +39,10 @@ def build_biaffine_model(
     if tok2vec.has_dim("nO") is True:
         nI = tok2vec.get_dim("nO")
 
-    biaffine = Model(
-        "biaffine",
-        forward=biaffine_forward,
-        init=biaffine_init,
+    pairwise_bilinear = Model(
+        "pairwise_bilinear",
+        forward=pairswise_bilinear_forward,
+        init=pairwise_bilinear_init,
         dims={"nI": nI, "nO": nO},
         attrs={
             "hidden_width": hidden_width,
@@ -53,14 +53,14 @@ def build_biaffine_model(
 
     model = chain(
         with_getitem(0, chain(tok2vec, list2array())),
-        biaffine,
+        pairwise_bilinear,
     )
-    model.set_ref("biaffine", biaffine)
+    model.set_ref("pairwise_bilinear", pairwise_bilinear)
 
     return model
 
 
-def biaffine_init(model: Model, X=None, Y=None):
+def pairwise_bilinear_init(model: Model, X=None, Y=None):
     if model.layers:
         return
 
@@ -75,7 +75,7 @@ def biaffine_init(model: Model, X=None, Y=None):
 
     model._layers = [
         PyTorchWrapper_v2(
-            PyTorchBiaffineModel(
+            PyTorchPairwiseBilinearModel(
                 model.get_dim("nI"),
                 model.get_dim("nO"),
                 hidden_width=hidden_width,
@@ -88,7 +88,7 @@ def biaffine_init(model: Model, X=None, Y=None):
     ]
 
 
-def biaffine_forward(model: Model, X, is_train: bool):
+def pairswise_bilinear_forward(model: Model, X, is_train: bool):
     return model.layers[0](X, is_train)
 
 

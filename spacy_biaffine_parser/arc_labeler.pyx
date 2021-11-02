@@ -35,7 +35,7 @@ def sents2lens(docs: List[Doc], *, ops: Optional[Ops] = None) -> Ints1d:
 
 default_model_config = """
 [model]
-@architectures = "BiaffineModel.v1"
+@architectures = "PairwiseBilinear.v1"
 hidden_width = 64
 
 [model.tok2vec]
@@ -138,7 +138,7 @@ class ArcLabeler(TrainablePipe):
         self._label_to_i = {label: i for i, label in enumerate(self.labels)}
 
         # nO can not be inferred on a tuplify layer in a chain.
-        self.model.get_ref("biaffine").set_dim("nO", len(self.labels))
+        self.model.get_ref("pairwise_bilinear").set_dim("nO", len(self.labels))
 
         doc_sample = []
         label_sample = []
@@ -315,7 +315,7 @@ class ArcLabeler(TrainablePipe):
 
         # The PyTorch model is constructed lazily, so we need to
         # explicitly initialize the model before deserialization.
-        label_model = self.model.get_ref("biaffine")
+        label_model = self.model.get_ref("pairwise_bilinear")
         if label_model.has_dim("nO") is None:
             label_model.set_dim("nO", len(self.labels))
         self.model.initialize()

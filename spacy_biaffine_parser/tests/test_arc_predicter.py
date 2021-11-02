@@ -4,7 +4,7 @@ from spacy.lang.en import English
 from spacy.language import Language
 from spacy.training import Example
 
-from spacy_biaffine_parser import biaffine_model, arc_predicter
+from spacy_biaffine_parser import pairwise_bilinear, arc_predicter
 
 TRAIN_DATA = [
     ("She likes green eggs", {"heads": [1, 1, 3, 1], "deps": ["nsubj", "ROOT", "amod", "dobj"], "sent_starts": [1, 0, 0, 0]}),

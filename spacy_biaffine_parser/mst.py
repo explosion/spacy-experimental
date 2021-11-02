@@ -2,6 +2,7 @@ import numpy as np
 
 from .mst_rust import chu_liu_edmonds
 
+
 def mst_decode(sent_scores):
     """Apply MST decoding"""
 

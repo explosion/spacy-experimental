@@ -72,8 +72,7 @@ class PairwiseBilinear(nn.Module):
         return torch.einsum("bmv,blov->bmlo", v, intermediate)
 
 
-
-class BiaffineModel(nn.Module):
+class PairwiseBilinearModel(nn.Module):
     def __init__(
         self,
         nI: int,
@@ -82,7 +81,7 @@ class BiaffineModel(nn.Module):
         activation=nn.GELU(),
         hidden_width=128,
     ):
-        super(BiaffineModel, self).__init__()
+        super(PairwiseBilinearModel, self).__init__()
 
         self.head = nn.Linear(nI, hidden_width)
         self.dependent = nn.Linear(nI, hidden_width)

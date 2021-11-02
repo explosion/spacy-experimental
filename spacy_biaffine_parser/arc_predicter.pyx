@@ -35,7 +35,7 @@ def sents2lens(docs: List[Doc], *, ops: Optional[Ops] = None) -> Ints1d:
 
 default_model_config = """
 [model]
-@architectures = "BiaffineModel.v1"
+@architectures = "PairwiseBilinear.v1"
 hidden_width = 64
 nO = 1
 
