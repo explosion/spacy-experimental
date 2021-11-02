@@ -19,7 +19,7 @@ from thinc.api import to_numpy
 from thinc.types import Ints1d, Ragged, Tuple
 
 from .eval import parser_score
-from .mst import chu_liu_edmonds
+from .mst import mst_decode
 
 def sents2lens(docs: List[Doc], *, ops: Optional[Ops] = None) -> Ints1d:
     if ops is None:
@@ -36,44 +36,44 @@ def sents2lens(docs: List[Doc], *, ops: Optional[Ops] = None) -> Ints1d:
 default_model_config = """
 [model]
 @architectures = "BiaffineModel.v1"
-arc_hidden_width = 64
-label_hidden_width = 64
+hidden_width = 64
+nO = 1
 
 [model.tok2vec]
 @architectures = "spacy.HashEmbedCNN.v2"
 pretrained_vectors = null
 width = 96
 depth = 4
-embed_size = 2000
+embed_size = 300
 window_size = 1
 maxout_pieces = 3
 subword_features = true
 """
-DEFAULT_BIAFFINE_PARSER_MODEL = Config().from_str(default_model_config)["model"]
+DEFAULT_ARC_PREDICTER_MODEL = Config().from_str(default_model_config)["model"]
 
 @Language.factory(
-    "biaffine_parser",
-    assigns=["token.dep", "token.head"],
+    "arc_predicter",
+    assigns=["token.head"],
     default_config={
-        "model": DEFAULT_BIAFFINE_PARSER_MODEL,
+        "model": DEFAULT_ARC_PREDICTER_MODEL,
         "scorer": {"@scorers": "biaffine.parser_scorer.v1"}
     },
 )
-def make_biaffine_parser(
+def make_arc_predicter(
     nlp: Language,
     name: str,
     model: Model,
     scorer: Optional[Callable],
 ):
-    return BiaffineParser(nlp.vocab, model, name, scorer=scorer)
+    return ArcPredicter(nlp.vocab, model, name, scorer=scorer)
 
 
-class BiaffineParser(TrainablePipe):
+class ArcPredicter(TrainablePipe):
     def __init__(
         self,
         vocab: Vocab,
         model: Model,
-        name: str = "biaffine_parser",
+        name: str = "arc_predicter",
         *,
         overwrite=False,
         scorer=parser_score
@@ -84,10 +84,9 @@ class BiaffineParser(TrainablePipe):
         cfg = {"labels": [], "overwrite": overwrite}
         self.cfg = dict(sorted(cfg.items()))
         self.scorer = scorer
-        self._label_to_i = None
 
     def get_loss(self, examples: Iterable[Example], scores) -> Tuple[float, float]:
-        validate_examples(examples, "BiaffineParser.get_loss")
+        validate_examples(examples, "ArcPredicter.get_loss")
 
         def loss_func(guesses, target, mask):
             d_scores = guesses - target
@@ -95,17 +94,12 @@ class BiaffineParser(TrainablePipe):
             loss = (d_scores ** 2).sum()
             return d_scores, loss
 
-        arc_scores, label_scores = scores
-
-        arc_target = np.zeros_like(arc_scores)
-        label_target = np.zeros_like(label_scores)
-
-        arc_mask = np.zeros(arc_scores.shape[0], dtype=arc_scores.dtype)
-        label_mask = np.zeros(label_scores.shape[:2], dtype=label_scores.dtype)
+        target = np.zeros_like(scores)
+        mask = np.zeros(scores.shape[0], dtype=scores.dtype)
 
         offset = 0
         for eg in examples:
-            aligned_heads, aligned_labels = eg.get_aligned_parse(projectivize=False)
+            aligned_heads, _ = eg.get_aligned_parse(projectivize=False)
             for sent in eg.predicted.sents:
                 for token in sent:
                     gold_head = aligned_heads[token.i]
@@ -113,59 +107,31 @@ class BiaffineParser(TrainablePipe):
                         if gold_head >= sent.start and gold_head < sent.end:
                             gold_head_idx = gold_head - sent.start
 
-                            arc_target[offset, gold_head_idx] = 1.0
-                            arc_mask[offset] = 1
-
-                            gold_label = aligned_labels[token.i]
-                            if gold_label is not None:
-                                label_target[offset, gold_head_idx, self._label_to_i[gold_label]] = 1.0
-                                label_mask[offset, gold_head_idx] = 1.0
+                            target[offset, gold_head_idx] = 1.0
+                            mask[offset] = 1
 
                     offset += 1
 
-        assert offset == arc_target.shape[0]
+        assert offset == target.shape[0]
 
-        arc_target = self.model.ops.asarray3f(arc_target)
-        arc_mask = self.model.ops.asarray3f(np.expand_dims(arc_mask, -1))
-        label_target = self.model.ops.asarray4f(label_target)
-        label_mask = self.model.ops.asarray4f(np.expand_dims(label_mask, -1))
+        target = self.model.ops.asarray2f(target)
+        mask = self.model.ops.asarray2f(np.expand_dims(mask, -1))
 
-        d_arc_scores, arc_loss = loss_func(arc_scores, arc_target, arc_mask)
-        d_label_scores, label_loss = loss_func(label_scores, label_target, label_mask)
+        d_scores, loss = loss_func(scores, target, mask)
 
-        return float(arc_loss) + float(label_loss), (d_arc_scores, d_label_scores)
+        return float(loss), d_scores
 
     def initialize(
         self, get_examples: Callable[[], Iterable[Example]], *, nlp: Language = None
     ):
         validate_get_examples(get_examples, "BiaffineParser.initialize")
 
-        labels = set()
-        for example in get_examples():
-            for token in example.reference:
-                if token.dep != 0:
-                    labels.add(token.dep_)
-        for label in sorted(labels):
-            self.add_label(label)
-        self._label_to_i = {label: i for i, label in enumerate(self.labels)}
-
-        # nO can not be inferred on a tuplify layer in a chain.
-        self.model.get_ref("label_biaffine").set_dim("nO", len(self.labels))
-
         doc_sample = []
-        label_sample = []
         for example in islice(get_examples(), 10):
             # XXX: Should be example.x
             doc_sample.append(example.y)
-            gold_labels = example.get_aligned("DEP", as_string=True)
-            gold_array = [[1.0 if tag == gold_tag else 0.0 for tag in self.labels] for gold_tag in gold_labels]
-            label_sample.append(self.model.ops.asarray(gold_array, dtype="float32"))
         span_sample = sents2lens(doc_sample, ops=self.model.ops)
-        self.model.initialize(X=(doc_sample, span_sample), Y=(None, label_sample))
-
-    @property
-    def labels(self):
-        return tuple(self.cfg["labels"])
+        self.model.initialize(X=(doc_sample, span_sample))
 
     def pipe(self, docs, *, int batch_size=128):
         cdef Doc doc
@@ -195,25 +161,24 @@ class BiaffineParser(TrainablePipe):
 
         # XXX: predict best in `predict`
 
-        lens, (arc_scores, label_scores) = lens_scores
-        label_scores = to_numpy(label_scores.argmax(-1))
+        lens, scores = lens_scores
         lens = to_numpy(lens)
-        arc_scores = to_numpy(arc_scores)
+        scores = to_numpy(scores)
 
         sent_offset = 0
         for doc in docs:
             for sent in doc.sents:
-                heads = mst_decode(arc_scores[sent_offset:sent_offset + lens[0], :lens[0]])
+                heads = mst_decode(scores[sent_offset:sent_offset + lens[0], :lens[0]])
                 for i, head in enumerate(heads):
                     dep_i = sent.start + i
                     head_i = sent.start + head
                     doc.c[dep_i].head = head_i - dep_i
-                    label = self.cfg["labels"][label_scores[sent_offset + i, head]]
-                    doc.c[dep_i].dep = self.vocab.strings[label]
+                    # XXX: Set the dependency relation to a stub, so that
+                    # we can evaluate UAS.
+                    doc.c[dep_i].dep = self.vocab.strings['dep']
 
                 sent_offset += lens[0]
                 lens = lens[1:]
-
 
             for i in range(doc.length):
                 if doc.c[i].head == 0:
@@ -223,7 +188,7 @@ class BiaffineParser(TrainablePipe):
             # set_children_from_heads(doc.c, 0, doc.length)
 
         assert len(lens) == 0
-        assert sent_offset == arc_scores.shape[0]
+        assert sent_offset == scores.shape[0]
 
     def update(
         self,
@@ -259,15 +224,6 @@ class BiaffineParser(TrainablePipe):
 
         return losses
 
-    def add_label(self, label):
-        if not isinstance(label, str):
-            raise ValueError(Errors.E187)
-        if label in self.labels:
-            return 0
-        self.cfg["labels"].append(label)
-        self.vocab.strings.add(label)
-        return 1
-
     def from_bytes(self, bytes_data, *, exclude=tuple()):
         deserializers = {
             "cfg": lambda b: self.cfg.update(srsly.json_loads(b)),
@@ -275,7 +231,7 @@ class BiaffineParser(TrainablePipe):
         }
         spacy.util.from_bytes(bytes_data, deserializers, exclude)
 
-        self._initialize_from_labels()
+        self.model.initialize()
 
         model_deserializers = {
             "model": lambda b: self.model.from_bytes(b),
@@ -316,7 +272,7 @@ class BiaffineParser(TrainablePipe):
         }
         spacy.util.from_disk(path, deserializers, exclude)
 
-        self._initialize_from_labels()
+        self.model.initialize()
 
         model_deserializers = {
             "model": load_model,
@@ -324,50 +280,3 @@ class BiaffineParser(TrainablePipe):
         spacy.util.from_disk(path, model_deserializers, exclude)
 
         return self
-
-    def _initialize_from_labels(self):
-        self._label_to_i = {label: i for i, label in enumerate(self.labels)}
-
-        # The PyTorch model is constructed lazily, so we need to
-        # explicitly initialize the model before deserialization.
-        label_model = self.model.get_ref("label_biaffine")
-        if label_model.has_dim("nO") is None:
-            label_model.set_dim("nO", len(self.labels))
-        self.model.initialize()
-
-
-def mst_decode(sent_scores):
-    """Apply MST decoding"""
-
-    # Within spacy, a root is encoded as a token that attaches to itself
-    # (relative offset 0). However, the decoder uses a specific vertex,
-    # typically 0. So, we stub an additional root vertex to accomodate
-    # this.
-
-    # We expect a biaffine attention matrix.
-    assert sent_scores.shape[0] == sent_scores.shape[1]
-
-    seq_len = sent_scores.shape[0]
-
-    # The MST decoder expects float32, but the input could e.g. be float16.
-    sent_scores = sent_scores.astype(np.float32)
-
-    # Create score matrix with root row/column.
-    with_root = np.full((seq_len+1, seq_len+1), -10000, dtype=sent_scores.dtype)
-    with_root[1:,1:] = sent_scores
-
-    with_root[1:,0] = sent_scores.diagonal()
-    with_root[np.diag_indices(with_root.shape[0])] = -10000
-
-    heads = chu_liu_edmonds(with_root.T, 0)
-
-    # Remove root vertex
-    heads = heads[1:]
-
-    for idx, head in enumerate(heads):
-        if head == 0:
-            heads[idx] = idx
-        else:
-            heads[idx] = head - 1
-
-    return heads

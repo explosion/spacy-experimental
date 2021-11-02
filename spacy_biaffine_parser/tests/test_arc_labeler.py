@@ -4,7 +4,7 @@ from spacy.lang.en import English
 from spacy.language import Language
 from spacy.training import Example
 
-from spacy_biaffine_parser import biaffine_model, biaffine_parser
+from spacy_biaffine_parser import biaffine_model, arc_labeler, arc_predicter
 
 TRAIN_DATA = [
     ("She likes green eggs", {"heads": [1, 1, 3, 1], "deps": ["nsubj", "ROOT", "amod", "dobj"], "sent_starts": [1, 0, 0, 0]}),
@@ -14,7 +14,8 @@ TRAIN_DATA = [
 def test_overfitting_IO():
     nlp = English.from_config()
     senter = nlp.add_pipe("senter")
-    parser = nlp.add_pipe("biaffine_parser")
+    predicter = nlp.add_pipe("arc_predicter")
+    labeler = nlp.add_pipe("arc_labeler")
     train_examples = []
     for t in TRAIN_DATA:
         train_examples.append(Example.from_dict(nlp.make_doc(t[0]), t[1]))
@@ -24,7 +25,7 @@ def test_overfitting_IO():
     for i in range(150):
         losses = {}
         nlp.update(train_examples, sgd=optimizer, losses=losses, annotates=["senter"])
-    assert losses["biaffine_parser"] < 0.00001
+    assert losses["arc_labeler"] < 0.00001
 
     test_text = "She likes blue eggs"
     doc = nlp(test_text)
@@ -55,7 +56,8 @@ def test_overfitting_IO():
     nlp_bytes = nlp.to_bytes()
     nlp3 = English()
     nlp3.add_pipe("senter")
-    nlp3.add_pipe("biaffine_parser")
+    nlp3.add_pipe("arc_predicter")
+    nlp3.add_pipe("arc_labeler")
     nlp3.from_bytes(nlp_bytes)
     doc3 = nlp3(test_text)
     assert doc3[0].head == doc3[1]

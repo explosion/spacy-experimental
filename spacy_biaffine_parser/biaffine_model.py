@@ -29,9 +29,9 @@ from .pytorch_biaffine_model import BiaffineModel as PyTorchBiaffineModel
 @registry.architectures("BiaffineModel.v1")
 def build_biaffine_model(
     tok2vec: Model[List[Doc], List[Floats2d]],
+    nO = None,
     *,
-    arc_hidden_width: int = 128,
-    label_hidden_width: int = 256,
+    hidden_width: int = 128,
     mixed_precision: bool = False,
     grad_scaler: Optional[PyTorchGradScaler] = None
 ):
@@ -39,24 +39,13 @@ def build_biaffine_model(
     if tok2vec.has_dim("nO") is True:
         nI = tok2vec.get_dim("nO")
 
-    arc_biaffine = Model(
-        "arc_biaffine",
+    biaffine = Model(
+        "biaffine",
         forward=biaffine_forward,
         init=biaffine_init,
-        dims={"nI": nI, "nO": 1},
+        dims={"nI": nI, "nO": nO},
         attrs={
-            "hidden_width": arc_hidden_width,
-            "mixed_precision": mixed_precision,
-            "grad_scaler": grad_scaler,
-        },
-    )
-    label_biaffine = Model(
-        "label_biaffine",
-        forward=biaffine_forward,
-        init=biaffine_init,
-        dims={"nI": nI, "nO": None},
-        attrs={
-            "hidden_width": label_hidden_width,
+            "hidden_width": hidden_width,
             "mixed_precision": mixed_precision,
             "grad_scaler": grad_scaler,
         },
@@ -64,10 +53,9 @@ def build_biaffine_model(
 
     model = chain(
         with_getitem(0, chain(tok2vec, list2array())),
-        tuplify(arc_biaffine, label_biaffine),
+        biaffine,
     )
-    model.set_ref("arc_biaffine", arc_biaffine)
-    model.set_ref("label_biaffine", label_biaffine)
+    model.set_ref("biaffine", biaffine)
 
     return model
 

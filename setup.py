@@ -12,7 +12,8 @@ COMPILER_DIRECTIVES = {
 }
 
 MOD_NAMES = [
-    "spacy_biaffine_parser.biaffine_parser",
+    "spacy_biaffine_parser.arc_predicter",
+    "spacy_biaffine_parser.arc_labeler",
 ]
 
 ext_modules = []

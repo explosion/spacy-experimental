@@ -7,7 +7,7 @@ from torch.nn import functional as F
 class VariationalDropout(nn.Module):
     """Variational dropout (Gal and Ghahramani, 2016)"""
 
-    def __init__(self, p: float = 0.1):
+    def __init__(self, p: float = 0.2):
         super(VariationalDropout, self).__init__()
         self.p = p
 
@@ -60,7 +60,17 @@ class PairwiseBilinear(nn.Module):
         if self.bias_v:
             v = torch.cat([v, ones], -1)
 
-        return torch.einsum("blu,ouv,bmv->bmlo", u, self.weight, v)
+        # Ideally we'd want to compute:
+        #
+        # torch.einsum("blu,ouv,bmv->bmlo", u, self.weight, v)
+        #
+        # Although this works correctly for prediction, this seems to
+        # lead to extreme gradients. Maybe this is an upstream bug?
+        # So, we will do this in two steps.
+
+        intermediate = torch.einsum("blu,ouv->blov", u, self.weight)
+        return torch.einsum("bmv,blov->bmlo", v, intermediate)
+
 
 
 class BiaffineModel(nn.Module):
