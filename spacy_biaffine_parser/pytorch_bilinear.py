@@ -9,7 +9,7 @@ class BilinearModel(nn.Module):
         nI: int,
         nO: int,
         *,
-        activation=nn.GELU(),
+        activation=nn.ReLU(),
         hidden_width=128,
     ):
         super(BilinearModel, self).__init__()

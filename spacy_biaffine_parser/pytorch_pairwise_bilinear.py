@@ -78,7 +78,7 @@ class PairwiseBilinearModel(nn.Module):
         nI: int,
         nO: int,
         *,
-        activation=nn.GELU(),
+        activation=nn.ReLU(),
         hidden_width=128,
     ):
         super(PairwiseBilinearModel, self).__init__()
