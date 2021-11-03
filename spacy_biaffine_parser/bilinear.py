@@ -1,27 +1,12 @@
+from typing import List, Optional, Tuple, cast
+
 from spacy import registry
-from spacy.ml import extract_spans
 from spacy.tokens.doc import Doc
-from thinc.layers.pytorchwrapper import PyTorchWrapper_v2
+from thinc.api import Model, PyTorchWrapper_v2
+from thinc.api import chain, get_width, list2array, torch2xp
+from thinc.api import with_getitem, xp2torch
 from thinc.shims.pytorch_grad_scaler import PyTorchGradScaler
-import torch.nn as nn
-from thinc.api import (
-    Model,
-    Padded,
-    PyTorchWrapper,
-    Ragged,
-    chain,
-    get_width,
-    list2array,
-    list2ragged,
-    with_array,
-    with_getitem,
-    with_padded,
-    xp2torch,
-    torch2xp,
-    tuplify,
-)
-from thinc.types import ArgsKwargs, Array2d, Floats2d, Floats3d, Floats4d, Ints1d
-from typing import Any, Optional, List, Tuple, cast
+from thinc.types import ArgsKwargs, Floats2d, Floats3d, Ints1d
 
 from .pytorch_bilinear import BilinearModel as PyTorchBilinearModel
 
@@ -93,16 +78,11 @@ def bilinear_forward(model: Model, X, is_train: bool):
 
 
 def convert_inputs(
-    model: Model, X_heads: Tuple[Ragged, Ints1d], is_train: bool = False
+    model: Model, X_heads: Tuple[Floats2d, Ints1d], is_train: bool = False
 ):
-    flatten = model.ops.flatten
-    unflatten = model.ops.unflatten
-    pad = model.ops.pad
-    unpad = model.ops.unpad
+    X, heads = X_heads
 
-    Xr, heads = X_heads
-
-    Xt = xp2torch(Xr, requires_grad=is_train)
+    Xt = xp2torch(X, requires_grad=is_train)
     Ht = xp2torch(heads)
 
     def convert_from_torch_backward(d_inputs: ArgsKwargs) -> Tuple[Floats2d, Ints1d]:
@@ -115,11 +95,6 @@ def convert_inputs(
 
 
 def convert_outputs(model, inputs_outputs, is_train):
-    flatten = model.ops.flatten
-    unflatten = model.ops.unflatten
-    pad = model.ops.pad
-    unpad = model.ops.unpad
-
     _, Y_t = inputs_outputs
 
     def convert_for_torch_backward(dY: Tuple[Floats2d, Floats3d]) -> ArgsKwargs:

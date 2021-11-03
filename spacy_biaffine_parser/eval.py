@@ -1,4 +1,5 @@
 from typing import Iterable
+
 from spacy.scorer import PRFScore
 from spacy.training import Example
 from spacy.util import registry
@@ -21,7 +22,6 @@ def score_deps(examples: Iterable[Example]):
     labelled = PRFScore()
     unlabelled = PRFScore()
 
-    offset = 0
     for example in examples:
         gold_deps = set()
         pred_deps = set()
@@ -31,7 +31,7 @@ def score_deps(examples: Iterable[Example]):
             for token in sent:
                 gold_head = aligned_heads[token.i]
                 gold_label = aligned_labels[token.i]
-                if gold_head == None:
+                if gold_head is None:
                     continue
                 if gold_head < sent.start or gold_head >= sent.end:
                     # We can never correctly predict heads when the sentence

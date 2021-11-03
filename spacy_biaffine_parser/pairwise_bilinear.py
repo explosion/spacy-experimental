@@ -1,27 +1,12 @@
+from typing import List, Optional, Tuple, cast
+
 from spacy import registry
-from spacy.ml import extract_spans
 from spacy.tokens.doc import Doc
-from thinc.layers.pytorchwrapper import PyTorchWrapper_v2
+from thinc.api import Model, PyTorchWrapper_v2
+from thinc.api import chain, get_width, list2array, torch2xp
+from thinc.api import with_getitem, xp2torch
 from thinc.shims.pytorch_grad_scaler import PyTorchGradScaler
-import torch.nn as nn
-from thinc.api import (
-    Model,
-    Padded,
-    PyTorchWrapper,
-    Ragged,
-    chain,
-    get_width,
-    list2array,
-    list2ragged,
-    with_array,
-    with_getitem,
-    with_padded,
-    xp2torch,
-    torch2xp,
-    tuplify,
-)
-from thinc.types import ArgsKwargs, Array2d, Floats2d, Floats3d, Floats4d, Ints1d
-from typing import Any, Optional, List, Tuple, cast
+from thinc.types import ArgsKwargs, Floats2d, Floats3d, Floats4d, Ints1d
 
 from .pytorch_pairwise_bilinear import (
     PairwiseBilinearModel as PyTorchPairwiseBilinearModel,
@@ -95,7 +80,7 @@ def pairswise_bilinear_forward(model: Model, X, is_train: bool):
 
 
 def convert_inputs(
-    model: Model, Xr_lenghts: Tuple[Ragged, Ints1d], is_train: bool = False
+    model: Model, Xr_lenghts: Tuple[Floats2d, Ints1d], is_train: bool = False
 ):
     flatten = model.ops.flatten
     unflatten = model.ops.unflatten
