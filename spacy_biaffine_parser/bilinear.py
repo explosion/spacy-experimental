@@ -23,13 +23,11 @@ from thinc.api import (
 from thinc.types import ArgsKwargs, Array2d, Floats2d, Floats3d, Floats4d, Ints1d
 from typing import Any, Optional, List, Tuple, cast
 
-from .pytorch_pairwise_bilinear import (
-    PairwiseBilinearModel as PyTorchPairwiseBilinearModel,
-)
+from .pytorch_bilinear import BilinearModel as PyTorchBilinearModel
 
 
-@registry.architectures("PairwiseBilinear.v1")
-def build_pairwise_bilinear(
+@registry.architectures("Bilinear.v1")
+def build_bilinear(
     tok2vec: Model[List[Doc], List[Floats2d]],
     nO=None,
     *,
@@ -41,10 +39,10 @@ def build_pairwise_bilinear(
     if tok2vec.has_dim("nO") is True:
         nI = tok2vec.get_dim("nO")
 
-    pairwise_bilinear = Model(
-        "pairwise_bilinear",
-        forward=pairswise_bilinear_forward,
-        init=pairwise_bilinear_init,
+    bilinear = Model(
+        "bilinear",
+        forward=bilinear_forward,
+        init=bilinear_init,
         dims={"nI": nI, "nO": nO},
         attrs={
             "hidden_width": hidden_width,
@@ -55,14 +53,14 @@ def build_pairwise_bilinear(
 
     model = chain(
         with_getitem(0, chain(tok2vec, list2array())),
-        pairwise_bilinear,
+        bilinear,
     )
-    model.set_ref("pairwise_bilinear", pairwise_bilinear)
+    model.set_ref("bilinear", bilinear)
 
     return model
 
 
-def pairwise_bilinear_init(model: Model, X=None, Y=None):
+def bilinear_init(model: Model, X=None, Y=None):
     if model.layers:
         return
 
@@ -77,7 +75,7 @@ def pairwise_bilinear_init(model: Model, X=None, Y=None):
 
     model._layers = [
         PyTorchWrapper_v2(
-            PyTorchPairwiseBilinearModel(
+            PyTorchBilinearModel(
                 model.get_dim("nI"),
                 model.get_dim("nO"),
                 hidden_width=hidden_width,
@@ -90,28 +88,28 @@ def pairwise_bilinear_init(model: Model, X=None, Y=None):
     ]
 
 
-def pairswise_bilinear_forward(model: Model, X, is_train: bool):
+def bilinear_forward(model: Model, X, is_train: bool):
     return model.layers[0](X, is_train)
 
 
 def convert_inputs(
-    model: Model, Xr_lenghts: Tuple[Ragged, Ints1d], is_train: bool = False
+    model: Model, X_heads: Tuple[Ragged, Ints1d], is_train: bool = False
 ):
     flatten = model.ops.flatten
     unflatten = model.ops.unflatten
     pad = model.ops.pad
     unpad = model.ops.unpad
 
-    Xr, lengths = Xr_lenghts
+    Xr, heads = X_heads
 
-    Xt = xp2torch(pad(unflatten(Xr, lengths)), requires_grad=is_train)
-    Lt = xp2torch(lengths)
+    Xt = xp2torch(Xr, requires_grad=is_train)
+    Ht = xp2torch(heads)
 
     def convert_from_torch_backward(d_inputs: ArgsKwargs) -> Tuple[Floats2d, Ints1d]:
-        dX = cast(Floats3d, torch2xp(d_inputs.args[0]))
-        return flatten(unpad(dX, list(lengths))), lengths
+        dX = cast(Floats2d, torch2xp(d_inputs.args[0]))
+        return dX, heads
 
-    output = ArgsKwargs(args=(Xt, Lt), kwargs={})
+    output = ArgsKwargs(args=(Xt, Ht), kwargs={})
 
     return output, convert_from_torch_backward
 
@@ -122,16 +120,15 @@ def convert_outputs(model, inputs_outputs, is_train):
     pad = model.ops.pad
     unpad = model.ops.unpad
 
-    (_, lengths), Y_t = inputs_outputs
+    _, Y_t = inputs_outputs
 
     def convert_for_torch_backward(dY: Tuple[Floats2d, Floats3d]) -> ArgsKwargs:
-        dY_t = xp2torch(pad(unflatten(dY, lengths)))
+        dY_t = xp2torch(dY)
         return ArgsKwargs(
             args=([Y_t],),
             kwargs={"grad_tensors": [dY_t]},
         )
 
-    Y = cast(Floats4d, torch2xp(Y_t))
-    Y = flatten(unpad(Y, lengths))
+    Y = cast(Floats2d, torch2xp(Y_t))
 
     return Y, convert_for_torch_backward

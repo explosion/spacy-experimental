@@ -7,7 +7,7 @@ from torch.nn import functional as F
 class VariationalDropout(nn.Module):
     """Variational dropout (Gal and Ghahramani, 2016)"""
 
-    def __init__(self, p: float = 0.2):
+    def __init__(self, p: float = 0.1):
         super(VariationalDropout, self).__init__()
         self.p = p
 

@@ -19,23 +19,10 @@ from thinc.api import to_numpy
 from thinc.types import Ints1d, Ragged, Tuple
 
 from .eval import parser_score
-from .mst import chu_liu_edmonds
-
-def sents2lens(docs: List[Doc], *, ops: Optional[Ops] = None) -> Ints1d:
-    if ops is None:
-        ops = get_current_ops()
-
-    lens = []
-    for doc in docs:
-        for sent in doc.sents:
-            lens.append(sent.end - sent.start)
-
-    return ops.asarray1i(lens)
-
 
 default_model_config = """
 [model]
-@architectures = "PairwiseBilinear.v1"
+@architectures = "Bilinear.v1"
 hidden_width = 64
 
 [model.tok2vec]
@@ -95,29 +82,23 @@ class ArcLabeler(TrainablePipe):
             return d_scores, loss
 
         target = np.zeros_like(scores)
-        mask = np.zeros(scores.shape[:2], dtype=scores.dtype)
+        mask = np.zeros(scores.shape[0], dtype=scores.dtype)
 
         offset = 0
         for eg in examples:
             aligned_heads, aligned_labels = eg.get_aligned_parse(projectivize=False)
-            for sent in eg.predicted.sents:
-                for token in sent:
-                    gold_head = aligned_heads[token.i]
-                    if gold_head is not None:
-                        if gold_head >= sent.start and gold_head < sent.end:
-                            gold_head_idx = gold_head - sent.start
-
-                            gold_label = aligned_labels[token.i]
-                            if gold_label is not None:
-                                target[offset, gold_head_idx, self._label_to_i[gold_label]] = 1.0
-                                mask[offset, gold_head_idx] = 1.0
-
-                    offset += 1
+            for token in eg.predicted:
+                gold_head = aligned_heads[token.i]
+                gold_label = aligned_labels[token.i]
+                if gold_head is not None and gold_label is not None:
+                    target[offset, self._label_to_i[gold_label]] = 1.0
+                    mask[offset] = 1.0
+                offset += 1
 
         assert offset == target.shape[0]
 
-        target = self.model.ops.asarray4f(target)
-        mask = self.model.ops.asarray4f(np.expand_dims(mask, -1))
+        target = self.model.ops.asarray2f(target)
+        mask = self.model.ops.asarray2f(np.expand_dims(mask, -1))
 
         d_scores, loss = loss_func(scores, target, mask)
 
@@ -138,18 +119,20 @@ class ArcLabeler(TrainablePipe):
         self._label_to_i = {label: i for i, label in enumerate(self.labels)}
 
         # nO can not be inferred on a tuplify layer in a chain.
-        self.model.get_ref("pairwise_bilinear").set_dim("nO", len(self.labels))
+        self.model.get_ref("bilinear").set_dim("nO", len(self.labels))
 
         doc_sample = []
         label_sample = []
-        for example in islice(get_examples(), 10):
+        examples = list(islice(get_examples(), 10))
+        for example in examples:
             # XXX: Should be example.x
             doc_sample.append(example.y)
             gold_labels = example.get_aligned("DEP", as_string=True)
             gold_array = [[1.0 if tag == gold_tag else 0.0 for tag in self.labels] for gold_tag in gold_labels]
             label_sample.append(self.model.ops.asarray(gold_array, dtype="float32"))
-        span_sample = sents2lens(doc_sample, ops=self.model.ops)
-        self.model.initialize(X=(doc_sample, span_sample), Y=(None, label_sample))
+
+        heads_sample = heads_gold(examples, self.model.ops)
+        self.model.initialize(X=(doc_sample, heads_sample), Y=label_sample)
 
     @property
     def labels(self):
@@ -173,19 +156,17 @@ class ArcLabeler(TrainablePipe):
 
     def predict(self, docs: Iterable[Doc]):
         docs = list(docs)
-        lens = sents2lens(docs, ops=self.model.ops)
-        scores = self.model.predict((docs, lens))
-        return lens, scores
+        heads = heads_predicted(docs, self.model.ops)
+        scores = self.model.predict((docs, heads))
+        return scores
 
-    def set_annotations(self, docs: Iterable[Doc], lens_scores):
+    def set_annotations(self, docs: Iterable[Doc], scores):
         cdef Doc doc
         cdef Token token
 
         # XXX: predict best in `predict`
 
-        lens, scores = lens_scores
         scores = to_numpy(scores.argmax(-1))
-        lens = to_numpy(lens)
 
         offset = 0
         for doc in docs:
@@ -193,12 +174,9 @@ class ArcLabeler(TrainablePipe):
                 for token in sent:
                     head_i = token.i + doc.c[token.i].head
                     head = head_i - sent.start
-                    label = self.cfg["labels"][scores[offset, head]]
+                    label = self.cfg["labels"][scores[offset]]
                     doc.c[token.i].dep = self.vocab.strings[label]
                     offset += 1
-
-                lens = lens[1:]
-
 
             for i in range(doc.length):
                 if doc.c[i].head == 0:
@@ -208,7 +186,6 @@ class ArcLabeler(TrainablePipe):
             # set_children_from_heads(doc.c, 0, doc.length)
 
         assert offset == scores.shape[0]
-        assert len(lens) == 0
 
     def update(
         self,
@@ -229,12 +206,10 @@ class ArcLabeler(TrainablePipe):
 
         docs = [eg.predicted for eg in examples]
 
-        lens = sents2lens(docs, ops=self.model.ops)
-        if lens.sum() == 0:
-            return losses
+        gold_heads = heads_gold(examples, self.model.ops)
 
         # set_dropout_rate(self.model, drop)
-        scores, backprop_scores = self.model.begin_update((docs, lens))
+        scores, backprop_scores = self.model.begin_update((docs, gold_heads))
         loss, d_scores = self.get_loss(examples, scores)
         backprop_scores(d_scores)
 
@@ -315,44 +290,34 @@ class ArcLabeler(TrainablePipe):
 
         # The PyTorch model is constructed lazily, so we need to
         # explicitly initialize the model before deserialization.
-        label_model = self.model.get_ref("pairwise_bilinear")
+        label_model = self.model.get_ref("bilinear")
         if label_model.has_dim("nO") is None:
             label_model.set_dim("nO", len(self.labels))
         self.model.initialize()
 
 
-def mst_decode(sent_scores):
-    """Apply MST decoding"""
+def heads_gold(examples: Iterable[Example], ops: Ops) -> Ints1d:
+    heads = []
+    for eg in examples:
+        aligned_heads, _ = eg.get_aligned_parse(projectivize=False)
+        eg_offset = len(heads)
+        for idx, head in enumerate(aligned_heads):
+            if head == None:
+                heads.append(eg_offset + idx)
+            else:
+                heads.append(eg_offset + head)
 
-    # Within spacy, a root is encoded as a token that attaches to itself
-    # (relative offset 0). However, the decoder uses a specific vertex,
-    # typically 0. So, we stub an additional root vertex to accomodate
-    # this.
+    return ops.asarray1i(heads)
 
-    # We expect a biaffine attention matrix.
-    assert sent_scores.shape[0] == sent_scores.shape[1]
+def heads_predicted(docs: Iterable[Doc], ops: Ops) -> Ints1d:
+    heads = []
+    for doc in docs:
+        doc_offset = len(heads)
+        for idx, token in enumerate(doc):
+            # XXX: we should always get a head in prediction, make error?
+            if token.head == None:
+                heads.append(doc_offset + idx)
+            else:
+                heads.append(doc_offset + token.head.i)
 
-    seq_len = sent_scores.shape[0]
-
-    # The MST decoder expects float32, but the input could e.g. be float16.
-    sent_scores = sent_scores.astype(np.float32)
-
-    # Create score matrix with root row/column.
-    with_root = np.full((seq_len+1, seq_len+1), -10000, dtype=sent_scores.dtype)
-    with_root[1:,1:] = sent_scores
-
-    with_root[1:,0] = sent_scores.diagonal()
-    with_root[np.diag_indices(with_root.shape[0])] = -10000
-
-    heads = chu_liu_edmonds(with_root.T, 0)
-
-    # Remove root vertex
-    heads = heads[1:]
-
-    for idx, head in enumerate(heads):
-        if head == 0:
-            heads[idx] = idx
-        else:
-            heads[idx] = head - 1
-
-    return heads
+    return ops.asarray1i(heads)
