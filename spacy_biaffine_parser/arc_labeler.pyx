@@ -125,8 +125,7 @@ class ArcLabeler(TrainablePipe):
         label_sample = []
         examples = list(islice(get_examples(), 10))
         for example in examples:
-            # XXX: Should be example.x
-            doc_sample.append(example.y)
+            doc_sample.append(example.predicted)
             gold_labels = example.get_aligned("DEP", as_string=True)
             gold_array = [[1.0 if tag == gold_tag else 0.0 for tag in self.labels] for gold_tag in gold_labels]
             label_sample.append(self.model.ops.asarray(gold_array, dtype="float32"))
