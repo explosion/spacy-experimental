@@ -21,12 +21,12 @@ def build_pairwise_bilinear(
     hidden_width: int = 128,
     mixed_precision: bool = False,
     grad_scaler: Optional[PyTorchGradScaler] = None
-):
+) -> Model[Tuple[List[Doc], Ints1d], Floats2d]:
     nI = None
     if tok2vec.has_dim("nO") is True:
         nI = tok2vec.get_dim("nO")
 
-    pairwise_bilinear = Model(
+    pairwise_bilinear: Model[Tuple[Floats2d, Ints1d], Floats2d] = Model(
         "pairwise_bilinear",
         forward=pairswise_bilinear_forward,
         init=pairwise_bilinear_init,
@@ -39,7 +39,12 @@ def build_pairwise_bilinear(
     )
 
     model = chain(
-        with_getitem(0, chain(tok2vec, list2array())),
+        cast(
+            Model[Tuple[List[Doc], Ints1d], Tuple[Floats2d, Ints1d]],
+            with_getitem(
+                0, chain(tok2vec, cast(Model[List[Floats2d], Floats2d], list2array()))
+            ),
+        ),
         pairwise_bilinear,
     )
     model.set_ref("pairwise_bilinear", pairwise_bilinear)
@@ -80,21 +85,21 @@ def pairswise_bilinear_forward(model: Model, X, is_train: bool):
 
 
 def convert_inputs(
-    model: Model, Xr_lenghts: Tuple[Floats2d, Ints1d], is_train: bool = False
+    model: Model, X_lenghts: Tuple[Floats2d, Ints1d], is_train: bool = False
 ):
     flatten = model.ops.flatten
     unflatten = model.ops.unflatten
     pad = model.ops.pad
     unpad = model.ops.unpad
 
-    Xr, lengths = Xr_lenghts
+    X, L = X_lenghts
 
-    Xt = xp2torch(pad(unflatten(Xr, lengths)), requires_grad=is_train)
-    Lt = xp2torch(lengths)
+    Xt = xp2torch(pad(unflatten(X, L)), requires_grad=is_train)
+    Lt = xp2torch(L)
 
     def convert_from_torch_backward(d_inputs: ArgsKwargs) -> Tuple[Floats2d, Ints1d]:
         dX = cast(Floats3d, torch2xp(d_inputs.args[0]))
-        return flatten(unpad(dX, list(lengths))), lengths
+        return cast(Floats2d, flatten(unpad(dX, list(L)))), L
 
     output = ArgsKwargs(args=(Xt, Lt), kwargs={})
 

@@ -6,7 +6,7 @@ from thinc.api import Model, PyTorchWrapper_v2
 from thinc.api import chain, get_width, list2array, torch2xp
 from thinc.api import with_getitem, xp2torch
 from thinc.shims.pytorch_grad_scaler import PyTorchGradScaler
-from thinc.types import ArgsKwargs, Floats2d, Floats3d, Ints1d
+from thinc.types import ArgsKwargs, Floats2d, Ints1d
 
 from .pytorch_bilinear import BilinearModel as PyTorchBilinearModel
 
@@ -14,17 +14,17 @@ from .pytorch_bilinear import BilinearModel as PyTorchBilinearModel
 @registry.architectures("Bilinear.v1")
 def build_bilinear(
     tok2vec: Model[List[Doc], List[Floats2d]],
-    nO=None,
+    nO: Optional[int] = None,
     *,
     hidden_width: int = 128,
     mixed_precision: bool = False,
     grad_scaler: Optional[PyTorchGradScaler] = None
-):
+) -> Model[Tuple[List[Doc], Ints1d], Floats2d]:
     nI = None
     if tok2vec.has_dim("nO") is True:
         nI = tok2vec.get_dim("nO")
 
-    bilinear = Model(
+    bilinear: Model[Tuple[Floats2d, Ints1d], Floats2d] = Model(
         "bilinear",
         forward=bilinear_forward,
         init=bilinear_init,
@@ -37,7 +37,12 @@ def build_bilinear(
     )
 
     model = chain(
-        with_getitem(0, chain(tok2vec, list2array())),
+        cast(
+            Model[Tuple[List[Doc], Ints1d], Tuple[Floats2d, Ints1d]],
+            with_getitem(
+                0, chain(tok2vec, cast(Model[List[Floats2d], Floats2d], list2array()))
+            ),
+        ),
         bilinear,
     )
     model.set_ref("bilinear", bilinear)
@@ -80,14 +85,14 @@ def bilinear_forward(model: Model, X, is_train: bool):
 def convert_inputs(
     model: Model, X_heads: Tuple[Floats2d, Ints1d], is_train: bool = False
 ):
-    X, heads = X_heads
+    X, H = X_heads
 
     Xt = xp2torch(X, requires_grad=is_train)
-    Ht = xp2torch(heads)
+    Ht = xp2torch(H)
 
     def convert_from_torch_backward(d_inputs: ArgsKwargs) -> Tuple[Floats2d, Ints1d]:
         dX = cast(Floats2d, torch2xp(d_inputs.args[0]))
-        return dX, heads
+        return dX, H
 
     output = ArgsKwargs(args=(Xt, Ht), kwargs={})
 
@@ -97,7 +102,7 @@ def convert_inputs(
 def convert_outputs(model, inputs_outputs, is_train):
     _, Y_t = inputs_outputs
 
-    def convert_for_torch_backward(dY: Tuple[Floats2d, Floats3d]) -> ArgsKwargs:
+    def convert_for_torch_backward(dY: Floats2d) -> ArgsKwargs:
         dY_t = xp2torch(dY)
         return ArgsKwargs(
             args=([Y_t],),
