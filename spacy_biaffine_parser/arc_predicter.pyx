@@ -128,8 +128,8 @@ class ArcPredicter(TrainablePipe):
 
         doc_sample = []
         for example in islice(get_examples(), 10):
-            # XXX: Should be example.x
-            doc_sample.append(example.y)
+            # XXX: Should be example.predicted
+            doc_sample.append(example.reference)
         span_sample = sents2lens(doc_sample, ops=self.model.ops)
         self.model.initialize(X=(doc_sample, span_sample))
 
