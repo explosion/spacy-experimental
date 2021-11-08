@@ -1,10 +1,10 @@
+from hypothesis import given
+import hypothesis.extra.numpy as hn
+from hypothesis.strategies import floats, integers
 import numpy as np
 import pytest
 
 from spacy_biaffine_parser.mst import chu_liu_edmonds
-
-def random_scores(n_tokens: int):
-    return np.random.rand(n_tokens * n_tokens).astype("f").reshape(n_tokens, n_tokens)
 
 
 def test_non_square():
@@ -14,9 +14,37 @@ def test_non_square():
 
 
 def test_head_out_of_bounds():
-    scores = random_scores(5)
-    with pytest.raises(IndexError, match=r"Head 5 out of bounds.*(5, 5)"):
+    scores = np.random.rand(25).astype("f").reshape(5, 5)
+    with pytest.raises(IndexError, match=r"Root vertex 5 is.*(5, 5)"):
         chu_liu_edmonds(scores, 5)
+
+
+def test_inf_nan():
+    scores = np.zeros((5, 5), dtype=np.float32)
+    chu_liu_edmonds(scores, 0)
+
+    scores[4, 4] = np.NaN
+    with pytest.raises(ValueError, match=r"Edge weight matrix.* nan"):
+        chu_liu_edmonds(scores, 0)
+
+    scores[4, 4] = np.PINF
+    with pytest.raises(ValueError, match=r"Edge weight matrix.* inf"):
+        chu_liu_edmonds(scores, 0)
+
+    scores[4, 4] = np.NINF
+    with pytest.raises(ValueError, match=r"Edge weight matrix.* -inf"):
+        chu_liu_edmonds(scores, 0)
+
+
+def square_float_arrays():
+    n = integers(1, 5).map(lambda v: (v, v))
+    elements = floats(0, 1, width=32)
+    return hn.arrays(np.float32, n, elements=elements)
+
+
+@given(square_float_arrays())
+def test_can_decode_random_square_matrices(scores):
+    chu_liu_edmonds(scores, 0)
 
 
 def test_correctly_decodes_random_large_matrices():
