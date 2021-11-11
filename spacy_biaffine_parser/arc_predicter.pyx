@@ -156,23 +156,36 @@ class ArcPredicter(TrainablePipe):
         docs = list(docs)
         lens = sents2lens(docs, ops=self.model.ops)
         scores = self.model.predict((docs, lens))
-        return lens, scores
 
-    def set_annotations(self, docs: Iterable[Doc], lens_scores):
-        cdef Doc doc
-        cdef Token token
-
-        # XXX: predict best in `predict`
-
-        lens, scores = lens_scores
         lens = to_numpy(lens)
         scores = to_numpy(scores)
 
+        heads = []
         sent_offset = 0
         for doc in docs:
+            doc_heads = []
             for sent in doc.sents:
-                heads = mst_decode(scores[sent_offset:sent_offset + lens[0], :lens[0]])
-                for i, head in enumerate(heads):
+                sent_heads = mst_decode(scores[sent_offset:sent_offset + lens[0], :lens[0]])
+                doc_heads.append(sent_heads)
+
+                sent_offset += lens[0]
+                lens = lens[1:]
+
+            heads.append(doc_heads)
+
+        assert len(lens) == 0
+        assert sent_offset == scores.shape[0]
+
+        return heads
+
+    def set_annotations(self, docs: Iterable[Doc], heads):
+        cdef Doc doc
+        cdef Token token
+
+        sent_offset = 0
+        for (doc, doc_heads) in zip(docs, heads):
+            for (sent, sent_heads) in zip(doc.sents, doc_heads):
+                for i, head in enumerate(sent_heads):
                     dep_i = sent.start + i
                     head_i = sent.start + head
                     doc.c[dep_i].head = head_i - dep_i
@@ -180,18 +193,12 @@ class ArcPredicter(TrainablePipe):
                     # we can evaluate UAS.
                     doc.c[dep_i].dep = self.vocab.strings['dep']
 
-                sent_offset += lens[0]
-                lens = lens[1:]
-
             for i in range(doc.length):
                 if doc.c[i].head == 0:
                     doc.c[i].dep = self.vocab.strings['ROOT']
 
             # XXX: we should enable this, but clears sentence boundaries
             # set_children_from_heads(doc.c, 0, doc.length)
-
-        assert len(lens) == 0
-        assert sent_offset == scores.shape[0]
 
     def update(
         self,
