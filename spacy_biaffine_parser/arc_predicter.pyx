@@ -133,6 +133,9 @@ class ArcPredicter(TrainablePipe):
         span_sample = sents2lens(doc_sample, ops=self.model.ops)
         self.model.initialize(X=(doc_sample, span_sample))
 
+        pairwise_bilinear = self.model.get_ref("pairwise_bilinear")
+        self.cfg["nI"] = pairwise_bilinear.get_dim("nI")
+
     def pipe(self, docs, *, int batch_size=128):
         cdef Doc doc
         error_handler = self.get_error_handler()
@@ -231,7 +234,7 @@ class ArcPredicter(TrainablePipe):
         }
         spacy.util.from_bytes(bytes_data, deserializers, exclude)
 
-        self.model.initialize()
+        self._initialize_from_disk()
 
         model_deserializers = {
             "model": lambda b: self.model.from_bytes(b),
@@ -272,7 +275,7 @@ class ArcPredicter(TrainablePipe):
         }
         spacy.util.from_disk(path, deserializers, exclude)
 
-        self.model.initialize()
+        self._initialize_from_disk()
 
         model_deserializers = {
             "model": load_model,
@@ -280,3 +283,13 @@ class ArcPredicter(TrainablePipe):
         spacy.util.from_disk(path, model_deserializers, exclude)
 
         return self
+
+    def _initialize_from_disk(self):
+        # We are lazily initializing the PyTorch model. If a PyTorch transformer
+        # is used, which is also lazily initialized, then the model did not have
+        # the chance yet to get its input shape.
+        pairwise_bilinear = self.model.get_ref("pairwise_bilinear")
+        if pairwise_bilinear.has_dim("nI") is None:
+            pairwise_bilinear.set_dim("nI", self.cfg["nI"])
+
+        self.model.initialize()

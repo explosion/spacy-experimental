@@ -133,6 +133,9 @@ class ArcLabeler(TrainablePipe):
         heads_sample = heads_gold(examples, self.model.ops)
         self.model.initialize(X=(doc_sample, heads_sample), Y=label_sample)
 
+        bilinear = self.model.get_ref("bilinear")
+        self.cfg["nI"] = bilinear.get_dim("nI")
+
     @property
     def labels(self):
         return tuple(self.cfg["labels"])
@@ -234,7 +237,7 @@ class ArcLabeler(TrainablePipe):
         }
         spacy.util.from_bytes(bytes_data, deserializers, exclude)
 
-        self._initialize_from_labels()
+        self._initialize_from_disk()
 
         model_deserializers = {
             "model": lambda b: self.model.from_bytes(b),
@@ -275,7 +278,7 @@ class ArcLabeler(TrainablePipe):
         }
         spacy.util.from_disk(path, deserializers, exclude)
 
-        self._initialize_from_labels()
+        self._initialize_from_disk()
 
         model_deserializers = {
             "model": load_model,
@@ -284,14 +287,16 @@ class ArcLabeler(TrainablePipe):
 
         return self
 
-    def _initialize_from_labels(self):
+    def _initialize_from_disk(self):
         self._label_to_i = {label: i for i, label in enumerate(self.labels)}
 
         # The PyTorch model is constructed lazily, so we need to
         # explicitly initialize the model before deserialization.
-        label_model = self.model.get_ref("bilinear")
-        if label_model.has_dim("nO") is None:
-            label_model.set_dim("nO", len(self.labels))
+        bilinear = self.model.get_ref("bilinear")
+        if bilinear.has_dim("nI") is None:
+            bilinear.set_dim("nI", self.cfg["nI"])
+        if bilinear.has_dim("nO") is None:
+            bilinear.set_dim("nO", len(self.labels))
         self.model.initialize()
 
 
