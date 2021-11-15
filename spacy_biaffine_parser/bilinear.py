@@ -16,6 +16,7 @@ def build_bilinear(
     tok2vec: Model[List[Doc], List[Floats2d]],
     nO: Optional[int] = None,
     *,
+    dropout: float = 0.1,
     hidden_width: int = 128,
     mixed_precision: bool = False,
     grad_scaler: Optional[PyTorchGradScaler] = None
@@ -30,6 +31,9 @@ def build_bilinear(
         init=bilinear_init,
         dims={"nI": nI, "nO": nO},
         attrs={
+            # We currently do not update dropout when dropout_rate is
+            # changed, since we cannot access the underlying model.
+            "dropout_rate": dropout,
             "hidden_width": hidden_width,
             "mixed_precision": mixed_precision,
             "grad_scaler": grad_scaler,
@@ -68,6 +72,7 @@ def bilinear_init(model: Model, X=None, Y=None):
             PyTorchBilinearModel(
                 model.get_dim("nI"),
                 model.get_dim("nO"),
+                dropout=model.attrs["dropout_rate"],
                 hidden_width=hidden_width,
             ),
             convert_inputs=convert_inputs,

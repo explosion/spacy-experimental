@@ -8,8 +8,9 @@ class BilinearModel(nn.Module):
         nI: int,
         nO: int,
         *,
-        activation=nn.ReLU(),
-        hidden_width=128,
+        activation: torch.nn.Module = nn.ReLU(),
+        dropout: float = 0.1,
+        hidden_width: int = 128,
     ):
         super(BilinearModel, self).__init__()
 
@@ -17,16 +18,24 @@ class BilinearModel(nn.Module):
         self.dependent = nn.Linear(nI, hidden_width)
         self.bilinear = nn.Bilinear(hidden_width, hidden_width, nO)
         self.activation = activation
-        self.dropout = nn.Dropout(0.1)
+        self._dropout = nn.Dropout(dropout)
 
         # Default BiLinear initialization creates parameters that are
         # much too large, resulting in large regression.
         torch.nn.init.xavier_uniform_(self.bilinear.weight)
 
+    @property
+    def dropout(self) -> float:
+        return self._dropout.p
+
+    @dropout.setter
+    def dropout(self, p: float):
+        self._dropout.p = p
+
     def forward(self, x: torch.Tensor, heads: torch.Tensor):
         # Create representations of tokens as heads and dependents.
-        head = self.dropout(self.activation(self.head(x[heads.long()])))
-        dependent = self.dropout(self.activation(self.dependent(x)))
+        head = self._dropout(self.activation(self.head(x[heads.long()])))
+        dependent = self._dropout(self.activation(self.dependent(x)))
 
         logits = self.bilinear(head, dependent)
 

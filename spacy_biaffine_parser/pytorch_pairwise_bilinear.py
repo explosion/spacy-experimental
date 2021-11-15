@@ -6,7 +6,7 @@ from torch.nn import functional as F
 class VariationalDropout(nn.Module):
     """Variational dropout (Gal and Ghahramani, 2016)"""
 
-    def __init__(self, p: float = 0.1):
+    def __init__(self, p: float):
         super(VariationalDropout, self).__init__()
         self.p = p
 
@@ -77,8 +77,9 @@ class PairwiseBilinearModel(nn.Module):
         nI: int,
         nO: int,
         *,
-        activation=nn.ReLU(),
-        hidden_width=128,
+        activation: torch.nn.Module = nn.ReLU(),
+        dropout: float = 0.1,
+        hidden_width: int = 128,
     ):
         super(PairwiseBilinearModel, self).__init__()
 
@@ -86,7 +87,15 @@ class PairwiseBilinearModel(nn.Module):
         self.dependent = nn.Linear(nI, hidden_width)
         self.bilinear = PairwiseBilinear(hidden_width, nO)
         self.activation = activation
-        self.dropout = VariationalDropout()
+        self._dropout = VariationalDropout(dropout)
+
+    @property
+    def dropout(self) -> float:
+        return self._dropout.p
+
+    @dropout.setter
+    def dropout(self, p: float):
+        self._dropout.p = p
 
     def forward(self, x: torch.Tensor, seq_lens: torch.Tensor):
         max_seq_len = x.shape[1]
@@ -96,8 +105,8 @@ class PairwiseBilinearModel(nn.Module):
         logits_mask = logits_mask.unsqueeze(1).unsqueeze(-1)
 
         # Create representations of tokens as heads and dependents.
-        head = self.dropout(self.activation(self.head(x)))
-        dependent = self.dropout(self.activation(self.dependent(x)))
+        head = self._dropout(self.activation(self.head(x)))
+        dependent = self._dropout(self.activation(self.dependent(x)))
 
         # Compute biaffine attention matrix. This computes from the hidden
         # representations of the shape [batch_size, seq_len, hidden_width] the
