@@ -155,20 +155,15 @@ class ArcLabeler(TrainablePipe):
             except Exception as e:
                 error_handler(self.name, self, batch_in_order, e)
 
-
     def predict(self, docs: Iterable[Doc]):
         docs = list(docs)
         heads = heads_predicted(docs, self.model.ops)
         scores = self.model.predict((docs, heads))
-        return scores
+        return to_numpy(scores.argmax(-1))
 
-    def set_annotations(self, docs: Iterable[Doc], scores):
+    def set_annotations(self, docs: Iterable[Doc], predictions):
         cdef Doc doc
         cdef Token token
-
-        # XXX: predict best in `predict`
-
-        scores = to_numpy(scores.argmax(-1))
 
         offset = 0
         for doc in docs:
@@ -176,7 +171,7 @@ class ArcLabeler(TrainablePipe):
                 for token in sent:
                     head_i = token.i + doc.c[token.i].head
                     head = head_i - sent.start
-                    label = self.cfg["labels"][scores[offset]]
+                    label = self.cfg["labels"][predictions[offset]]
                     doc.c[token.i].dep = self.vocab.strings[label]
                     offset += 1
 
@@ -187,7 +182,7 @@ class ArcLabeler(TrainablePipe):
             # XXX: we should enable this, but clears sentence boundaries
             # set_children_from_heads(doc.c, 0, doc.length)
 
-        assert offset == scores.shape[0]
+        assert offset == predictions.shape[0]
 
     def update(
         self,
