@@ -7,7 +7,6 @@ import spacy
 from spacy import Language, Vocab
 from spacy.errors import Errors
 from spacy.pipeline.trainable_pipe cimport TrainablePipe
-from spacy.scorer import Scorer
 from spacy.symbols cimport dep, root
 from spacy.tokens.token cimport Token
 from spacy.tokens.doc cimport Doc, set_children_from_heads

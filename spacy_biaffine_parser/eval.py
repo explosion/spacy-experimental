@@ -1,6 +1,6 @@
 from typing import Iterable
 
-from spacy.scorer import PRFScore
+from spacy.scorer import PRFScore, Scorer
 from spacy.training import Example
 from spacy.util import registry
 
@@ -45,7 +45,11 @@ def score_deps(examples: Iterable[Example]):
             {dep[:2] for dep in pred_deps}, {dep[:2] for dep in gold_deps}
         )
 
-    return {
-        "dep_las": labelled.fscore,
-        "dep_uas": unlabelled.fscore,
+    bound_scores = {
+        "bound_dep_las": labelled.fscore,
+        "bound_dep_uas": unlabelled.fscore,
     }
+
+    no_bound_scores = Scorer.score_deps(examples, "dep")
+
+    return {**bound_scores, **no_bound_scores}
