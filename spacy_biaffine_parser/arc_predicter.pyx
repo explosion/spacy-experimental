@@ -128,10 +128,11 @@ class ArcPredicter(TrainablePipe):
 
         doc_sample = []
         for example in islice(get_examples(), 10):
-            # XXX: Should be example.predicted
-            doc_sample.append(example.reference)
-        span_sample = sents2lens(doc_sample, ops=self.model.ops)
-        self.model.initialize(X=(doc_sample, span_sample))
+            doc_sample.append(example.predicted)
+
+        # For initialization, we don't need correct sentence boundaries.
+        lengths_sample = self.model.ops.asarray1i([len(doc) for doc in doc_sample])
+        self.model.initialize(X=(doc_sample, lengths_sample))
 
         pairwise_bilinear = self.model.get_ref("pairwise_bilinear")
         self.cfg["nI"] = pairwise_bilinear.get_dim("nI")
