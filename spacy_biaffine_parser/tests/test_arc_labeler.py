@@ -50,7 +50,7 @@ PARTIAL_DATA = [
 
 def test_initialize_examples():
     nlp = Language()
-    lemmatizer = nlp.add_pipe("arc_labeler")
+    nlp.add_pipe("arc_labeler")
     train_examples = []
     for t in TRAIN_DATA:
         train_examples.append(Example.from_dict(nlp.make_doc(t[0]), t[1]))
@@ -68,9 +68,9 @@ def test_initialize_examples():
 
 def test_incomplete_data():
     nlp = English.from_config()
-    senter = nlp.add_pipe("senter")
-    parser = nlp.add_pipe("arc_predicter")
-    parser = nlp.add_pipe("arc_labeler")
+    nlp.add_pipe("sentencizer")
+    nlp.add_pipe("arc_predicter")
+    nlp.add_pipe("arc_labeler")
     train_examples = []
     for t in PARTIAL_DATA:
         train_examples.append(Example.from_dict(nlp.make_doc(t[0]), t[1]))
@@ -79,7 +79,7 @@ def test_incomplete_data():
 
     for i in range(150):
         losses = {}
-        nlp.update(train_examples, sgd=optimizer, losses=losses, annotates=["senter"])
+        nlp.update(train_examples, sgd=optimizer, losses=losses, annotates=["sentencizer"])
     assert losses["arc_predicter"] < 0.00001
 
     test_text = "She likes blue eggs"
@@ -96,9 +96,9 @@ def test_incomplete_data():
 
 def test_overfitting_IO():
     nlp = English.from_config()
-    senter = nlp.add_pipe("senter")
-    predicter = nlp.add_pipe("arc_predicter")
-    labeler = nlp.add_pipe("arc_labeler")
+    nlp.add_pipe("sentencizer")
+    nlp.add_pipe("arc_predicter")
+    nlp.add_pipe("arc_labeler")
     train_examples = []
     for t in TRAIN_DATA:
         train_examples.append(Example.from_dict(nlp.make_doc(t[0]), t[1]))
@@ -107,7 +107,7 @@ def test_overfitting_IO():
 
     for i in range(150):
         losses = {}
-        nlp.update(train_examples, sgd=optimizer, losses=losses, annotates=["senter"])
+        nlp.update(train_examples, sgd=optimizer, losses=losses, annotates=["sentencizer"])
     assert losses["arc_labeler"] < 0.00001
 
     test_text = "She likes blue eggs"
@@ -138,7 +138,7 @@ def test_overfitting_IO():
     # Check model after a {to,from}_bytes roundtrip
     nlp_bytes = nlp.to_bytes()
     nlp3 = English()
-    nlp3.add_pipe("senter")
+    nlp3.add_pipe("sentencizer")
     nlp3.add_pipe("arc_predicter")
     nlp3.add_pipe("arc_labeler")
     nlp3.from_bytes(nlp_bytes)
