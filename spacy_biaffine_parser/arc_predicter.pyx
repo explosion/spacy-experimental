@@ -7,29 +7,17 @@ import spacy
 from spacy import Language, Vocab
 from spacy.errors import Errors
 from spacy.pipeline.trainable_pipe cimport TrainablePipe
-from spacy.symbols cimport dep, root
 from spacy.tokens.token cimport Token
-from spacy.tokens.doc cimport Doc, set_children_from_heads
+from spacy.tokens.doc cimport Doc
 from spacy.training import Example, validate_get_examples, validate_examples
-from spacy.util import minibatch, registry
+from spacy.util import minibatch
 import srsly
-from thinc.api import Config, Model, NumpyOps, Ops, Optimizer, Ragged, get_current_ops
+from thinc.api import Config, Model, Ops, Optimizer
 from thinc.api import to_numpy
-from thinc.types import Ints1d, Ragged, Tuple
+from thinc.types import Floats2d, Ints1d, Tuple
 
 from .eval import parser_score
 from .mst import mst_decode
-
-def sents2lens(docs: List[Doc], *, ops: Optional[Ops] = None) -> Ints1d:
-    if ops is None:
-        ops = get_current_ops()
-
-    lens = []
-    for doc in docs:
-        for sent in doc.sents:
-            lens.append(sent.end - sent.start)
-
-    return ops.asarray1i(lens)
 
 
 default_model_config = """
@@ -84,7 +72,7 @@ class ArcPredicter(TrainablePipe):
         self.cfg = dict(sorted(cfg.items()))
         self.scorer = scorer
 
-    def get_loss(self, examples: Iterable[Example], scores) -> Tuple[float, float]:
+    def get_loss(self, examples: Iterable[Example], scores) -> Tuple[float, Floats2d]:
         validate_examples(examples, "ArcPredicter.get_loss")
 
         def loss_func(guesses, target, mask):
@@ -107,7 +95,6 @@ class ArcPredicter(TrainablePipe):
                         # lies within the sentence boundaries.
                         if gold_head >= sent.start and gold_head < sent.end:
                             gold_head_idx = gold_head - sent.start
-
                             target[offset, gold_head_idx] = 1.0
                             mask[offset] = 1
 
@@ -157,7 +144,6 @@ class ArcPredicter(TrainablePipe):
             except Exception as e:
                 error_handler(self.name, self, batch_in_order, e)
 
-
     def predict(self, docs: Iterable[Doc]):
         docs = list(docs)
         lens = sents2lens(docs, ops=self.model.ops)
@@ -188,7 +174,6 @@ class ArcPredicter(TrainablePipe):
         cdef Doc doc
         cdef Token token
 
-        sent_offset = 0
         for (doc, doc_heads) in zip(docs, heads):
             for (sent, sent_heads) in zip(doc.sents, doc_heads):
                 for i, head in enumerate(sent_heads):
@@ -229,7 +214,6 @@ class ArcPredicter(TrainablePipe):
         if lens.sum() == 0:
             return losses
 
-        # set_dropout_rate(self.model, drop)
         scores, backprop_scores = self.model.begin_update((docs, lens))
         loss, d_scores = self.get_loss(examples, scores)
         backprop_scores(d_scores)
@@ -306,3 +290,12 @@ class ArcPredicter(TrainablePipe):
             pairwise_bilinear.set_dim("nI", self.cfg["nI"])
 
         self.model.initialize()
+
+def sents2lens(docs: List[Doc], *, ops: Ops) -> Ints1d:
+    """Get the lengths of sentences."""
+    lens = []
+    for doc in docs:
+        for sent in doc.sents:
+            lens.append(sent.end - sent.start)
+
+    return ops.asarray1i(lens)

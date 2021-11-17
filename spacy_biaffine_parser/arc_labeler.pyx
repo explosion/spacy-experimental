@@ -2,20 +2,19 @@
 
 from itertools import islice
 import numpy as np
-from typing import Callable, Dict, Iterable, List, Optional
+from typing import Callable, Dict, Iterable, Optional
 import spacy
 from spacy import Language, Vocab
 from spacy.errors import Errors
 from spacy.pipeline.trainable_pipe cimport TrainablePipe
-from spacy.symbols cimport dep, root
 from spacy.tokens.token cimport Token
-from spacy.tokens.doc cimport Doc, set_children_from_heads
+from spacy.tokens.doc cimport Doc
 from spacy.training import Example, validate_get_examples, validate_examples
-from spacy.util import minibatch, registry
+from spacy.util import minibatch
 import srsly
-from thinc.api import Config, Model, NumpyOps, Ops, Optimizer, Ragged, get_current_ops
+from thinc.api import Config, Model, Ops, Optimizer
 from thinc.api import to_numpy
-from thinc.types import Ints1d, Ragged, Tuple
+from thinc.types import Floats2d, Ints1d, Tuple
 
 from .eval import parser_score
 
@@ -71,7 +70,7 @@ class ArcLabeler(TrainablePipe):
         self.scorer = scorer
         self._label_to_i = None
 
-    def get_loss(self, examples: Iterable[Example], scores) -> Tuple[float, float]:
+    def get_loss(self, examples: Iterable[Example], scores) -> Tuple[float, Floats2d]:
         validate_examples(examples, "ArcLabeler.get_loss")
 
         def loss_func(guesses, target, mask):
@@ -95,6 +94,7 @@ class ArcLabeler(TrainablePipe):
                 if gold_head is not None and gold_label is not None:
                     target[offset, self._label_to_i[gold_label]] = 1.0
                     mask[offset] = 1.0
+
                 offset += 1
 
         assert offset == target.shape[0]
@@ -172,8 +172,6 @@ class ArcLabeler(TrainablePipe):
         for doc in docs:
             for sent in doc.sents:
                 for token in sent:
-                    head_i = token.i + doc.c[token.i].head
-                    head = head_i - sent.start
                     label = self.cfg["labels"][predictions[offset]]
                     doc.c[token.i].dep = self.vocab.strings[label]
                     offset += 1
@@ -208,7 +206,6 @@ class ArcLabeler(TrainablePipe):
 
         gold_heads = heads_gold(examples, self.model.ops)
 
-        # set_dropout_rate(self.model, drop)
         scores, backprop_scores = self.model.begin_update((docs, gold_heads))
         loss, d_scores = self.get_loss(examples, scores)
         backprop_scores(d_scores)
