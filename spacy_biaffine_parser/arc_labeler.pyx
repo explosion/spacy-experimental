@@ -117,9 +117,6 @@ class ArcLabeler(TrainablePipe):
             self.add_label(label)
         self._label_to_i = {label: i for i, label in enumerate(self.labels)}
 
-        # nO can not be inferred on a tuplify layer in a chain.
-        self.model.get_ref("bilinear").set_dim("nO", len(self.labels))
-
         doc_sample = []
         label_sample = []
         examples = list(islice(get_examples(), 10))
