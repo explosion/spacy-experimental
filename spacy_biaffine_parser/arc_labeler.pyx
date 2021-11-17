@@ -89,6 +89,9 @@ class ArcLabeler(TrainablePipe):
             for token in eg.predicted:
                 gold_head = aligned_heads[token.i]
                 gold_label = aligned_labels[token.i]
+
+                # Do not learn from misaligned tokens, since we could no use
+                # their correct head representations.
                 if gold_head is not None and gold_label is not None:
                     target[offset, self._label_to_i[gold_label]] = 1.0
                     mask[offset] = 1.0
@@ -129,6 +132,10 @@ class ArcLabeler(TrainablePipe):
         heads_sample = heads_gold(examples, self.model.ops)
         self.model.initialize(X=(doc_sample, heads_sample), Y=label_sample)
 
+        # Store the input dimensionality. nI and nO are not stored explicitly
+        # for PyTorch models. This makes it tricky to reconstruct the model
+        # during deserialization. So, besides storing the labels, we also
+        # store the number of inputs.
         bilinear = self.model.get_ref("bilinear")
         self.cfg["nI"] = bilinear.get_dim("nI")
 
@@ -175,7 +182,7 @@ class ArcLabeler(TrainablePipe):
                 if doc.c[i].head == 0:
                     doc.c[i].dep = self.vocab.strings['ROOT']
 
-            # XXX: we should enable this, but clears sentence boundaries
+            # FIXME: we should enable this, but clears sentence boundaries
             # set_children_from_heads(doc.c, 0, doc.length)
 
         assert offset == predictions.shape[0]
@@ -213,6 +220,13 @@ class ArcLabeler(TrainablePipe):
         return losses
 
     def add_label(self, label):
+        """Add a new label to the pipe.
+
+        label (str): The label to add.
+        RETURNS (int): 0 if label is already present, otherwise 1.
+
+        DOCS: https://spacy.io/api/tagger#add_label
+        """
         if not isinstance(label, str):
             raise ValueError(Errors.E187)
         if label in self.labels:
@@ -309,7 +323,7 @@ def heads_predicted(docs: Iterable[Doc], ops: Ops) -> Ints1d:
     for doc in docs:
         doc_offset = len(heads)
         for idx, token in enumerate(doc):
-            # XXX: we should always get a head in prediction, make error?
+            # FIXME: we should always get a head in prediction, make error?
             if token.head == None:
                 heads.append(doc_offset + idx)
             else:

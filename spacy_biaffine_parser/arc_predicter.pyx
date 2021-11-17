@@ -103,6 +103,8 @@ class ArcPredicter(TrainablePipe):
                 for token in sent:
                     gold_head = aligned_heads[token.i]
                     if gold_head is not None:
+                        # We only use the loss for token for which the correct head
+                        # lies within the sentence boundaries.
                         if gold_head >= sent.start and gold_head < sent.end:
                             gold_head_idx = gold_head - sent.start
 
@@ -133,6 +135,10 @@ class ArcPredicter(TrainablePipe):
         lengths_sample = self.model.ops.asarray1i([len(doc) for doc in doc_sample])
         self.model.initialize(X=(doc_sample, lengths_sample))
 
+        # Store the input dimensionality. nI and nO are not stored explicitly
+        # for PyTorch models. This makes it tricky to reconstruct the model
+        # during deserialization. So, besides storing the labels, we also
+        # store the number of inputs.
         pairwise_bilinear = self.model.get_ref("pairwise_bilinear")
         self.cfg["nI"] = pairwise_bilinear.get_dim("nI")
 
@@ -189,7 +195,7 @@ class ArcPredicter(TrainablePipe):
                     dep_i = sent.start + i
                     head_i = sent.start + head
                     doc.c[dep_i].head = head_i - dep_i
-                    # XXX: Set the dependency relation to a stub, so that
+                    # FIXME: Set the dependency relation to a stub, so that
                     # we can evaluate UAS.
                     doc.c[dep_i].dep = self.vocab.strings['dep']
 
@@ -197,7 +203,7 @@ class ArcPredicter(TrainablePipe):
                 if doc.c[i].head == 0:
                     doc.c[i].dep = self.vocab.strings['ROOT']
 
-            # XXX: we should enable this, but clears sentence boundaries
+            # FIXME: we should enable this, but clears sentence boundaries
             # set_children_from_heads(doc.c, 0, doc.length)
 
     def update(
