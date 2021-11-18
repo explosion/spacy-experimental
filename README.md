@@ -43,14 +43,14 @@ factory = "edit_tree_lemmatizer"
 ```ini
 [components.edit_tree_lemmatizer]
 factory = "edit_tree_lemmatizer"
-# token attr to use backoff with the predicted trees are not applicable; null to leave unset
+# token attr to use as backoff with the predicted trees are not applicable; null to leave unset
 backoff = "orth"
 # prune trees that are applied less than this frequency in the training data
 min_tree_freq = 2
 # whether to overwrite existing lemma annotation
 overwrite = false
 scorer = {"@scorers":"spacy.lemmatizer_scorer.v1"}
-# try to apply at most the k most probably edit trees
+# try to apply at most the k most probable edit trees
 top_k = 1
 ```
 
