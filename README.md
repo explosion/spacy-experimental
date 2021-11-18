@@ -38,7 +38,7 @@ factory = "edit_tree_lemmatizer"
 
 ## Components
 
-### `edit_tree_lemmatizer`
+### Edit tree lemmatizer
 
 ```ini
 [components.edit_tree_lemmatizer]
@@ -64,5 +64,6 @@ None currently.
 
 ## Older documentation
 
-See the READMEs in earlier [tagged versions](/tags) for details about
-components in earlier releases.
+See the READMEs in earlier [tagged
+versions](https://github.com/explosion/spacy-experimental/tags) for details
+about components in earlier releases.
