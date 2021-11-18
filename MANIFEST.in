@@ -1,0 +1,5 @@
+include LICENSE
+include README.md
+include pyproject.toml
+recursive-include spacy_experimental *.pyx *.pxd *.txt *.md
+recursive-exclude spacy_experimental *.cpp
