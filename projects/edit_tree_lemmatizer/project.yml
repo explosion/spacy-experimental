@@ -45,7 +45,7 @@ commands:
   - name: "create-config"
     help: "Create a config"
     script:
-      - "python -m spacy init config -l ${vars.lang} -p edit_tree_lemmatizer configs/${vars.treebank}/config.cfg -F"
+      - "python -m spacy init config -l ${vars.lang} -p experimental_edit_tree_lemmatizer configs/${vars.treebank}/config.cfg -F"
 
   - name: "train"
     help: "Train the lemmatizer"
