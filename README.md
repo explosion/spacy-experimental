@@ -211,7 +211,16 @@ None currently.
 
 ## Other
 
-None currently.
+### Tokenizers
+
+- `spacy-experimental.char_pretokenizer.v1`: Tokenize a text into individual
+  characters.
+
+### Scorers
+
+- `spacy-experimental.tokenizer_scorer.v1`: Score tokenization.
+- `spacy-experimental.tokenizer_senter_scorer.v1`: Score tokenization and
+  sentence segmentation.
 
 ## Older documentation
 
