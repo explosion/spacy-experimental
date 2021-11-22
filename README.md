@@ -61,7 +61,7 @@ over individual characters and use the existing spaCy tagger and NER
 architectures to perform the tagging.
 
 In the spaCy pipeline, a simple "pretokenizer" is applied as the pipeline
-tokenizer to splits each doc into individual characters and the trainable
+tokenizer to split each doc into individual characters and the trainable
 tokenizer is a pipeline component that retokenizes the doc. The pretokenizer
 needs to be configured manually in the config or with `spacy.blank()`:
 
@@ -81,11 +81,11 @@ respectively in the process of retokenizing.
 
 #### Character-based tagger tokenizer
 
-In the tagger version `experimental_char_tagger_tokenizer`, the tagging problem is
-represented internally with character-level tags for token start (`T`), token
-internal (`I`), and outside a token (`O`). This representation comes from
+In the tagger version `experimental_char_tagger_tokenizer`, the tagging problem
+is represented internally with character-level tags for token start (`T`),
+token internal (`I`), and outside a token (`O`). This representation comes from
 [Elephant: Sequence Labeling for Word and Sentence
-Segmentation](https://aclanthology.org/D13-1146/).
+Segmentation](https://aclanthology.org/D13-1146/) (Evang et al., 2013).
 
 ```none
 This is a sentence.
@@ -99,6 +99,8 @@ sentence and the component predicts both token and sentence boundaries.
 This is a sentence.
 SIIIOTIOTOTIIIIIIIT
 ```
+
+A config excerpt for `experimental_char_tagger_tokenizer`:
 
 ```ini
 [nlp]
@@ -159,6 +161,8 @@ c	I-TOKEN
 e	I-TOKEN
 .	B-TOKEN
 ```
+
+A config excerpt for `experimental_char_ner_tokenizer`:
 
 ```ini
 [nlp]
