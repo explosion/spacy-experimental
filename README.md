@@ -222,6 +222,13 @@ None currently.
 - `spacy-experimental.tokenizer_senter_scorer.v1`: Score tokenization and
   sentence segmentation.
 
+## Bug reports and issues
+
+Please report bugs in the [spaCy issue
+tracker](https://github.com/explosion/spaCy/issues) or open a new thread on the
+[discussion board](https://github.com/explosion/spaCy/discussions) for other
+issues.
+
 ## Older documentation
 
 See the READMEs in earlier [tagged
