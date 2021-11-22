@@ -47,7 +47,7 @@ DEFAULT_CHAR_NER_TOKENIZER_MODEL = Config().from_str(default_model_config)["mode
 
 
 @Language.factory(
-    "exp_char_ner_tokenizer",
+    "experimental_char_ner_tokenizer",
     assigns=["token.is_sent_start"],
     default_config={"model": DEFAULT_CHAR_NER_TOKENIZER_MODEL, "scorer": {"@scorers": "spacy-experimental.tokenizer_scorer.v1"}},
     default_score_weights={"token_f": 0.5, "token_p": 0.0, "token_r": 0.0, "token_acc": None},

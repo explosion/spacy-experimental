@@ -32,8 +32,8 @@ Then you can add the experimental components to your config or import from
 `spacy_experimental`:
 
 ```ini
-[components.exp_edit_tree_lemmatizer]
-factory = "exp_edit_tree_lemmatizer"
+[components.experimental_edit_tree_lemmatizer]
+factory = "experimental_edit_tree_lemmatizer"
 ```
 
 ## Components
@@ -41,8 +41,8 @@ factory = "exp_edit_tree_lemmatizer"
 ### Edit tree lemmatizer
 
 ```ini
-[components.exp_edit_tree_lemmatizer]
-factory = "exp_edit_tree_lemmatizer"
+[components.experimental_edit_tree_lemmatizer]
+factory = "experimental_edit_tree_lemmatizer"
 # token attr to use as backoff with the predicted trees are not applicable; null to leave unset
 backoff = "orth"
 # prune trees that are applied less than this frequency in the training data
@@ -81,7 +81,7 @@ respectively in the process of retokenizing.
 
 #### Character-based tagger tokenizer
 
-In the tagger version `exp_char_tagger_tokenizer`, the tagging problem is
+In the tagger version `experimental_char_tagger_tokenizer`, the tagging problem is
 represented internally with character-level tags for token start (`T`), token
 internal (`I`), and outside a token (`O`). This representation comes from
 [Elephant: Sequence Labeling for Word and Sentence
@@ -102,31 +102,31 @@ SIIIOTIOTOTIIIIIIIT
 
 ```ini
 [nlp]
-pipeline = ["exp_char_tagger_tokenizer"]
+pipeline = ["experimental_char_tagger_tokenizer"]
 tokenizer = {"@tokenizers":"spacy-experimental.char_pretokenizer.v1"}
 
 [components]
 
-[components.exp_char_tagger_tokenizer]
-factory = "exp_char_tagger_tokenizer"
+[components.experimental_char_tagger_tokenizer]
+factory = "experimental_char_tagger_tokenizer"
 annotate_sents = true
 scorer = {"@scorers":"spacy-experimental.tokenizer_senter_scorer.v1"}
 
-[components.exp_char_tagger_tokenizer.model]
+[components.experimental_char_tagger_tokenizer.model]
 @architectures = "spacy.Tagger.v1"
 nO = null
 
-[components.exp_char_tagger_tokenizer.model.tok2vec]
+[components.experimental_char_tagger_tokenizer.model.tok2vec]
 @architectures = "spacy.Tok2Vec.v2"
 
-[components.exp_char_tagger_tokenizer.model.tok2vec.embed]
+[components.experimental_char_tagger_tokenizer.model.tok2vec.embed]
 @architectures = "spacy.MultiHashEmbed.v2"
 width = 128
 attrs = ["ORTH","LOWER","IS_DIGIT","IS_ALPHA","IS_SPACE","IS_PUNCT"]
 rows = [1000,500,50,50,50,50]
 include_static_vectors = false
 
-[components.exp_char_tagger_tokenizer.model.tok2vec.encode]
+[components.experimental_char_tagger_tokenizer.model.tok2vec.encode]
 @architectures = "spacy.MaxoutWindowEncoder.v2"
 width = 128
 depth = 4
@@ -162,16 +162,16 @@ e	I-TOKEN
 
 ```ini
 [nlp]
-pipeline = ["exp_char_ner_tokenizer"]
+pipeline = ["experimental_char_ner_tokenizer"]
 tokenizer = {"@tokenizers":"spacy-experimental.char_pretokenizer.v1"}
 
 [components]
 
-[components.exp_char_ner_tokenizer]
-factory = "exp_char_ner_tokenizer"
+[components.experimental_char_ner_tokenizer]
+factory = "experimental_char_ner_tokenizer"
 scorer = {"@scorers":"spacy-experimental.tokenizer_scorer.v1"}
 
-[components.exp_char_ner_tokenizer.model]
+[components.experimental_char_ner_tokenizer.model]
 @architectures = "spacy.TransitionBasedParser.v2"
 state_type = "ner"
 extra_state_tokens = false
@@ -180,17 +180,17 @@ maxout_pieces = 2
 use_upper = true
 nO = null
 
-[components.exp_char_ner_tokenizer.model.tok2vec]
+[components.experimental_char_ner_tokenizer.model.tok2vec]
 @architectures = "spacy.Tok2Vec.v2"
 
-[components.exp_char_ner_tokenizer.model.tok2vec.embed]
+[components.experimental_char_ner_tokenizer.model.tok2vec.embed]
 @architectures = "spacy.MultiHashEmbed.v2"
 width = 128
 attrs = ["ORTH","LOWER","IS_DIGIT","IS_ALPHA","IS_SPACE","IS_PUNCT"]
 rows = [1000,500,50,50,50,50]
 include_static_vectors = false
 
-[components.exp_char_ner_tokenizer.model.tok2vec.encode]
+[components.experimental_char_ner_tokenizer.model.tok2vec.encode]
 @architectures = "spacy.MaxoutWindowEncoder.v2"
 width = 128
 depth = 4

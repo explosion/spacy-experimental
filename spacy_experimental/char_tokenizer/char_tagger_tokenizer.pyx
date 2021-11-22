@@ -42,7 +42,7 @@ DEFAULT_CHAR_TAGGER_TOKENIZER_MODEL = Config().from_str(default_model_config)["m
 
 
 @Language.factory(
-    "exp_char_tagger_tokenizer",
+    "experimental_char_tagger_tokenizer",
     assigns=[],
     default_config={"model": DEFAULT_CHAR_TAGGER_TOKENIZER_MODEL, "annotate_sents": True, "scorer": {"@scorers": "spacy-experimental.tokenizer_senter_scorer.v1"}},
     default_score_weights={"token_f": 0.5, "token_p": 0.0, "token_r": 0.0, "token_acc": None, "sents_f": 1.0, "sents_p": 0.0, "sents_r": 0.0},

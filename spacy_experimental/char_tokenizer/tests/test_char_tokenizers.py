@@ -4,7 +4,7 @@ from spacy import util
 from spacy.training import Example
 
 
-@pytest.mark.parametrize("pipe_name", ["exp_char_tagger_tokenizer", "exp_char_ner_tokenizer"])
+@pytest.mark.parametrize("pipe_name", ["experimental_char_tagger_tokenizer", "experimental_char_ner_tokenizer"])
 def test_char_tokenizer_overfitting(pipe_name):
     # learn the default English tokenization
     texts = [
