@@ -2,6 +2,7 @@ from setuptools import setup, Extension, find_packages
 from distutils.command.build_ext import build_ext
 from Cython.Build import cythonize
 from Cython.Compiler import Options
+import numpy
 
 
 # Preserve `__doc__` on functions and classes
@@ -49,7 +50,21 @@ def setup_package():
             language="c++",
             include_dirs=[],
             extra_compile_args=["-std=c++11"],
-        )
+        ),
+                Extension(
+            "spacy_experimental.char_tokenizer.char_tagger_tokenizer",
+            ["spacy_experimental/char_tokenizer/char_tagger_tokenizer.pyx"],
+            language="c++",
+            include_dirs=[numpy.get_include()],
+            extra_compile_args=["-std=c++11"],
+        ),
+        Extension(
+            "spacy_experimental.char_tokenizer.char_ner_tokenizer",
+            ["spacy_experimental/char_tokenizer/char_ner_tokenizer.pyx"],
+            language="c++",
+            include_dirs=[numpy.get_include()],
+            extra_compile_args=["-std=c++11"],
+        ),
     ]
 
     ext_modules = cythonize(ext_modules, compiler_directives=COMPILER_DIRECTIVES)

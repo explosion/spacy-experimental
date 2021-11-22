@@ -54,6 +54,153 @@ scorer = {"@scorers":"spacy.lemmatizer_scorer.v1"}
 top_k = 1
 ```
 
+### Trainable character-based tokenizers
+
+Two trainable tokenizers represent tokenization as a sequence tagging problem
+over individual characters and use the existing spaCy tagger and NER
+architectures to perform the tagging.
+
+In the spaCy pipeline, a simple "pretokenizer" is applied as the pipeline
+tokenizer to splits each doc into individual characters and the trainable
+tokenizer is a pipeline component that retokenizes the doc. The pretokenizer
+needs to be configured manually in the config or with `spacy.blank()`:
+
+```python
+nlp = spacy.blank(
+    "en",
+    config={
+        "nlp": {
+            "tokenizer": {"@tokenizers": "spacy-experimental.char_pretokenizer.v1"}
+        }
+    },
+)
+```
+
+The two tokenizers currently reset any existing tag or entity annotation
+respectively in the process of retokenizing.
+
+#### Character-based tagger tokenizer
+
+In the tagger version `exp_char_tagger_tokenizer`, the tagging problem is
+represented internally with character-level tags for token start (`T`), token
+internal (`I`), and outside a token (`O`). This representation comes from
+[Elephant: Sequence Labeling for Word and Sentence
+Segmentation](https://aclanthology.org/D13-1146/).
+
+```none
+This is a sentence.
+TIIIOTIOTOTIIIIIIIT
+```
+
+With the option `annotate_sents`, `S` replaces `T` for the first token in each
+sentence and the component predicts both token and sentence boundaries.
+
+```none
+This is a sentence.
+SIIIOTIOTOTIIIIIIIT
+```
+
+```ini
+[nlp]
+pipeline = ["exp_char_tagger_tokenizer"]
+tokenizer = {"@tokenizers":"spacy-experimental.char_pretokenizer.v1"}
+
+[components]
+
+[components.exp_char_tagger_tokenizer]
+factory = "exp_char_tagger_tokenizer"
+annotate_sents = true
+scorer = {"@scorers":"spacy-experimental.tokenizer_senter_scorer.v1"}
+
+[components.exp_char_tagger_tokenizer.model]
+@architectures = "spacy.Tagger.v1"
+nO = null
+
+[components.exp_char_tagger_tokenizer.model.tok2vec]
+@architectures = "spacy.Tok2Vec.v2"
+
+[components.exp_char_tagger_tokenizer.model.tok2vec.embed]
+@architectures = "spacy.MultiHashEmbed.v2"
+width = 128
+attrs = ["ORTH","LOWER","IS_DIGIT","IS_ALPHA","IS_SPACE","IS_PUNCT"]
+rows = [1000,500,50,50,50,50]
+include_static_vectors = false
+
+[components.exp_char_tagger_tokenizer.model.tok2vec.encode]
+@architectures = "spacy.MaxoutWindowEncoder.v2"
+width = 128
+depth = 4
+window_size = 4
+maxout_pieces = 2
+```
+
+#### Character-based NER tokenizer
+
+In the NER version, each character in a token is part of an entity:
+
+```none
+T	B-TOKEN
+h	I-TOKEN
+i	I-TOKEN
+s	I-TOKEN
+ 	O
+i	B-TOKEN
+s	I-TOKEN
+	O
+a	B-TOKEN
+ 	O
+s	B-TOKEN
+e	I-TOKEN
+n	I-TOKEN
+t	I-TOKEN
+e	I-TOKEN
+n	I-TOKEN
+c	I-TOKEN
+e	I-TOKEN
+.	B-TOKEN
+```
+
+```ini
+[nlp]
+pipeline = ["exp_char_ner_tokenizer"]
+tokenizer = {"@tokenizers":"spacy-experimental.char_pretokenizer.v1"}
+
+[components]
+
+[components.exp_char_ner_tokenizer]
+factory = "exp_char_ner_tokenizer"
+scorer = {"@scorers":"spacy-experimental.tokenizer_scorer.v1"}
+
+[components.exp_char_ner_tokenizer.model]
+@architectures = "spacy.TransitionBasedParser.v2"
+state_type = "ner"
+extra_state_tokens = false
+hidden_width = 64
+maxout_pieces = 2
+use_upper = true
+nO = null
+
+[components.exp_char_ner_tokenizer.model.tok2vec]
+@architectures = "spacy.Tok2Vec.v2"
+
+[components.exp_char_ner_tokenizer.model.tok2vec.embed]
+@architectures = "spacy.MultiHashEmbed.v2"
+width = 128
+attrs = ["ORTH","LOWER","IS_DIGIT","IS_ALPHA","IS_SPACE","IS_PUNCT"]
+rows = [1000,500,50,50,50,50]
+include_static_vectors = false
+
+[components.exp_char_ner_tokenizer.model.tok2vec.encode]
+@architectures = "spacy.MaxoutWindowEncoder.v2"
+width = 128
+depth = 4
+window_size = 4
+maxout_pieces = 2
+```
+
+The NER version does not currently support sentence boundaries, but it would be
+easy to extend using a `B-SENT` entity type.
+
 ## Architectures
 
 None currently.
