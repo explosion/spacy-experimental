@@ -87,6 +87,7 @@ class ArcPredicter(TrainablePipe):
         offset = 0
         for eg in examples:
             aligned_heads, _ = eg.get_aligned_parse(projectivize=False)
+            # TODO: what if eg.predicted doesn't contain sents? (raise error?)
             for sent in eg.predicted.sents:
                 for token in sent:
                     gold_head = aligned_heads[token.i]

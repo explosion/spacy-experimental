@@ -204,6 +204,7 @@ class ArcLabeler(TrainablePipe):
 
         docs = [eg.predicted for eg in examples]
 
+        # TODO: train from the predicted heads instead - or at least make this an option
         gold_heads = heads_gold(examples, self.model.ops)
 
         scores, backprop_scores = self.model.begin_update((docs, gold_heads))
