@@ -42,6 +42,24 @@ def test_initialize_examples():
         nlp.initialize(get_examples=train_examples)
 
 
+def test_initialize_from_labels():
+    nlp = Language()
+    lemmatizer = nlp.add_pipe("experimental_edit_tree_lemmatizer")
+    lemmatizer.min_tree_freq = 1
+    train_examples = []
+    for t in TRAIN_DATA:
+        train_examples.append(Example.from_dict(nlp.make_doc(t[0]), t[1]))
+    nlp.initialize(get_examples=lambda: train_examples)
+
+    nlp2 = Language()
+    lemmatizer2 = nlp2.add_pipe("experimental_edit_tree_lemmatizer")
+    lemmatizer2.initialize(
+        get_examples=lambda: train_examples,
+        labels=lemmatizer.label_data,
+    )
+    assert lemmatizer2.tree2label == {1: 0, 3: 1, 4: 2, 6: 3}
+
+
 def test_no_data():
     # Test that the lemmatizer provides a nice error when there's no tagging data / labels
     TEXTCAT_DATA = [

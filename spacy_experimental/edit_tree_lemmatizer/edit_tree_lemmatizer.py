@@ -245,7 +245,10 @@ class EditTreeLemmatizer(TrainablePipe):
                     gold_label = self._pair2label(token.text, token.lemma_)
 
                 gold_labels.append(
-                    [1.0 if label == gold_label else 0.0 for label in self.cfg["labels"]]
+                    [
+                        1.0 if label == gold_label else 0.0
+                        for label in self.cfg["labels"]
+                    ]
                 )
 
             label_sample.append(self.model.ops.asarray(gold_labels, dtype="float32"))
@@ -324,6 +327,9 @@ class EditTreeLemmatizer(TrainablePipe):
                 subst_node["subst"] = self.vocab.strings[subst_node["subst"]]
 
         self.trees.from_json(trees)
+
+        for label, tree in enumerate(self.labels):
+            self.tree2label[tree] = label
 
     def _labels_from_data(self, get_examples: Callable[[], Iterable[Example]]):
         # Count corpus tree frequencies in ad-hoc storage to avoid cluttering
