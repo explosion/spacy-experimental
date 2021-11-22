@@ -38,6 +38,11 @@ jobs:
   - script: pip install dist/*.tar.gz
     displayName: 'Install from sdist'
 
+  - task: DeleteFiles@1
+    inputs:
+      contents: "spacy_experimental"
+    displayName: "Delete source directory"
+
   - script: |
       pip install -r requirements.txt
       python -m pytest --pyargs spacy_experimental
