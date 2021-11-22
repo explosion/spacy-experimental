@@ -6,7 +6,7 @@ This package includes experimental components and features for
 [spaCy](https://spacy.io) v3.x, for example model architectures, pipeline
 components and utilities.
 
-[![Azure Pipelines](https://img.shields.io/azure-devops/build/explosion-ai/public/21/master.svg?logo=azure-pipelines&style=flat-square&label=build)](https://dev.azure.com/explosion-ai/public/_build?definitionId=21)
+[![Azure Pipelines](https://img.shields.io/azure-devops/build/explosion-ai/public/21/master.svg?logo=azure-pipelines&style=flat-square&label=build)](https://dev.azure.com/explosion-ai/public/_build?definitionId=26)
 [![pypi Version](https://img.shields.io/pypi/v/spacy-experimental.svg?style=flat-square&logo=pypi&logoColor=white)](https://pypi.org/project/spacy-experimental/)
 
 ## Installation
