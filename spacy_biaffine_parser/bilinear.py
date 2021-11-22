@@ -2,8 +2,7 @@ from typing import List, Optional, Tuple, cast
 
 from spacy import registry
 from spacy.tokens.doc import Doc
-from thinc.api import Model, PyTorchWrapper_v2
-from thinc.api import chain, get_width, list2array, torch2xp
+from thinc.api import Model, chain, get_width, list2array, torch2xp
 from thinc.api import with_getitem, xp2torch
 from thinc.shims.pytorch_grad_scaler import PyTorchGradScaler
 from thinc.types import ArgsKwargs, Floats2d, Ints1d
@@ -67,8 +66,9 @@ def bilinear_init(model: Model, X=None, Y=None):
     mixed_precision = model.attrs["mixed_precision"]
     grad_scaler = model.attrs["grad_scaler"]
 
+    PyTorchWrapper = registry.get("layers", "PyTorchWrapper.v2")
     model._layers = [
-        PyTorchWrapper_v2(
+        PyTorchWrapper(
             PyTorchBilinearModel(
                 model.get_dim("nI"),
                 model.get_dim("nO"),
