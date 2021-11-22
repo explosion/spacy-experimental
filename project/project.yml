@@ -7,7 +7,7 @@ vars:
   dev_name: "nl_alpino-ud-dev"
   test_name: "nl_alpino-ud-test"
   transformer_model: "xlm-roberta-base"
-  gpu: -1
+  gpu: 0
 
 directories: ["configs", "assets", "corpus", "training"]
 
