@@ -32,8 +32,8 @@ Then you can add the experimental components to your config or import from
 `spacy_experimental`:
 
 ```ini
-[components.edit_tree_lemmatizer]
-factory = "edit_tree_lemmatizer"
+[components.exp_edit_tree_lemmatizer]
+factory = "exp_edit_tree_lemmatizer"
 ```
 
 ## Components
@@ -41,8 +41,8 @@ factory = "edit_tree_lemmatizer"
 ### Edit tree lemmatizer
 
 ```ini
-[components.edit_tree_lemmatizer]
-factory = "edit_tree_lemmatizer"
+[components.exp_edit_tree_lemmatizer]
+factory = "exp_edit_tree_lemmatizer"
 # token attr to use as backoff with the predicted trees are not applicable; null to leave unset
 backoff = "orth"
 # prune trees that are applied less than this frequency in the training data
