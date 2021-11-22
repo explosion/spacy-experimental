@@ -308,7 +308,7 @@ def heads_gold(examples: Iterable[Example], ops: Ops) -> Ints1d:
         aligned_heads, _ = eg.get_aligned_parse(projectivize=False)
         eg_offset = len(heads)
         for idx, head in enumerate(aligned_heads):
-            if head == None:
+            if head is None:
                 heads.append(eg_offset + idx)
             else:
                 heads.append(eg_offset + head)
@@ -321,7 +321,7 @@ def heads_predicted(docs: Iterable[Doc], ops: Ops) -> Ints1d:
         doc_offset = len(heads)
         for idx, token in enumerate(doc):
             # FIXME: we should always get a head in prediction, make error?
-            if token.head == None:
+            if token.head is None:
                 heads.append(doc_offset + idx)
             else:
                 heads.append(doc_offset + token.head.i)

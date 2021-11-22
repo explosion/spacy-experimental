@@ -61,7 +61,7 @@ commands:
       - "training/${vars.treebank}/model-best"
 
   - name: "evaluate"
-    help: "Evaluate the parser model evaluate on the test corpus."
+    help: "Evaluate the parser model on the test corpus."
     script:
       - "python -m spacy evaluate training/${vars.treebank}/model-best corpus/${vars.treebank}/test.spacy"
     deps:

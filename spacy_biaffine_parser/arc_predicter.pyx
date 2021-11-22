@@ -93,7 +93,7 @@ class ArcPredicter(TrainablePipe):
                     if gold_head is not None:
                         # We only use the loss for token for which the correct head
                         # lies within the sentence boundaries.
-                        if gold_head >= sent.start and gold_head < sent.end:
+                        if sent.start <= gold_head < sent.end:
                             gold_head_idx = gold_head - sent.start
                             target[offset, gold_head_idx] = 1.0
                             mask[offset] = 1
@@ -112,7 +112,7 @@ class ArcPredicter(TrainablePipe):
     def initialize(
         self, get_examples: Callable[[], Iterable[Example]], *, nlp: Language = None
     ):
-        validate_get_examples(get_examples, "BiaffineParser.initialize")
+        validate_get_examples(get_examples, "ArcPredicter.initialize")
 
         doc_sample = []
         for example in islice(get_examples(), 10):
@@ -202,7 +202,7 @@ class ArcPredicter(TrainablePipe):
         if losses is None:
             losses = {}
         losses.setdefault(self.name, 0.0)
-        validate_examples(examples, "BiaffineParser.update")
+        validate_examples(examples, "ArcPredicter.update")
 
         if not any(len(eg.predicted) if eg.predicted else 0 for eg in examples):
             # Handle cases where there are no tokens in any docs.
