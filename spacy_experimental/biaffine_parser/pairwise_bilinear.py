@@ -5,15 +5,17 @@ from spacy.tokens.doc import Doc
 from thinc.api import Model, chain, get_width, list2array, torch2xp
 from thinc.api import with_getitem, xp2torch
 from thinc.shims.pytorch_grad_scaler import PyTorchGradScaler
-from thinc.types import ArgsKwargs, Floats2d, Ints1d
+from thinc.types import ArgsKwargs, Floats2d, Floats3d, Floats4d, Ints1d
 
-from .pytorch_bilinear import BilinearModel as PyTorchBilinearModel
+from .pytorch_pairwise_bilinear import (
+    PairwiseBilinearModel as PyTorchPairwiseBilinearModel,
+)
 
 
-@registry.architectures("Bilinear.v1")
-def build_bilinear(
+@registry.architectures("spacy-experimental.PairwiseBilinear.v1")
+def build_pairwise_bilinear(
     tok2vec: Model[List[Doc], List[Floats2d]],
-    nO: Optional[int] = None,
+    nO=None,
     *,
     dropout: float = 0.1,
     hidden_width: int = 128,
@@ -24,10 +26,10 @@ def build_bilinear(
     if tok2vec.has_dim("nO") is True:
         nI = tok2vec.get_dim("nO")
 
-    bilinear: Model[Tuple[Floats2d, Ints1d], Floats2d] = Model(
-        "bilinear",
-        forward=bilinear_forward,
-        init=bilinear_init,
+    pairwise_bilinear: Model[Tuple[Floats2d, Ints1d], Floats2d] = Model(
+        "pairwise_bilinear",
+        forward=pairswise_bilinear_forward,
+        init=pairwise_bilinear_init,
         dims={"nI": nI, "nO": nO},
         attrs={
             # We currently do not update dropout when dropout_rate is
@@ -46,14 +48,14 @@ def build_bilinear(
                 0, chain(tok2vec, cast(Model[List[Floats2d], Floats2d], list2array()))
             ),
         ),
-        bilinear,
+        pairwise_bilinear,
     )
-    model.set_ref("bilinear", bilinear)
+    model.set_ref("pairwise_bilinear", pairwise_bilinear)
 
     return model
 
 
-def bilinear_init(model: Model, X=None, Y=None):
+def pairwise_bilinear_init(model: Model, X=None, Y=None):
     if model.layers:
         return
 
@@ -69,7 +71,7 @@ def bilinear_init(model: Model, X=None, Y=None):
     PyTorchWrapper = registry.get("layers", "PyTorchWrapper.v2")
     model._layers = [
         PyTorchWrapper(
-            PyTorchBilinearModel(
+            PyTorchPairwiseBilinearModel(
                 model.get_dim("nI"),
                 model.get_dim("nO"),
                 dropout=model.attrs["dropout_rate"],
@@ -83,37 +85,48 @@ def bilinear_init(model: Model, X=None, Y=None):
     ]
 
 
-def bilinear_forward(model: Model, X, is_train: bool):
+def pairswise_bilinear_forward(model: Model, X, is_train: bool):
     return model.layers[0](X, is_train)
 
 
 def convert_inputs(
-    model: Model, X_heads: Tuple[Floats2d, Ints1d], is_train: bool = False
+    model: Model, X_lenghts: Tuple[Floats2d, Ints1d], is_train: bool = False
 ):
-    X, H = X_heads
+    flatten = model.ops.flatten
+    unflatten = model.ops.unflatten
+    pad = model.ops.pad
+    unpad = model.ops.unpad
 
-    Xt = xp2torch(X, requires_grad=is_train)
-    Ht = xp2torch(H)
+    X, L = X_lenghts
+
+    Xt = xp2torch(pad(unflatten(X, L)), requires_grad=is_train)
+    Lt = xp2torch(L)
 
     def convert_from_torch_backward(d_inputs: ArgsKwargs) -> Tuple[Floats2d, Ints1d]:
-        dX = cast(Floats2d, torch2xp(d_inputs.args[0]))
-        return dX, H
+        dX = cast(Floats3d, torch2xp(d_inputs.args[0]))
+        return cast(Floats2d, flatten(unpad(dX, list(L)))), L
 
-    output = ArgsKwargs(args=(Xt, Ht), kwargs={})
+    output = ArgsKwargs(args=(Xt, Lt), kwargs={})
 
     return output, convert_from_torch_backward
 
 
 def convert_outputs(model, inputs_outputs, is_train):
-    _, Y_t = inputs_outputs
+    flatten = model.ops.flatten
+    unflatten = model.ops.unflatten
+    pad = model.ops.pad
+    unpad = model.ops.unpad
 
-    def convert_for_torch_backward(dY: Floats2d) -> ArgsKwargs:
-        dY_t = xp2torch(dY)
+    (_, lengths), Y_t = inputs_outputs
+
+    def convert_for_torch_backward(dY: Tuple[Floats2d, Floats3d]) -> ArgsKwargs:
+        dY_t = xp2torch(pad(unflatten(dY, lengths)))
         return ArgsKwargs(
             args=([Y_t],),
             kwargs={"grad_tensors": [dY_t]},
         )
 
-    Y = cast(Floats2d, torch2xp(Y_t))
+    Y = cast(Floats4d, torch2xp(Y_t))
+    Y = flatten(unpad(Y, lengths))
 
     return Y, convert_for_torch_backward

@@ -2,7 +2,7 @@
 
 from itertools import islice
 import numpy as np
-from typing import Callable, Dict, Iterable, Optional
+from typing import Callable, Dict, Iterable, List, Optional
 import spacy
 from spacy import Language, Vocab
 from spacy.errors import Errors
@@ -17,11 +17,14 @@ from thinc.api import to_numpy
 from thinc.types import Floats2d, Ints1d, Tuple
 
 from .eval import parser_score
+from .mst import mst_decode
+
 
 default_model_config = """
 [model]
-@architectures = "Bilinear.v1"
+@architectures = "spacy-experimental.PairwiseBilinear.v1"
 hidden_width = 64
+nO = 1
 
 [model.tok2vec]
 @architectures = "spacy.HashEmbedCNN.v2"
@@ -33,31 +36,31 @@ window_size = 1
 maxout_pieces = 3
 subword_features = true
 """
-DEFAULT_ARC_LABELER_MODEL = Config().from_str(default_model_config)["model"]
+DEFAULT_ARC_PREDICTER_MODEL = Config().from_str(default_model_config)["model"]
 
 @Language.factory(
-    "arc_labeler",
-    assigns=["token.dep"],
+    "experimental_arc_predicter",
+    assigns=["token.head"],
     default_config={
-        "model": DEFAULT_ARC_LABELER_MODEL,
+        "model": DEFAULT_ARC_PREDICTER_MODEL,
         "scorer": {"@scorers": "biaffine.parser_scorer.v1"}
     },
 )
-def make_arc_labeler(
+def make_arc_predicter(
     nlp: Language,
     name: str,
     model: Model,
     scorer: Optional[Callable],
 ):
-    return ArcLabeler(nlp.vocab, model, name, scorer=scorer)
+    return ArcPredicter(nlp.vocab, model, name, scorer=scorer)
 
 
-class ArcLabeler(TrainablePipe):
+class ArcPredicter(TrainablePipe):
     def __init__(
         self,
         vocab: Vocab,
         model: Model,
-        name: str = "arc_labeler",
+        name: str = "arc_predicter",
         *,
         overwrite=False,
         scorer=parser_score
@@ -68,10 +71,9 @@ class ArcLabeler(TrainablePipe):
         cfg = {"labels": [], "overwrite": overwrite}
         self.cfg = dict(sorted(cfg.items()))
         self.scorer = scorer
-        self._label_to_i = None
 
     def get_loss(self, examples: Iterable[Example], scores) -> Tuple[float, Floats2d]:
-        validate_examples(examples, "ArcLabeler.get_loss")
+        validate_examples(examples, "ArcPredicter.get_loss")
 
         def loss_func(guesses, target, mask):
             d_scores = guesses - target
@@ -84,18 +86,20 @@ class ArcLabeler(TrainablePipe):
 
         offset = 0
         for eg in examples:
-            aligned_heads, aligned_labels = eg.get_aligned_parse(projectivize=False)
-            for token in eg.predicted:
-                gold_head = aligned_heads[token.i]
-                gold_label = aligned_labels[token.i]
+            aligned_heads, _ = eg.get_aligned_parse(projectivize=False)
+            # TODO: what if eg.predicted doesn't contain sents? (raise error?)
+            for sent in eg.predicted.sents:
+                for token in sent:
+                    gold_head = aligned_heads[token.i]
+                    if gold_head is not None:
+                        # We only use the loss for token for which the correct head
+                        # lies within the sentence boundaries.
+                        if sent.start <= gold_head < sent.end:
+                            gold_head_idx = gold_head - sent.start
+                            target[offset, gold_head_idx] = 1.0
+                            mask[offset] = 1
 
-                # Do not learn from misaligned tokens, since we could no use
-                # their correct head representations.
-                if gold_head is not None and gold_label is not None:
-                    target[offset, self._label_to_i[gold_label]] = 1.0
-                    mask[offset] = 1.0
-
-                offset += 1
+                    offset += 1
 
         assert offset == target.shape[0]
 
@@ -109,39 +113,22 @@ class ArcLabeler(TrainablePipe):
     def initialize(
         self, get_examples: Callable[[], Iterable[Example]], *, nlp: Language = None
     ):
-        validate_get_examples(get_examples, "ArcLabeler.initialize")
-
-        labels = set()
-        for example in get_examples():
-            for token in example.reference:
-                if token.dep != 0:
-                    labels.add(token.dep_)
-        for label in sorted(labels):
-            self.add_label(label)
-        self._label_to_i = {label: i for i, label in enumerate(self.labels)}
+        validate_get_examples(get_examples, "ArcPredicter.initialize")
 
         doc_sample = []
-        label_sample = []
-        examples = list(islice(get_examples(), 10))
-        for example in examples:
+        for example in islice(get_examples(), 10):
             doc_sample.append(example.predicted)
-            gold_labels = example.get_aligned("DEP", as_string=True)
-            gold_array = [[1.0 if tag == gold_tag else 0.0 for tag in self.labels] for gold_tag in gold_labels]
-            label_sample.append(self.model.ops.asarray(gold_array, dtype="float32"))
 
-        heads_sample = heads_gold(examples, self.model.ops)
-        self.model.initialize(X=(doc_sample, heads_sample), Y=label_sample)
+        # For initialization, we don't need correct sentence boundaries.
+        lengths_sample = self.model.ops.asarray1i([len(doc) for doc in doc_sample])
+        self.model.initialize(X=(doc_sample, lengths_sample))
 
         # Store the input dimensionality. nI and nO are not stored explicitly
         # for PyTorch models. This makes it tricky to reconstruct the model
         # during deserialization. So, besides storing the labels, we also
         # store the number of inputs.
-        bilinear = self.model.get_ref("bilinear")
-        self.cfg["nI"] = bilinear.get_dim("nI")
-
-    @property
-    def labels(self):
-        return tuple(self.cfg["labels"])
+        pairwise_bilinear = self.model.get_ref("pairwise_bilinear")
+        self.cfg["nI"] = pairwise_bilinear.get_dim("nI")
 
     def pipe(self, docs, *, int batch_size=128):
         cdef Doc doc
@@ -160,21 +147,43 @@ class ArcLabeler(TrainablePipe):
 
     def predict(self, docs: Iterable[Doc]):
         docs = list(docs)
-        heads = heads_predicted(docs, self.model.ops)
-        scores = self.model.predict((docs, heads))
-        return to_numpy(scores.argmax(-1))
+        lens = sents2lens(docs, ops=self.model.ops)
+        scores = self.model.predict((docs, lens))
 
-    def set_annotations(self, docs: Iterable[Doc], predictions):
+        lens = to_numpy(lens)
+        scores = to_numpy(scores)
+
+        heads = []
+        sent_offset = 0
+        for doc in docs:
+            doc_heads = []
+            for sent in doc.sents:
+                sent_heads = mst_decode(scores[sent_offset:sent_offset + lens[0], :lens[0]])
+                doc_heads.append(sent_heads)
+
+                sent_offset += lens[0]
+                lens = lens[1:]
+
+            heads.append(doc_heads)
+
+        assert len(lens) == 0
+        assert sent_offset == scores.shape[0]
+
+        return heads
+
+    def set_annotations(self, docs: Iterable[Doc], heads):
         cdef Doc doc
         cdef Token token
 
-        offset = 0
-        for doc in docs:
-            for sent in doc.sents:
-                for token in sent:
-                    label = self.cfg["labels"][predictions[offset]]
-                    doc.c[token.i].dep = self.vocab.strings[label]
-                    offset += 1
+        for (doc, doc_heads) in zip(docs, heads):
+            for (sent, sent_heads) in zip(doc.sents, doc_heads):
+                for i, head in enumerate(sent_heads):
+                    dep_i = sent.start + i
+                    head_i = sent.start + head
+                    doc.c[dep_i].head = head_i - dep_i
+                    # FIXME: Set the dependency relation to a stub, so that
+                    # we can evaluate UAS.
+                    doc.c[dep_i].dep = self.vocab.strings['dep']
 
             for i in range(doc.length):
                 if doc.c[i].head == 0:
@@ -182,8 +191,6 @@ class ArcLabeler(TrainablePipe):
 
             # FIXME: we should enable this, but clears sentence boundaries
             # set_children_from_heads(doc.c, 0, doc.length)
-
-        assert offset == predictions.shape[0]
 
     def update(
         self,
@@ -196,7 +203,7 @@ class ArcLabeler(TrainablePipe):
         if losses is None:
             losses = {}
         losses.setdefault(self.name, 0.0)
-        validate_examples(examples, "ArcLabeler.update")
+        validate_examples(examples, "ArcPredicter.update")
 
         if not any(len(eg.predicted) if eg.predicted else 0 for eg in examples):
             # Handle cases where there are no tokens in any docs.
@@ -204,10 +211,11 @@ class ArcLabeler(TrainablePipe):
 
         docs = [eg.predicted for eg in examples]
 
-        # TODO: train from the predicted heads instead - or at least make this an option
-        gold_heads = heads_gold(examples, self.model.ops)
+        lens = sents2lens(docs, ops=self.model.ops)
+        if lens.sum() == 0:
+            return losses
 
-        scores, backprop_scores = self.model.begin_update((docs, gold_heads))
+        scores, backprop_scores = self.model.begin_update((docs, lens))
         loss, d_scores = self.get_loss(examples, scores)
         backprop_scores(d_scores)
 
@@ -216,22 +224,6 @@ class ArcLabeler(TrainablePipe):
         losses[self.name] += loss
 
         return losses
-
-    def add_label(self, label):
-        """Add a new label to the pipe.
-
-        label (str): The label to add.
-        RETURNS (int): 0 if label is already present, otherwise 1.
-
-        DOCS: https://spacy.io/api/tagger#add_label
-        """
-        if not isinstance(label, str):
-            raise ValueError(Errors.E187)
-        if label in self.labels:
-            return 0
-        self.cfg["labels"].append(label)
-        self.vocab.strings.add(label)
-        return 1
 
     def from_bytes(self, bytes_data, *, exclude=tuple()):
         deserializers = {
@@ -291,40 +283,20 @@ class ArcLabeler(TrainablePipe):
         return self
 
     def _initialize_from_disk(self):
-        self._label_to_i = {label: i for i, label in enumerate(self.labels)}
+        # We are lazily initializing the PyTorch model. If a PyTorch transformer
+        # is used, which is also lazily initialized, then the model did not have
+        # the chance yet to get its input shape.
+        pairwise_bilinear = self.model.get_ref("pairwise_bilinear")
+        if pairwise_bilinear.has_dim("nI") is None:
+            pairwise_bilinear.set_dim("nI", self.cfg["nI"])
 
-        # The PyTorch model is constructed lazily, so we need to
-        # explicitly initialize the model before deserialization.
-        bilinear = self.model.get_ref("bilinear")
-        if bilinear.has_dim("nI") is None:
-            bilinear.set_dim("nI", self.cfg["nI"])
-        if bilinear.has_dim("nO") is None:
-            bilinear.set_dim("nO", len(self.labels))
         self.model.initialize()
 
-
-def heads_gold(examples: Iterable[Example], ops: Ops) -> Ints1d:
-    heads = []
-    for eg in examples:
-        aligned_heads, _ = eg.get_aligned_parse(projectivize=False)
-        eg_offset = len(heads)
-        for idx, head in enumerate(aligned_heads):
-            if head is None:
-                heads.append(eg_offset + idx)
-            else:
-                heads.append(eg_offset + head)
-
-    return ops.asarray1i(heads)
-
-def heads_predicted(docs: Iterable[Doc], ops: Ops) -> Ints1d:
-    heads = []
+def sents2lens(docs: List[Doc], *, ops: Ops) -> Ints1d:
+    """Get the lengths of sentences."""
+    lens = []
     for doc in docs:
-        doc_offset = len(heads)
-        for idx, token in enumerate(doc):
-            # FIXME: we should always get a head in prediction, make error?
-            if token.head is None:
-                heads.append(doc_offset + idx)
-            else:
-                heads.append(doc_offset + token.head.i)
+        for sent in doc.sents:
+            lens.append(sent.end - sent.start)
 
-    return ops.asarray1i(heads)
+    return ops.asarray1i(lens)

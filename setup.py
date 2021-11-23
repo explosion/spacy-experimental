@@ -45,13 +45,34 @@ class build_ext_subclass(build_ext, build_ext_options):
 def setup_package():
     ext_modules = [
         Extension(
+            "spacy_experimental.biaffine_parser.arc_predicter",
+            ["spacy_experimental/biaffine_parser/arc_predicter.pyx"],
+            language="c++",
+            include_dirs=[numpy.get_include()],
+            extra_compile_args=["-std=c++11"],
+        ),
+        Extension(
+            "spacy_experimental.biaffine_parser.arc_labeler",
+            ["spacy_experimental/biaffine_parser/arc_labeler.pyx"],
+            language="c++",
+            include_dirs=[numpy.get_include()],
+            extra_compile_args=["-std=c++11"],
+        ),
+        Extension(
+            "spacy_experimental.biaffine_parser.mst",
+            ["spacy_experimental/biaffine_parser/mst.pyx"],
+            language="c++",
+            include_dirs=[numpy.get_include()],
+            extra_compile_args=["-std=c++11"],
+        ),
+        Extension(
             "spacy_experimental.edit_tree_lemmatizer.edit_trees",
             ["spacy_experimental/edit_tree_lemmatizer/edit_trees.pyx"],
             language="c++",
             include_dirs=[],
             extra_compile_args=["-std=c++11"],
         ),
-                Extension(
+        Extension(
             "spacy_experimental.char_tokenizer.char_tagger_tokenizer",
             ["spacy_experimental/char_tokenizer/char_tagger_tokenizer.pyx"],
             language="c++",

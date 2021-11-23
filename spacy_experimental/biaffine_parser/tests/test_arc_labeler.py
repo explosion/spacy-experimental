@@ -4,7 +4,6 @@ from spacy.lang.en import English
 from spacy.language import Language
 from spacy.training import Example
 
-from spacy_biaffine_parser import pairwise_bilinear, arc_predicter
 
 TRAIN_DATA = [
     (
@@ -49,8 +48,7 @@ PARTIAL_DATA = [
 
 def test_initialize_examples():
     nlp = Language()
-    nlp.add_pipe("sentencizer")
-    nlp.add_pipe("arc_predicter")
+    nlp.add_pipe("experimental_arc_labeler")
     train_examples = []
     for t in TRAIN_DATA:
         train_examples.append(Example.from_dict(nlp.make_doc(t[0]), t[1]))
@@ -69,7 +67,8 @@ def test_initialize_examples():
 def test_incomplete_data():
     nlp = English.from_config()
     nlp.add_pipe("sentencizer")
-    nlp.add_pipe("arc_predicter")
+    nlp.add_pipe("experimental_arc_predicter")
+    nlp.add_pipe("experimental_arc_labeler")
     train_examples = []
     for t in PARTIAL_DATA:
         train_examples.append(Example.from_dict(nlp.make_doc(t[0]), t[1]))
@@ -79,20 +78,25 @@ def test_incomplete_data():
     for i in range(150):
         losses = {}
         nlp.update(train_examples, sgd=optimizer, losses=losses, annotates=["sentencizer"])
-    assert losses["arc_predicter"] < 0.00001
+    assert losses["experimental_arc_predicter"] < 0.00001
 
     test_text = "She likes blue eggs"
     doc = nlp(test_text)
     assert doc[0].head == doc[1]
+    assert doc[0].dep_ == "nsubj"
     assert doc[1].head == doc[1]
+    assert doc[1].dep_ == "ROOT"
     assert doc[2].head == doc[3]
+    assert doc[2].dep_ == "amod"
     assert doc[3].head == doc[1]
+    assert doc[3].dep_ == "dobj"
 
 
 def test_overfitting_IO():
     nlp = English.from_config()
     nlp.add_pipe("sentencizer")
-    nlp.add_pipe("arc_predicter")
+    nlp.add_pipe("experimental_arc_predicter")
+    nlp.add_pipe("experimental_arc_labeler")
     train_examples = []
     for t in TRAIN_DATA:
         train_examples.append(Example.from_dict(nlp.make_doc(t[0]), t[1]))
@@ -102,14 +106,18 @@ def test_overfitting_IO():
     for i in range(150):
         losses = {}
         nlp.update(train_examples, sgd=optimizer, losses=losses, annotates=["sentencizer"])
-    assert losses["arc_predicter"] < 0.00001
+    assert losses["experimental_arc_labeler"] < 0.00001
 
     test_text = "She likes blue eggs"
     doc = nlp(test_text)
     assert doc[0].head == doc[1]
+    assert doc[0].dep_ == "nsubj"
     assert doc[1].head == doc[1]
+    assert doc[1].dep_ == "ROOT"
     assert doc[2].head == doc[3]
+    assert doc[2].dep_ == "amod"
     assert doc[3].head == doc[1]
+    assert doc[3].dep_ == "dobj"
 
     # Check model after a {to,from}_disk roundtrip
     with util.make_tempdir() as tmp_dir:
@@ -117,18 +125,27 @@ def test_overfitting_IO():
         nlp2 = util.load_model_from_path(tmp_dir)
         doc2 = nlp2(test_text)
         assert doc2[0].head == doc2[1]
+        assert doc2[0].dep_ == "nsubj"
         assert doc2[1].head == doc2[1]
+        assert doc2[1].dep_ == "ROOT"
         assert doc2[2].head == doc2[3]
+        assert doc2[2].dep_ == "amod"
         assert doc2[3].head == doc2[1]
+        assert doc2[3].dep_ == "dobj"
 
     # Check model after a {to,from}_bytes roundtrip
     nlp_bytes = nlp.to_bytes()
     nlp3 = English()
     nlp3.add_pipe("sentencizer")
-    nlp3.add_pipe("arc_predicter")
+    nlp3.add_pipe("experimental_arc_predicter")
+    nlp3.add_pipe("experimental_arc_labeler")
     nlp3.from_bytes(nlp_bytes)
     doc3 = nlp3(test_text)
     assert doc3[0].head == doc3[1]
+    assert doc3[0].dep_ == "nsubj"
     assert doc3[1].head == doc3[1]
+    assert doc3[1].dep_ == "ROOT"
     assert doc3[2].head == doc3[3]
+    assert doc3[2].dep_ == "amod"
     assert doc3[3].head == doc3[1]
+    assert doc3[3].dep_ == "dobj"

@@ -4,7 +4,7 @@ from hypothesis.strategies import floats, integers
 import numpy as np
 import pytest
 
-from spacy_biaffine_parser.mst import chu_liu_edmonds
+from spacy_experimental.biaffine_parser.mst import chu_liu_edmonds
 
 
 def test_non_square():
