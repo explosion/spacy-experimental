@@ -80,7 +80,7 @@ def test_incomplete_data():
         nlp.update(train_examples, sgd=optimizer, losses=losses, annotates=["sentencizer"])
     assert losses["experimental_arc_predicter"] < 0.00001
 
-    test_text = "She likes blue eggs"
+    test_text = "She likes green eggs"
     doc = nlp(test_text)
     assert doc[0].head == doc[1]
     assert doc[0].dep_ == "nsubj"
@@ -108,7 +108,7 @@ def test_overfitting_IO():
         nlp.update(train_examples, sgd=optimizer, losses=losses, annotates=["sentencizer"])
     assert losses["experimental_arc_labeler"] < 0.00001
 
-    test_text = "She likes blue eggs"
+    test_text = "She likes green eggs"
     doc = nlp(test_text)
     assert doc[0].head == doc[1]
     assert doc[0].dep_ == "nsubj"
