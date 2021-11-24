@@ -40,6 +40,6 @@ in the project directory.
 
 | File | Source | Description |
 | --- | --- | --- |
-| `assets/UD_German-GSD` | Git |  |
+| `assets/UD_Dutch-Alpino` | Git |  |
 
 <!-- SPACY PROJECT: AUTO-GENERATED DOCS END (do not remove) -->
