@@ -1,3 +1,4 @@
+import pickle
 import pytest
 from spacy import util
 from spacy.lang.en import English
@@ -141,6 +142,15 @@ def test_overfitting_IO():
     assert doc3[1].lemma_ == "like"
     assert doc3[2].lemma_ == "blue"
     assert doc3[3].lemma_ == "egg"
+
+    # Check model after a pickle roundtrip.
+    nlp_bytes = pickle.dumps(nlp)
+    nlp4 = pickle.loads(nlp_bytes)
+    doc4 = nlp4(test_text)
+    assert doc4[0].lemma_ == "she"
+    assert doc4[1].lemma_ == "like"
+    assert doc4[2].lemma_ == "blue"
+    assert doc4[3].lemma_ == "egg"
 
 
 def test_lemmatizer_requires_labels():
