@@ -5,6 +5,9 @@ from spacy.language import Language
 from spacy.training import Example
 
 
+pytest.importorskip("torch")
+
+
 TRAIN_DATA = [
     (
         "She likes green eggs",
