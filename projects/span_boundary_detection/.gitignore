@@ -1,0 +1,9 @@
+training
+project.lock
+__pycache__/
+*.pytest_cache
+*.ipynb_checkpoints
+*.ipynb
+wandb
+data
+metrics

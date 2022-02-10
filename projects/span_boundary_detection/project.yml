@@ -1,0 +1,58 @@
+title: "Span Boundary Detection"
+description: "This spaCy project presents a new experimental suggester that tries to learn span boundaries to produce more precise candidate spans."
+# Variables can be referenced across the project.yml using ${vars.var_name}
+vars:
+  config: "config_trf"
+  dataset: "healthsea"
+  train: "train"
+  dev: "dev"
+
+  models:
+    model_sbd: "training/sbd/${vars.config}/model-best"
+
+  gpu_id: 0
+  eval_split: 0.25
+
+# These are the directories that the project needs. The project CLI will make
+# sure that they always exist.
+directories: ["assets", "training", "configs", "scripts", "data", "metrics"]
+
+# Assets that should be downloaded or available in the directory. We're shipping
+# them with the project, so they won't have to be downloaded. But the
+# 'project assets' command still lets you verify that all required files are available.
+assets:
+  - dest: "assets/healthsea_ner.jsonl"
+    description: "NER annotations exported from Prodigy with 5000 examples and 2 labels"
+
+# Workflows are sequences of commands (see below) executed in order. You can
+# run them via "spacy project run [workflow]". If a commands's inputs/outputs
+# haven't changed, it won't be re-run.
+workflows:
+  all:
+    - preprocess
+
+# Project commands, specified in a style similar to CI config files (e.g. Azure
+# pipelines). The name is the command name that lets you trigger the command
+# via "spacy project run [command] [path]". The help message is optional and
+# shown when executing "spacy project run [optional command] [path] --help".
+commands:
+  - name: "preprocess_healthsea"
+    help: "Format healthsea annotations into .spaCy training format for Spancat"
+    script:
+      - "python scripts/preprocessing/preprocess_healthsea.py assets/healthsea_ner.jsonl data/healthsea/${vars.train}.spacy data/healthsea/${vars.dev}.spacy ${vars.eval_split}"
+    deps:
+      - "assets/healthsea_ner.jsonl"
+      - "scripts/preprocessing/preprocess_healthsea.py"
+    outputs:
+      - "data/${vars.train}.spacy"
+      - "data/${vars.dev}.spacy"
+
+  - name: "train_sbd"
+    help: "Train SpanBoundaryDetection model"
+    script:
+      - "python -m spacy train configs/sbd/${vars.config}.cfg --output training/sbd/${vars.config}/ --paths.train data/${vars.dataset}/${vars.train}.spacy --paths.dev data/${vars.dataset}/${vars.dev}.spacy --gpu-id ${vars.gpu_id} -c scripts/custom_code.py"
+    deps:
+      - "data/${vars.dataset}/${vars.train}.spacy"
+      - "data/${vars.dataset}/${vars.dev}.spacy"
+    outputs:
+      - training/sbd/${vars.config}/model-best
