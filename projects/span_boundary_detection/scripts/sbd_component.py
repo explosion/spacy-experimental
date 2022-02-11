@@ -40,6 +40,7 @@ depth = 4
 
 DEFAULT_SBD_MODEL = Config().from_str(sbd_default_config)["model"]
 
+
 @Language.factory(
     "spacy.SpanBoundaryDetection.v1",
     # Placeholder -> throws error if empty
@@ -56,14 +57,14 @@ DEFAULT_SBD_MODEL = Config().from_str(sbd_default_config)["model"]
         "sbd_end_f": 1.0,
         "sbd_end_p": 0.0,
         "sbd_end_r": 0.0,
-    }
+    },
 )
 def make_sbd(
     nlp: Language,
     name: str,
     model: Model[List[Doc], Floats2d],
     scorer: Optional[Callable],
-    threshold: float
+    threshold: float,
 ) -> "SpanBoundaryDetection":
     """Create a SpanBoundaryDetection component. The component predicts whether a token is the start or the end of a span.
     model (Model[List[Doc], Floats2d]): A model instance that
@@ -82,6 +83,7 @@ def make_sbd(
 @registry.scorers("spacy.sbd_scorer.v1")
 def make_sbd_scorer():
     return sbd_score
+
 
 def sbd_score(examples: Iterable[Example], **kwargs) -> Dict[str, Any]:
 
@@ -129,6 +131,7 @@ def sbd_score(examples: Iterable[Example], **kwargs) -> Dict[str, Any]:
 
     return final_scores
 
+
 def get_reference(docs) -> Floats2d:
     """Create a reference list of token probabilities for calculating loss and metrics"""
     reference_results = []
@@ -152,6 +155,7 @@ def get_reference(docs) -> Floats2d:
 
     return reference_results
 
+
 def get_predictions(docs) -> Floats2d:
     """Create a prediction list of token start/end probabilities for evaluation"""
     prediction_results = []
@@ -159,6 +163,7 @@ def get_predictions(docs) -> Floats2d:
         for token in doc:
             prediction_results.append([token._.span_start, token._.span_end])
     return prediction_results
+
 
 class SpanBoundaryDetection(TrainablePipe):
     """Pipeline that learns start and end tokens of spans"""
@@ -187,8 +192,8 @@ class SpanBoundaryDetection(TrainablePipe):
         self.model = model
         self.name = name
         self.scorer = scorer
-        Token.set_extension("span_start", default=0)
-        Token.set_extension("span_end", default=0)
+        Token.set_extension("span_start", default=0, force=True)
+        Token.set_extension("span_end", default=0, force=True)
 
     def predict(self, docs: Iterable[Doc]):
         """Apply the pipeline's model to a batch of docs, without modifying them.
@@ -247,10 +252,9 @@ class SpanBoundaryDetection(TrainablePipe):
         if losses is None:
             losses = {}
         losses.setdefault(self.name, 0.0)
-        docs = [eg.predicted for eg in examples]
         references = [eg.reference for eg in examples]
         set_dropout_rate(self.model, drop)
-        scores, backprop_scores = self.model.begin_update(docs)
+        scores, backprop_scores = self.model.begin_update(references)
         loss, d_scores = self.get_loss(references, scores)
         backprop_scores(d_scores)
         if sgd is not None:
@@ -265,10 +269,8 @@ class SpanBoundaryDetection(TrainablePipe):
         scores: Scores representing the model's predictions.
         RETURNS (Tuple[float, float]): The loss and the gradient.
         """
-        reference_results = get_reference(docs)
-        d_scores = scores - self.model.ops.asarray(
-            reference_results, dtype=float32
-        )
+        reference_results = self.model.ops.asarray(get_reference(docs), dtype=float32)
+        d_scores = scores - reference_results
         loss = float((d_scores ** 2).sum())
         return loss, d_scores
 

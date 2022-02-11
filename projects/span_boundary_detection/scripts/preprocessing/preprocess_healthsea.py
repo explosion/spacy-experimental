@@ -10,6 +10,7 @@ import typer
 
 msg = Printer()
 
+
 def main(
     json_loc: Path,
     train_file: Path,
@@ -29,20 +30,27 @@ def main(
         for line in jsonfile:
             example = json.loads(line)
 
-            if example["answer"] == "accept": 
+            if example["answer"] == "accept":
                 doc = nlp(example["text"])
                 spans = []
 
                 if "spans" in example:
                     for span in example["spans"]:
-                        spans.append(Span(doc, span["token_start"], span["token_end"]+1, span["label"]))
-                        
+                        spans.append(
+                            Span(
+                                doc,
+                                span["token_start"],
+                                span["token_end"] + 1,
+                                span["label"],
+                            )
+                        )
+
                         if span["label"] not in total_span_count:
                             total_span_count[span["label"]] = 0
 
                         total_span_count[span["label"]] += 1
-                        
-                        span_length = (span["token_end"]+1)-span["token_start"]
+
+                        span_length = (span["token_end"] + 1) - span["token_start"]
                         if span_length > max_span_length:
                             max_span_length = span_length
 
@@ -74,7 +82,7 @@ def main(
 
     msg.info(f"Max span length: {max_span_length}")
     msg.info(f"Evaluation split: {eval_split}")
-    table_data.append((len(docs)+len(empty_docs), len(train), len(dev)))
+    table_data.append((len(docs) + len(empty_docs), len(train), len(dev)))
     header = ("Total", "Training", "Development")
     print(table(table_data, header=header, divider=True))
 

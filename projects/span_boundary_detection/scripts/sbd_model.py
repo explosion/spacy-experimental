@@ -17,18 +17,23 @@ def build_boundary_model(
     tok2vec: Model[List[Doc], List[Floats2d]],
     scorer: Model[Floats2d, Floats2d],
     hidden_size: int,
-    window_size: int;
+    window_size: int,
 ) -> Model[List[Doc], Floats2d]:
+
+    pytorch_model = PyTorchWrapper(
+        PytorchTokenFeaturer(), convert_inputs=convert_inputs
+    )
+    pytorch_model.attrs["window_size"] = window_size
 
     model = chain(
         tok2vec,
-        PyTorchWrapper(PytorchTokenFeaturer(), convert_inputs=convert_inputs),
+        pytorch_model,
         Maxout(nO=hidden_size, normalize=True),
         scorer,
     )
     model.set_ref("tok2vec", tok2vec)
     model.set_ref("scorer", scorer)
-    model.attrs["window_size"] = window_size
+
     return model
 
 
