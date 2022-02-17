@@ -79,7 +79,7 @@ class ArcLabeler(TrainablePipe):
             loss = (d_scores ** 2).sum()
             return d_scores, loss
 
-        target = np.zeros_like(scores)
+        target = np.zeros(scores.shape, dtype=scores.dtype)
         mask = np.zeros(scores.shape[0], dtype=scores.dtype)
 
         offset = 0
