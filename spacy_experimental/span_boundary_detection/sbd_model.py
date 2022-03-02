@@ -12,7 +12,7 @@ from thinc.util import torch2xp
 from thinc.api import ArgsKwargs
 
 
-@registry.architectures("spacy.PyTorchSpanBoundaryDetection.v1")
+@registry.architectures("spacy-experimental.PyTorchSpanBoundaryDetection.v1")
 def build_boundary_model(
     tok2vec: Model[List[Doc], List[Floats2d]],
     scorer: Model[Floats2d, Floats2d],

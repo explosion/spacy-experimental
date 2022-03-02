@@ -42,13 +42,13 @@ DEFAULT_SBD_MODEL = Config().from_str(sbd_default_config)["model"]
 
 
 @Language.factory(
-    "spacy.SpanBoundaryDetection.v1",
+    "spacy-experimental.SpanBoundaryDetection.v1",
     # Placeholder -> throws error if empty
     assigns=["doc.spans"],
     default_config={
         "threshold": 0.5,
         "model": DEFAULT_SBD_MODEL,
-        "scorer": {"@scorers": "spacy.sbd_scorer.v1"},
+        "scorer": {"@scorers": "spacy-experimental.sbd_scorer.v1"},
     },
     default_score_weights={
         "sbd_start_f": 1.0,
@@ -80,7 +80,7 @@ def make_sbd(
     )
 
 
-@registry.scorers("spacy.sbd_scorer.v1")
+@registry.scorers("spacy-experimental.sbd_scorer.v1")
 def make_sbd_scorer():
     return sbd_score
 
@@ -142,7 +142,7 @@ def get_reference(docs) -> Floats2d:
         for spankey in doc.spans:
             for span in doc.spans[spankey]:
                 start_indices.append(span.start)
-                end_indices.append(span.end)
+                end_indices.append(span.end - 1)
 
         for token in doc:
             is_start = 0
@@ -271,7 +271,7 @@ class SpanBoundaryDetection(TrainablePipe):
         """
         reference_results = self.model.ops.asarray(get_reference(docs), dtype=float32)
         d_scores = scores - reference_results
-        loss = float((d_scores ** 2).sum())
+        loss = float((d_scores**2).sum())
         return loss, d_scores
 
     def initialize(
