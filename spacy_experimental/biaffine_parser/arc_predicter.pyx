@@ -321,19 +321,29 @@ def split_greedily(docs: List[Doc], *, ops: Ops, max_length: int, senter: Senten
 
     lens = []
     for (doc, scores) in zip(docs, split_predictions):
-        split_recursive(scores, max_length, lens)
+        split_recursive(scores[:,1], ops, max_length, lens)
 
     assert sum(lens) == sum([len(doc) for doc in docs])
 
     return ops.asarray1i(lens)
 
-def split_recursive(scores, max_length, lengths):
+def split_recursive(scores, ops, max_length, lengths):
     if len(scores) < max_length:
         lengths.append(len(scores))
     else:
-        start = scores[:,1].argmax()
-        # Avoid infinite recursion.
+        # We want to back-off to the second-best score when the
+        # best score is the first token to avoid infinite
+        # recursion, so we can't just use argmax.
+
+        # Get best two scores unsorted.
+        best_indices = ops.xp.argpartition(scores, -2)[-2:]
+
+        # Sort best two scores.
+        best_indices = best_indices[ops.xp.argsort(scores[best_indices])]
+
+        start = best_indices[1]
         if start == 0:
-            start = 1
-        split_recursive(scores[:start], max_length, lengths)
-        split_recursive(scores[start:], max_length, lengths)
+            start = best_indices[0]
+
+        split_recursive(scores[:start], ops, max_length, lengths)
+        split_recursive(scores[start:], ops, max_length, lengths)
