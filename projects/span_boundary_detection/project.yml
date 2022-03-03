@@ -3,7 +3,7 @@ description: "This spaCy project presents a new experimental suggester that trie
 # Variables can be referenced across the project.yml using ${vars.var_name}
 vars:
   config: "config_tok2vec" # config_tok2vec, config_trf
-  dataset: "healthsea" #healthsea, ebm
+  dataset: "ebm" #healthsea, ebm
   train: "train"
   dev: "dev"
 
