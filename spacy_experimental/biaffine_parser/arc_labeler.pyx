@@ -170,11 +170,10 @@ class ArcLabeler(TrainablePipe):
 
         offset = 0
         for doc in docs:
-            for sent in doc.sents:
-                for token in sent:
-                    label = self.cfg["labels"][predictions[offset]]
-                    doc.c[token.i].dep = self.vocab.strings[label]
-                    offset += 1
+            for token in doc:
+                label = self.cfg["labels"][predictions[offset]]
+                doc.c[token.i].dep = self.vocab.strings[label]
+                offset += 1
 
             for i in range(doc.length):
                 if doc.c[i].head == 0:
