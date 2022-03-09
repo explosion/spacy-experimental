@@ -3,7 +3,8 @@ description: "This spaCy project presents a new experimental suggester that trie
 # Variables can be referenced across the project.yml using ${vars.var_name}
 vars:
   config: "config_tok2vec" # config_tok2vec, config_trf
-  dataset: "ebm" #healthsea, ebm
+  dataset: "healthsea" # healthsea, ebm
+  suggester: "sbd" # ngram, sbd
   train: "train"
   dev: "dev"
 
@@ -73,6 +74,35 @@ commands:
     outputs:
       - training/sbd/${vars.config}/model-best
 
+  - name: "eval_sbd"
+    help: "Evaluate the trained SpanBoundaryDetection model"
+    script:
+      - "python -m spacy evaluate training/sbd/${vars.config}/model-best data/${vars.dataset}_${vars.dev}.spacy --output metrics/sbd.json --gpu-id ${vars.gpu_id}"
+    deps:
+      - "data/${vars.dataset}_${vars.dev}.spacy"
+      - "training/sbd/${vars.config}/model-best"
+    outputs:
+      - "metrics/sbd.json"
+
+  - name: "train_spancat"
+    help: "Train a spancat model"
+    script:
+      - "python -m spacy train configs/spancat/${vars.config}_${vars.suggester}.cfg --output training/spancat/${vars.config}_${vars.suggester}/ --paths.train data/${vars.dataset}_${vars.train}.spacy --paths.dev data/${vars.dataset}_${vars.dev}.spacy --paths.suggester_model training/sbd/${vars.config}/model-best --gpu-id ${vars.gpu_id}"
+    deps:
+      - "data/${vars.dataset}_${vars.train}.spacy"
+      - "data/${vars.dataset}_${vars.dev}.spacy"
+    outputs:
+      - training/spancat/${vars.config}_${vars.suggester}/model-best
+
+  - name: "eval_spancat"
+    help: "Evaluate a  trained spancat model"
+    script:
+      - "python -m spacy evaluate training/spancat/${vars.config}_${vars.suggester}/model-best data/${vars.dataset}_${vars.dev}.spacy --output metrics/spancat_${vars.config}_${vars.suggester}.json --gpu-id ${vars.gpu_id}"
+    deps:
+      - "training/spancat/${vars.config}_${vars.suggester}/model-best"
+    outputs:
+      - metrics/spancat_${vars.config}_${vars.suggester}.json
+    
   - name: "reset"
     help: "Reset the project to its original state and delete all training process"
     script:

@@ -42,7 +42,7 @@ DEFAULT_SBD_MODEL = Config().from_str(sbd_default_config)["model"]
 
 
 @Language.factory(
-    "spacy-experimental.SpanBoundaryDetection.v1",
+    "spacy-experimental.span_boundary_detection.v1",
     # Placeholder -> throws error if empty
     assigns=["doc.spans"],
     default_config={

@@ -2,7 +2,15 @@ from thinc.types import Floats2d, Floats1d
 import torch
 
 from typing import List
-from thinc.api import Model, chain, PyTorchWrapper, Maxout, with_padded, list2ragged, with_array
+from thinc.api import (
+    Model,
+    chain,
+    PyTorchWrapper,
+    Maxout,
+    with_padded,
+    list2ragged,
+    with_array,
+)
 from thinc.types import Floats2d
 
 from spacy.util import registry
@@ -130,19 +138,14 @@ def _get_window_sized_tokens(input: List[Floats2d], window_size: int) -> List[Fl
     return modified_vectors
 
 
-@registry.architectures("spacy-experimental.SpanBoundaryDetection.v1")
+@registry.architectures("spacy-experimental.span_boundary_detection.v1")
 def build_boundary_model_v2(
-    tok2vec: Model[List[Doc], List[Floats2d]],
-    scorer: Model[Floats2d, Floats2d]
+    tok2vec: Model[List[Doc], List[Floats2d]], scorer: Model[Floats2d, Floats2d]
 ) -> Model[List[Doc], Floats2d]:
 
     logistic_layer = with_array(scorer)
 
-    model = chain(
-        tok2vec,
-        logistic_layer,
-        flattener()
-    )
+    model = chain(tok2vec, logistic_layer, flattener())
 
     model.set_ref("tok2vec", tok2vec)
     model.set_ref("scorer", scorer)
@@ -151,8 +154,8 @@ def build_boundary_model_v2(
     return model
 
 
-def flattener() -> Model[Floats1d,Floats1d]:
-    def forward(model: Model[Floats1d,Floats1d], X, is_train:bool) -> Floats1d:
+def flattener() -> Model[Floats1d, Floats1d]:
+    def forward(model: Model[Floats1d, Floats1d], X, is_train: bool) -> Floats1d:
         output = []
         lengths = []
 
@@ -170,8 +173,6 @@ def flattener() -> Model[Floats1d,Floats1d]:
                 offset += length
             return original
 
-
         return output, backprop
 
-    return Model("Flattener",forward=forward)
-
+    return Model("Flattener", forward=forward)
