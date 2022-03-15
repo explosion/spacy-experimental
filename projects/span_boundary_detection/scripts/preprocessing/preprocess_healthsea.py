@@ -16,6 +16,7 @@ def main(
     train_file: Path,
     dev_file: Path,
     eval_split: float,
+    span_key: str,
 ):
     """Parse the annotations into a training and development set for NER and Spancat."""
 
@@ -55,7 +56,7 @@ def main(
                             max_span_length = span_length
 
                 doc.set_ents(spans)
-                doc.spans["health_aspects"] = spans
+                doc.spans[span_key] = spans
 
                 if len(doc.ents) > 0:
                     docs.append(doc)

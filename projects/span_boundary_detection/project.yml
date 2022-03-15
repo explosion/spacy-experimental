@@ -4,9 +4,10 @@ description: "This spaCy project presents a new experimental suggester that trie
 vars:
   config: "config_tok2vec" # config_tok2vec, config_trf
   dataset: "healthsea" # healthsea, ebm
-  suggester: "sbd" # ngram, sbd
+  suggester: "ngram" # ngram, sbd
   train: "train"
   dev: "dev"
+  span_key: "sc"
 
   models:
     model_sbd: "training/sbd/${vars.dataset}/${vars.config}/model-best"
@@ -45,7 +46,7 @@ commands:
   - name: "preprocess_healthsea"
     help: "Format healthsea annotations into .spaCy training format"
     script:
-      - "python scripts/preprocessing/preprocess_healthsea.py assets/healthsea_ner.jsonl data/healthsea_${vars.train}.spacy data/healthsea_${vars.dev}.spacy ${vars.eval_split}"
+      - "python scripts/preprocessing/preprocess_healthsea.py assets/healthsea_ner.jsonl data/healthsea_${vars.train}.spacy data/healthsea_${vars.dev}.spacy ${vars.eval_split} ${vars.span_key}"
     deps:
       - "assets/healthsea_ner.jsonl"
       - "scripts/preprocessing/preprocess_healthsea.py"
@@ -87,14 +88,14 @@ commands:
   - name: "train_spancat"
     help: "Train a spancat model"
     script:
-      - "python -m spacy train configs/spancat/${vars.config}_${vars.suggester}.cfg --output training/spancat/${vars.config}_${vars.suggester}/ --paths.train data/${vars.dataset}_${vars.train}.spacy --paths.dev data/${vars.dataset}_${vars.dev}.spacy --paths.suggester_model training/sbd/${vars.config}/model-best --gpu-id ${vars.gpu_id}"
+      - "python -m spacy train configs/spancat/${vars.config}_${vars.suggester}.cfg --output training/spancat/${vars.config}_${vars.suggester}/ --paths.train data/${vars.dataset}_${vars.train}.spacy --paths.dev data/${vars.dataset}_${vars.dev}.spacy --paths.suggester_model training/sbd/${vars.config}/model-best --gpu-id ${vars.gpu_id} --paths.span_key ${vars.span_key}"
     deps:
       - "data/${vars.dataset}_${vars.train}.spacy"
       - "data/${vars.dataset}_${vars.dev}.spacy"
     outputs:
       - training/spancat/${vars.config}_${vars.suggester}/model-best
 
-  - name: "eval_spancat"
+  - name: "evaluate_spancat"
     help: "Evaluate a  trained spancat model"
     script:
       - "python -m spacy evaluate training/spancat/${vars.config}_${vars.suggester}/model-best data/${vars.dataset}_${vars.dev}.spacy --output metrics/spancat_${vars.config}_${vars.suggester}.json --gpu-id ${vars.gpu_id}"
@@ -102,7 +103,15 @@ commands:
       - "training/spancat/${vars.config}_${vars.suggester}/model-best"
     outputs:
       - metrics/spancat_${vars.config}_${vars.suggester}.json
-    
+
+  - name: "evaluate_suggester"
+    help: "Evaluate a the suggester of a trained spancat model"
+    script:
+      - "python scripts/evaluation.py ${vars.span_key} training/spancat/${vars.config}_${vars.suggester}/model-best data/${vars.dataset}_${vars.dev}.spacy"
+    deps:
+      - "training/spancat/${vars.config}_${vars.suggester}/model-best"
+      - "data/${vars.dataset}_${vars.dev}.spacy"
+
   - name: "reset"
     help: "Reset the project to its original state and delete all training process"
     script:
