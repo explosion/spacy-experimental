@@ -3,7 +3,7 @@ description: "This spaCy project presents a new experimental suggester that trie
 # Variables can be referenced across the project.yml using ${vars.var_name}
 vars:
   config: "config_tok2vec" # config_tok2vec, config_trf
-  dataset: "healthsea" # healthsea, ebm
+  dataset: "toxic" # healthsea, toxic, ebm
   suggester: "ngram" # ngram, sbd
   train: "train"
   dev: "dev"
@@ -31,20 +31,56 @@ assets:
     description: "The full dataset containing text files of medical abstracts and their annotations."
     url: https://github.com/bepnye/EBM-NLP/master/ebm_nlp_1_00.tar.gz
 
+  - dest: "assets/toxic_spans_annotations.csv"
+    description: "Annotations from the ToxicSpans dataset"
+    url: https://github.com/ipavlopoulos/toxic_spans/tree/master/data/annotations.csv
+
+  - dest: "assets/toxic_spans.csv"
+    description: "Spans from the ToxicSpans dataset"
+    url: https://github.com/ipavlopoulos/toxic_spans/tree/master/data/spans.csv
+
+  - dest: "assets/toxic_spans_comments.csv"
+    description: "Commentsfrom the ToxicSpans dataset"
+    url: https://github.com/ipavlopoulos/toxic_spans/tree/master/data/comments.csv
+
 # Workflows are sequences of commands (see below) executed in order. You can
 # run them via "spacy project run [workflow]". If a commands's inputs/outputs
 # haven't changed, it won't be re-run.
 workflows:
   all:
-    - preprocess_healthsea
-
+    - preprocess
 # Project commands, specified in a style similar to CI config files (e.g. Azure
 # pipelines). The name is the command name that lets you trigger the command
 # via "spacy project run [command] [path]". The help message is optional and
 # shown when executing "spacy project run [optional command] [path] --help".
 commands:
+  - name: "preprocess"
+    help: "Format annotations into .spaCy training format"
+    script:
+      - "python scripts/preprocessing/preprocess_healthsea.py assets/healthsea_ner.jsonl data/healthsea_${vars.train}.spacy data/healthsea_${vars.dev}.spacy ${vars.eval_split} ${vars.span_key}"
+      - "python scripts/preprocessing/preprocess_ebm.py assets/ebm_nlp_1_00.tar.gz data/ --pipeline spancat"
+      - "python scripts/preprocessing/preprocess_toxic.py assets/toxic_spans.csv assets/toxic_spans_annotations.csv assets/toxic_spans_comments.csv data/toxic_${vars.train}.spacy data/toxic_${vars.dev}.spacy ${vars.eval_split} ${vars.span_key}"
+
+    deps:
+      - "assets/healthsea_ner.jsonl"
+      - "assets/ebm_nlp_1_00.tar.gz"
+      - "scripts/preprocessing/preprocess_healthsea.py"
+      - "scripts/preprocessing/preprocess_ebm.py"
+      - "scripts/preprocessing/preprocess_toxic.py"
+      - "assets/toxic_spans.csv"
+      - "assets/toxic_spans_annotations.csv"
+      - "assets/toxic_spans_comments.csv"
+    outputs:
+      - "data/healthsea_${vars.train}.spacy"
+      - "data/healthsea_${vars.dev}.spacy"
+      - "data/ebm_${vars.train}.spacy"
+      - "data/ebm_${vars.dev}.spacy"
+      - "data/ebm_test.spacy"
+      - "data/toxic_${vars.train}.spacy"
+      - "data/toxic_${vars.dev}.spacy"
+
   - name: "preprocess_healthsea"
-    help: "Format healthsea annotations into .spaCy training format"
+    help: "Format Healthsea annotations into .spaCy training format"
     script:
       - "python scripts/preprocessing/preprocess_healthsea.py assets/healthsea_ner.jsonl data/healthsea_${vars.train}.spacy data/healthsea_${vars.dev}.spacy ${vars.eval_split} ${vars.span_key}"
     deps:
@@ -55,15 +91,29 @@ commands:
       - "data/healthsea_${vars.dev}.spacy"
 
   - name: "preprocess_ebm"
-    help: "Convert raw inputs into spaCy's binary format as preparation for SpanCat training"
+    help: "Format EBM-NLP annotations into .spaCy training format"
     script:
       - "python scripts/preprocessing/preprocess_ebm.py assets/ebm_nlp_1_00.tar.gz data/ --pipeline spancat"
     deps:
       - "assets/ebm_nlp_1_00.tar.gz"
+      - "scripts/preprocessing/preprocess_ebm.py"
     outputs:
-      - "data/ebm_train.spacy"
-      - "data/ebm_dev.spacy"
+      - "data/ebm_${vars.train}.spacy"
+      - "data/ebm_${vars.dev}.spacy"
       - "data/ebm_test.spacy"
+
+  - name: "preprocess_toxic"
+    help: "Format annotations into .spaCy training format"
+    script:
+      - "python scripts/preprocessing/preprocess_toxic.py assets/toxic_spans.csv assets/toxic_spans_annotations.csv assets/toxic_spans_comments.csv data/toxic_${vars.train}.spacy data/toxic_${vars.dev}.spacy ${vars.eval_split} ${vars.span_key}"
+    deps:
+      - "assets/toxic_spans.csv"
+      - "assets/toxic_spans_annotations.csv"
+      - "assets/toxic_spans_comments.csv"
+      - "scripts/preprocessing/preprocess_toxic.py"
+    outputs:
+      - "data/toxic_${vars.train}.spacy"
+      - "data/toxic_${vars.dev}.spacy"
 
   - name: "train_sbd"
     help: "Train SpanBoundaryDetection model"
@@ -75,7 +125,7 @@ commands:
     outputs:
       - training/sbd/${vars.config}/model-best
 
-  - name: "eval_sbd"
+  - name: "evaluate_sbd"
     help: "Evaluate the trained SpanBoundaryDetection model"
     script:
       - "python -m spacy evaluate training/sbd/${vars.config}/model-best data/${vars.dataset}_${vars.dev}.spacy --output metrics/sbd.json --gpu-id ${vars.gpu_id}"
@@ -88,12 +138,12 @@ commands:
   - name: "train_spancat"
     help: "Train a spancat model"
     script:
-      - "python -m spacy train configs/spancat/${vars.config}_${vars.suggester}.cfg --output training/spancat/${vars.config}_${vars.suggester}/ --paths.train data/${vars.dataset}_${vars.train}.spacy --paths.dev data/${vars.dataset}_${vars.dev}.spacy --paths.suggester_model training/sbd/${vars.config}/model-best --gpu-id ${vars.gpu_id} --paths.span_key ${vars.span_key}"
+      - "python -m spacy train configs/spancat/${vars.dataset}/${vars.config}_${vars.suggester}.cfg --output training/spancat/${vars.dataset}/${vars.config}_${vars.suggester}/ --paths.train data/${vars.dataset}_${vars.train}.spacy --paths.dev data/${vars.dataset}_${vars.dev}.spacy --paths.suggester_model training/sbd/${vars.config}/model-best --gpu-id ${vars.gpu_id} --paths.span_key ${vars.span_key}"
     deps:
       - "data/${vars.dataset}_${vars.train}.spacy"
       - "data/${vars.dataset}_${vars.dev}.spacy"
     outputs:
-      - training/spancat/${vars.config}_${vars.suggester}/model-best
+      - training/spancat/${vars.dataset}/${vars.config}_${vars.suggester}/model-best
 
   - name: "evaluate_spancat"
     help: "Evaluate a  trained spancat model"
@@ -107,9 +157,9 @@ commands:
   - name: "evaluate_suggester"
     help: "Evaluate a the suggester of a trained spancat model"
     script:
-      - "python scripts/evaluation.py ${vars.span_key} training/spancat/${vars.config}_${vars.suggester}/model-best data/${vars.dataset}_${vars.dev}.spacy"
+      - "python scripts/evaluation.py ${vars.span_key} training/spancat/${vars.dataset}/${vars.config}_${vars.suggester}/model-best data/${vars.dataset}_${vars.dev}.spacy"
     deps:
-      - "training/spancat/${vars.config}_${vars.suggester}/model-best"
+      - "training/spancat/${vars.dataset}/${vars.config}_${vars.suggester}/model-best"
       - "data/${vars.dataset}_${vars.dev}.spacy"
 
   - name: "reset"

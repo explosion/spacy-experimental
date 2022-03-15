@@ -18,7 +18,7 @@ def main(
     eval_split: float,
     span_key: str,
 ):
-    """Parse the annotations into a training and development set for NER and Spancat."""
+    """Parse the annotations into a training and development set for Spancat."""
 
     empty_docs = []
     docs = []
