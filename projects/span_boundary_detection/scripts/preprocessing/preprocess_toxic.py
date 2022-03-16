@@ -34,12 +34,14 @@ def main(
     spans_indices_list = []
     spans_labels = {}
     for index, row in spans_df.iterrows():
-        if str(row["type"]) in ["Insult", "Identity based Attack", "Profane/Obscene", "Threat", "Other Toxicity"]:
-            label = str(row["type"]).upper().replace(" ","_")
+        if str(row["type"]) in ["Insult"]:
+            label = str(row["type"]).upper().replace(" ", "_")
             if label not in spans_labels:
                 spans_labels[label] = 0
             spans_labels[label] += 1
-            spans_indices_list.append((row["annotation"],label,[row["start"],row["end"]]))
+            spans_indices_list.append(
+                (row["annotation"], label, [row["start"], row["end"]])
+            )
 
     # Create annotations_list
     annotation_dict = {}
@@ -56,7 +58,7 @@ def main(
     # Initialize blank model
     nlp = spacy.blank("en")
 
-    def _character_offset_to_token(doc: Doc, offsets: list[(int,int)]) -> list[int]:
+    def _character_offset_to_token(doc: Doc, offsets: list) -> list:
         token_list = []
         for token in doc:
             if offsets[0] == token.idx:
@@ -66,9 +68,9 @@ def main(
         return token_list
 
     msg.info("Parsing")
-    
+
     doc_dict = {}
-    for span in tqdm(spans_indices_list, total = len(spans_indices_list)):
+    for span in tqdm(spans_indices_list, total=len(spans_indices_list)):
         doc_id = annotation_dict[span[0]]
 
         if doc_id not in doc_dict:
@@ -79,7 +81,7 @@ def main(
         tokens = _character_offset_to_token(doc, span[2])
         if not tokens:
             continue
-        span_object = Span(doc, tokens[0], tokens[-1], span[1])
+        span_object = Span(doc, tokens[0], tokens[-1] + 1, span[1])
         doc.spans[span_key].append(span_object)
 
     msg.good(f"Created {len(doc_dict)} docs and {len(spans_indices_list)} spans")
