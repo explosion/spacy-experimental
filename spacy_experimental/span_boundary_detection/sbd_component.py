@@ -11,14 +11,13 @@ from spacy.tokens import Doc, Token
 from spacy.training import Example
 from spacy.scorer import PRFScore
 
-sbd_default_config = """
+SBD_DEFAULT_CONFIG = """
 [model]
-@architectures = "spacy.PyTorchSpanBoundaryDetection.v1"
-hidden_size = 128
+@architectures = "spacy-experimental.span_boundary_detection_model.v1"
 
 [model.scorer]
 @layers = "spacy.LinearLogistic.v1"
-nO=2
+nO = 2
 
 [model.tok2vec]
 @architectures = "spacy.Tok2Vec.v1"
@@ -38,17 +37,17 @@ maxout_pieces = 3
 depth = 4
 """
 
-DEFAULT_SBD_MODEL = Config().from_str(sbd_default_config)["model"]
+DEFAULT_SBD_MODEL = Config().from_str(SBD_DEFAULT_CONFIG)["model"]
 
 
 @Language.factory(
-    "spacy-experimental.span_boundary_detection.v1",
+    "spacy-experimental_span_boundary_detection_component_v1",
     # Placeholder -> throws error if empty
     assigns=["doc.spans"],
     default_config={
         "threshold": 0.5,
         "model": DEFAULT_SBD_MODEL,
-        "scorer": {"@scorers": "spacy-experimental.sbd_scorer.v1"},
+        "scorer": {"@scorers": "spacy-experimental.span_boundary_detection_scorer.v1"},
     },
     default_score_weights={
         "sbd_start_f": 1.0,
@@ -66,7 +65,7 @@ def make_sbd(
     scorer: Optional[Callable],
     threshold: float,
 ) -> "SpanBoundaryDetection":
-    """Create a SpanBoundaryDetection component. The component predicts whether a token is the start or the end of a span.
+    """Create a SpanBoundaryDetection component. The component predicts whether a token is the start or the end of a potential span.
     model (Model[List[Doc], Floats2d]): A model instance that
         is given a list of documents and predicts a probability for each token.
     threshold (float): Minimum probability to consider a prediction positive.
@@ -80,7 +79,7 @@ def make_sbd(
     )
 
 
-@registry.scorers("spacy-experimental.sbd_scorer.v1")
+@registry.scorers("spacy-experimental.span_boundary_detection_scorer.v1")
 def make_sbd_scorer():
     return sbd_score
 
@@ -271,7 +270,7 @@ class SpanBoundaryDetection(TrainablePipe):
         """
         reference_results = self.model.ops.asarray(get_reference(docs), dtype=float32)
         d_scores = scores - reference_results
-        loss = float((d_scores**2).sum())
+        loss = float((d_scores ** 2).sum())
         return loss, d_scores
 
     def initialize(

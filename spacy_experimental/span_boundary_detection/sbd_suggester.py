@@ -14,7 +14,7 @@ class Suggester(Protocol):
         ...
 
 
-@registry.misc("spacy-experimental.sbd_suggester.v1")
+@registry.misc("spacy-experimental.span_boundary_detection_suggester.v1")
 def build_sbd_suggester() -> Suggester:
     """Suggest every candidate predicted by the SBD"""
 
