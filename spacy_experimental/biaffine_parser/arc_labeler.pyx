@@ -85,10 +85,7 @@ class ArcLabeler(TrainablePipe):
         offset = 0
         for eg in examples:
             aligned_heads, aligned_labels = eg.get_aligned_parse(projectivize=False)
-            for token in eg.predicted:
-                gold_head = aligned_heads[token.i]
-                gold_label = aligned_labels[token.i]
-
+            for gold_head, gold_label in zip(aligned_heads, aligned_labels):
                 # Do not learn from misaligned tokens, since we could no use
                 # their correct head representations.
                 if gold_head is not None and gold_label is not None:
