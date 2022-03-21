@@ -2,9 +2,12 @@ title: "Span Boundary Detection"
 description: "This spaCy project presents a new experimental suggester that tries to learn span boundaries to produce more precise candidate spans."
 # Variables can be referenced across the project.yml using ${vars.var_name}
 vars:
-  config: "config_tok2vec" # config_tok2vec, config_trf
+  sbd_config: "config_tok2vec" # config_tok2vec, config_trf
+  spancat_config: "config_tok2vec" # config_tok2vec, config_trf
+
   dataset: "toxic" # healthsea, toxic, ebm
   suggester: "sbd" # ngram, sbd
+
   train: "train"
   dev: "dev"
   span_key: "sc"
@@ -44,41 +47,25 @@ assets:
     description: "Comments from the ToxicSpans dataset"
     url: https://github.com/ipavlopoulos/toxic_spans/tree/master/data/comments.csv
 
+  - dest: "assets/genia_train.iob"
+    description: "Genia dataset"
+    url: "https://github.com/thecharm/boundary-aware-nested-ner/tree/master/Our_boundary-aware_model/data/genia/genia.train.iob2"
+
+  - dest: "assets/genia_dev.iob"
+    description: "Genia dataset"
+    url: "https://github.com/thecharm/boundary-aware-nested-ner/tree/master/Our_boundary-aware_model/data/genia/genia.dev.iob2"
+
 # Workflows are sequences of commands (see below) executed in order. You can
 # run them via "spacy project run [workflow]". If a commands's inputs/outputs
 # haven't changed, it won't be re-run.
 workflows:
   all:
-    - preprocess
+    - preprocess_healthsea
 # Project commands, specified in a style similar to CI config files (e.g. Azure
 # pipelines). The name is the command name that lets you trigger the command
 # via "spacy project run [command] [path]". The help message is optional and
 # shown when executing "spacy project run [optional command] [path] --help".
 commands:
-  - name: "preprocess"
-    help: "Format all dataset annotations into .spaCy training format"
-    script:
-      - "python scripts/preprocessing/preprocess_healthsea.py assets/healthsea_ner.jsonl data/healthsea_${vars.train}.spacy data/healthsea_${vars.dev}.spacy ${vars.eval_split} ${vars.span_key}"
-      - "python scripts/preprocessing/preprocess_ebm.py assets/ebm_nlp_1_00.tar.gz data/ --pipeline spancat"
-      - "python scripts/preprocessing/preprocess_toxic.py assets/toxic_spans.csv assets/toxic_spans_annotations.csv assets/toxic_spans_comments.csv data/toxic_${vars.train}.spacy data/toxic_${vars.dev}.spacy ${vars.eval_split} ${vars.span_key}"
-    deps:
-      - "assets/healthsea_ner.jsonl"
-      - "assets/ebm_nlp_1_00.tar.gz"
-      - "scripts/preprocessing/preprocess_healthsea.py"
-      - "scripts/preprocessing/preprocess_ebm.py"
-      - "scripts/preprocessing/preprocess_toxic.py"
-      - "assets/toxic_spans.csv"
-      - "assets/toxic_spans_annotations.csv"
-      - "assets/toxic_spans_comments.csv"
-    outputs:
-      - "data/healthsea_${vars.train}.spacy"
-      - "data/healthsea_${vars.dev}.spacy"
-      - "data/ebm_${vars.train}.spacy"
-      - "data/ebm_${vars.dev}.spacy"
-      - "data/ebm_test.spacy"
-      - "data/toxic_${vars.train}.spacy"
-      - "data/toxic_${vars.dev}.spacy"
-
   - name: "preprocess_healthsea"
     help: "Format Healthsea annotations into .spaCy training format"
     script:
@@ -89,6 +76,18 @@ commands:
     outputs:
       - "data/healthsea_${vars.train}.spacy"
       - "data/healthsea_${vars.dev}.spacy"
+
+  - name: "preprocess_genia"
+    help: "Format Genia annotations into .spaCy training format"
+    script:
+      - "python scripts/preprocessing/preprocess_genia.py assets/genia_train.iob data/genia_${vars.train}.spacy"
+      - "python scripts/preprocessing/preprocess_genia.py assets/genia_dev.iob data/genia_${vars.dev}.spacy"
+    deps:
+      - "assets/genia_train.iob"
+      - "assets/genia_dev.iob"
+    outputs:
+      - "data/genia_${vars.train}.spacy"
+      - "data/genia_${vars.dev}.spacy"
 
   - name: "preprocess_ebm"
     help: "Format EBM-NLP annotations into .spaCy training format"
@@ -136,6 +135,13 @@ commands:
       - "spacy-span-analyzer data/toxic_${vars.train}.spacy"
     deps:
       - "data/toxic_${vars.train}.spacy"
+
+  - name: "analyze_genia"
+    help: "Analyze Genia training dataset"
+    script:
+      - "spacy-span-analyzer data/genia_${vars.train}.spacy"
+    deps:
+      - "data/genia_${vars.train}.spacy"
   # ----------------------------------------------------------------------------------------------------
 
   - name: "train_sbd"
