@@ -2,10 +2,9 @@ title: "Span Boundary Detection"
 description: "This spaCy project presents a new experimental suggester that tries to learn span boundaries to produce more precise candidate spans."
 # Variables can be referenced across the project.yml using ${vars.var_name}
 vars:
-  sbd_config: "config_tok2vec" # config_tok2vec, config_trf
-  spancat_config: "config_tok2vec" # config_tok2vec, config_trf
+  config: "config_tok2vec" # config_tok2vec, config_trf
 
-  dataset: "toxic" # healthsea, toxic, ebm
+  dataset: "toxic" # healthsea, toxic, genia
   suggester: "sbd" # ngram, sbd
 
   train: "train"
@@ -31,10 +30,6 @@ assets:
     description: "NER annotations exported from Prodigy with 5000 examples and 2 labels"
     url: https://github.com/explosion/healthsea/blob/main/project/assets/ner/annotation.jsonl
 
-  - dest: "assets/ebm_nlp_1_00.tar.gz"
-    description: "The full dataset containing text files of medical abstracts and their annotations."
-    url: https://github.com/bepnye/EBM-NLP/master/ebm_nlp_1_00.tar.gz
-
   - dest: "assets/toxic_spans_annotations.csv"
     description: "Annotations from the ToxicSpans dataset"
     url: https://github.com/ipavlopoulos/toxic_spans/tree/master/data/annotations.csv
@@ -59,8 +54,20 @@ assets:
 # run them via "spacy project run [workflow]". If a commands's inputs/outputs
 # haven't changed, it won't be re-run.
 workflows:
-  all:
+  preprocess:
     - preprocess_healthsea
+    - preprocess_toxic
+    - preprocess_genia
+  analyze:
+    - analyze_healthsea
+    - analyze_healthsea
+    - analyze_healthsea
+  train:
+    - train_sbd
+    - evaluate_sbd
+    - train_spancat
+    - evaluate_spancat
+    - evaluate_suggester
 # Project commands, specified in a style similar to CI config files (e.g. Azure
 # pipelines). The name is the command name that lets you trigger the command
 # via "spacy project run [command] [path]". The help message is optional and
@@ -80,26 +87,13 @@ commands:
   - name: "preprocess_genia"
     help: "Format Genia annotations into .spaCy training format"
     script:
-      - "python scripts/preprocessing/preprocess_genia.py assets/genia_train.iob data/genia_${vars.train}.spacy"
-      - "python scripts/preprocessing/preprocess_genia.py assets/genia_dev.iob data/genia_${vars.dev}.spacy"
+      - "python scripts/preprocessing/preprocess_genia.py assets/genia_train.iob assets/genia_dev.iob data/genia_${vars.train}.spacy data/genia_${vars.dev}.spacy"
     deps:
       - "assets/genia_train.iob"
       - "assets/genia_dev.iob"
     outputs:
       - "data/genia_${vars.train}.spacy"
       - "data/genia_${vars.dev}.spacy"
-
-  - name: "preprocess_ebm"
-    help: "Format EBM-NLP annotations into .spaCy training format"
-    script:
-      - "python scripts/preprocessing/preprocess_ebm.py assets/ebm_nlp_1_00.tar.gz data/ --pipeline spancat"
-    deps:
-      - "assets/ebm_nlp_1_00.tar.gz"
-      - "scripts/preprocessing/preprocess_ebm.py"
-    outputs:
-      - "data/ebm_${vars.train}.spacy"
-      - "data/ebm_${vars.dev}.spacy"
-      - "data/ebm_test.spacy"
 
   - name: "preprocess_toxic"
     help: "Format annotations into .spaCy training format"
@@ -121,13 +115,6 @@ commands:
       - "spacy-span-analyzer data/healthsea_${vars.train}.spacy"
     deps:
       - "data/healthsea_${vars.train}.spacy"
-
-  - name: "analyze_ebm"
-    help: "Analyze EMB-NLP training dataset"
-    script:
-      - "spacy-span-analyzer data/ebm_${vars.train}.spacy"
-    deps:
-      - "data/ebm_${vars.train}.spacy"
 
   - name: "analyze_toxic"
     help: "Analyze ToxicSpans training dataset"

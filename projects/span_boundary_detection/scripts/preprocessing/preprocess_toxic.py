@@ -24,7 +24,7 @@ def main(
 ):
     """Parse the ToxicSpan annotations into a training and development set for Spancat."""
 
-    msg.info("Importing data")
+    msg.info("Processing ToxicSpans")
     # Import data
     spans_df = pd.read_csv(spans_file)
     annotations_df = pd.read_csv(annotations_file)
@@ -67,8 +67,6 @@ def main(
                 token_list.append(token.i)
         return token_list
 
-    msg.info("Parsing")
-
     doc_dict = {}
     for span in tqdm(spans_indices_list, total=len(spans_indices_list)):
         doc_id = annotation_dict[span[0]]
@@ -84,14 +82,10 @@ def main(
         span_object = Span(doc, tokens[0], tokens[-1] + 1, span[1])
         doc.spans[span_key].append(span_object)
 
-    msg.good(f"Created {len(doc_dict)} docs and {len(spans_indices_list)} spans")
-    msg.info(f"Evaluation split: {eval_split}")
-
     # Split
     docs = list(doc_dict.values())
     train = []
     dev = []
-    table_data = []
 
     split = int(len(docs) * eval_split)
     train = docs[split:]
@@ -105,22 +99,13 @@ def main(
             if span_length > max_span_length:
                 max_span_length = span_length
 
-    msg.info(f"Max span length (train): {max_span_length}")
-
-    for label in spans_labels:
-        msg.info(f"{label} : {spans_labels[label]}")
-
-    table_data.append((len(docs), len(train), len(dev)))
-    header = ("Total", "Training", "Development")
-    print(table(table_data, header=header, divider=True))
-
     # Save to disk
     docbin = DocBin(docs=train, store_user_data=True)
     docbin.to_disk(train_file)
 
     docbin = DocBin(docs=dev, store_user_data=True)
     docbin.to_disk(dev_file)
-    msg.good(f"Parsing complete")
+    msg.good(f"Processing ToxicSpans done")
 
 
 if __name__ == "__main__":
