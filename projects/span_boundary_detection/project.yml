@@ -4,7 +4,7 @@ description: "This spaCy project presents a new experimental suggester that trie
 vars:
   config: "config_tok2vec" # config_tok2vec, config_trf
 
-  dataset: "toxic" # healthsea, toxic, genia
+  dataset: "healthsea" # healthsea, toxic, genia
   suggester: "sbd" # ngram, sbd
 
   train: "train"
