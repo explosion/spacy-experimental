@@ -2,7 +2,7 @@
 
 # 🪐 spaCy Project: Span Boundary Detection
 
-This spaCy project presents a new experimental suggester that tries to learn span boundaries to produce more precise candidate spans.
+This project introduces a new experimental suggester that learns to predict span boundaries for more precise candidate spans.
 
 ## 📋 project.yml
 
@@ -27,8 +27,8 @@ Commands are only re-run if their inputs have changed.
 | `train_sbd` | Train SpanBoundaryDetection model |
 | `evaluate_sbd` | Evaluate a trained SpanBoundaryDetection model |
 | `train_spancat` | Train a spancat model |
-| `evaluate_spancat` | Evaluate a  trained spancat model |
-| `evaluate_suggester` | Evaluate a the suggester of a trained spancat model |
+| `evaluate_spancat` | Evaluate a trained spancat model |
+| `evaluate_suggester` | Evaluate the suggester of a trained spancat model |
 | `reset` | Reset the project to its original state and delete all training process |
 
 ### ⏭ Workflows
@@ -41,7 +41,7 @@ inputs have changed.
 | Workflow | Steps |
 | --- | --- |
 | `preprocess` | `preprocess_healthsea` &rarr; `preprocess_toxic` &rarr; `preprocess_genia` |
-| `analyze` | `analyze_healthsea` &rarr; `analyze_healthsea` &rarr; `analyze_healthsea` |
+| `analyze` | `analyze_healthsea` &rarr; `analyze_toxic` &rarr; `analyze_genia` |
 | `train` | `train_sbd` &rarr; `evaluate_sbd` &rarr; `train_spancat` &rarr; `evaluate_spancat` &rarr; `evaluate_suggester` |
 
 ### 🗂 Assets
@@ -52,11 +52,11 @@ in the project directory.
 
 | File | Source | Description |
 | --- | --- | --- |
-| `assets/healthsea_ner.jsonl` | URL | NER annotations exported from Prodigy with 5000 examples and 2 labels |
+| `assets/healthsea_ner.jsonl` | URL | Annotations from the Healthsea dataset |
 | `assets/toxic_spans_annotations.csv` | URL | Annotations from the ToxicSpans dataset |
 | `assets/toxic_spans.csv` | URL | Spans from the ToxicSpans dataset |
 | `assets/toxic_spans_comments.csv` | URL | Comments from the ToxicSpans dataset |
-| `assets/genia_train.iob` | URL | Genia dataset |
-| `assets/genia_dev.iob` | URL | Genia dataset |
+| `assets/genia_train.iob` | URL | Training annotations from the Genia dataset |
+| `assets/genia_dev.iob` | URL | Dev annotations from the Genia dataset |
 
 <!-- SPACY PROJECT: AUTO-GENERATED DOCS END (do not remove) -->

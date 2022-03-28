@@ -1,11 +1,11 @@
 title: "Span Boundary Detection"
-description: "This spaCy project presents a new experimental suggester that tries to learn span boundaries to produce more precise candidate spans."
+description: "This project introduces a new experimental suggester that learns to predict span boundaries for more precise candidate spans."
 # Variables can be referenced across the project.yml using ${vars.var_name}
 vars:
   config: "config_tok2vec" # config_tok2vec, config_trf
 
   dataset: "healthsea" # healthsea, toxic, genia
-  suggester: "sbd" # ngram, sbd
+  suggester: "ngram" # ngram, sbd
 
   train: "train"
   dev: "dev"
@@ -27,7 +27,7 @@ directories: ["assets", "training", "configs", "scripts", "data", "metrics"]
 # 'project assets' command still lets you verify that all required files are available.
 assets:
   - dest: "assets/healthsea_ner.jsonl"
-    description: "NER annotations exported from Prodigy with 5000 examples and 2 labels"
+    description: "Annotations from the Healthsea dataset"
     url: https://github.com/explosion/healthsea/blob/main/project/assets/ner/annotation.jsonl
 
   - dest: "assets/toxic_spans_annotations.csv"
@@ -43,11 +43,11 @@ assets:
     url: https://github.com/ipavlopoulos/toxic_spans/tree/master/data/comments.csv
 
   - dest: "assets/genia_train.iob"
-    description: "Genia dataset"
+    description: "Training annotations from the Genia dataset"
     url: "https://github.com/thecharm/boundary-aware-nested-ner/tree/master/Our_boundary-aware_model/data/genia/genia.train.iob2"
 
   - dest: "assets/genia_dev.iob"
-    description: "Genia dataset"
+    description: "Dev annotations from the Genia dataset"
     url: "https://github.com/thecharm/boundary-aware-nested-ner/tree/master/Our_boundary-aware_model/data/genia/genia.dev.iob2"
 
 # Workflows are sequences of commands (see below) executed in order. You can
@@ -60,8 +60,8 @@ workflows:
     - preprocess_genia
   analyze:
     - analyze_healthsea
-    - analyze_healthsea
-    - analyze_healthsea
+    - analyze_toxic
+    - analyze_genia
   train:
     - train_sbd
     - evaluate_sbd
@@ -162,7 +162,7 @@ commands:
       - "${vars.models.model_spancat}"
 
   - name: "evaluate_spancat"
-    help: "Evaluate a  trained spancat model"
+    help: "Evaluate a trained spancat model"
     script:
       - "python -m spacy evaluate ${vars.models.model_spancat} data/${vars.dataset}_${vars.dev}.spacy --output metrics/spancat_${vars.dataset}_${vars.config}_${vars.suggester}.json --gpu-id ${vars.gpu_id}"
     deps:
@@ -171,7 +171,7 @@ commands:
       - metrics/spancat_${vars.dataset}_${vars.config}_${vars.suggester}.json
 
   - name: "evaluate_suggester"
-    help: "Evaluate a the suggester of a trained spancat model"
+    help: "Evaluate the suggester of a trained spancat model"
     script:
       - "python scripts/evaluation.py ${vars.span_key} ${vars.models.model_spancat} data/${vars.dataset}_${vars.dev}.spacy"
     deps:
