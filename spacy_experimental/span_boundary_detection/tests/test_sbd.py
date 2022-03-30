@@ -64,7 +64,7 @@ def test_sbd_component():
     for doc in docs:
         total_tokens += len(doc)
 
-    sbd = nlp.add_pipe("spacy-experimental_span_boundary_detection_component_v1")
+    sbd = nlp.add_pipe("experimental_span_boundary_detector")
     nlp.initialize()
     scores = sbd.predict(docs)
 
@@ -74,7 +74,7 @@ def test_sbd_component():
 
 def test_sbd_suggester():
     nlp = Language()
-    nlp.add_pipe("spacy-experimental_span_boundary_detection_component_v1")
+    nlp.add_pipe("experimental_span_boundary_detector")
     nlp.initialize()
     suggester = registry.misc.get(
         "spacy-experimental.span_boundary_detection_suggester.v1"

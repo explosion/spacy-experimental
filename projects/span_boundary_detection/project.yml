@@ -15,7 +15,7 @@ vars:
     model_sbd: "training/sbd/${vars.dataset}/${vars.config}/model-best"
     model_spancat: "training/spancat/${vars.dataset}/${vars.config}_${vars.suggester}/model-best"
 
-  gpu_id: 0
+  gpu_id: -1
   eval_split: 0.25
 
 # These are the directories that the project needs. The project CLI will make

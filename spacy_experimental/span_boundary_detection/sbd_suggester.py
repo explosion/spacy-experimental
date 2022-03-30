@@ -27,7 +27,7 @@ def build_sbd_suggester() -> Suggester:
             starts = []
             ends = []
             length = 0
-            cache = {}
+            cache = set()
             for token in doc:
                 if token._.span_start == 1:
                     starts.append(token.i)
@@ -38,7 +38,7 @@ def build_sbd_suggester() -> Suggester:
                 for end in ends:
                     if start < end and (start, end) not in cache:
                         spans.append([start, end])
-                        cache[(start, end)] = True
+                        cache.add((start, end))
                         length += 1
 
             lengths.append(length)

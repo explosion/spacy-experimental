@@ -41,7 +41,7 @@ DEFAULT_SBD_MODEL = Config().from_str(SBD_DEFAULT_CONFIG)["model"]
 
 
 @Language.factory(
-    "spacy-experimental_span_boundary_detection_component_v1",
+    "experimental_span_boundary_detector",
     # Placeholder -> throws error if empty
     assigns=["doc.spans"],
     default_config={
@@ -64,13 +64,13 @@ def make_sbd(
     model: Model[List[Doc], Floats2d],
     scorer: Optional[Callable],
     threshold: float,
-) -> "SpanBoundaryDetection":
+) -> "SpanBoundaryDetector":
     """Create a SpanBoundaryDetection component. The component predicts whether a token is the start or the end of a potential span.
     model (Model[List[Doc], Floats2d]): A model instance that
         is given a list of documents and predicts a probability for each token.
     threshold (float): Minimum probability to consider a prediction positive.
     """
-    return SpanBoundaryDetection(
+    return SpanBoundaryDetector(
         nlp.vocab,
         model=model,
         threshold=threshold,
@@ -164,7 +164,7 @@ def get_predictions(docs) -> Floats2d:
     return prediction_results
 
 
-class SpanBoundaryDetection(TrainablePipe):
+class SpanBoundaryDetector(TrainablePipe):
     """Pipeline that learns start and end tokens of spans"""
 
     def __init__(
@@ -215,21 +215,21 @@ class SpanBoundaryDetection(TrainablePipe):
             scores_per_doc.append(scores[offset : offset + length])
             offset += length
 
-        for doc, score_doc in zip(docs, scores_per_doc):
-            for token, score_token in zip(doc, score_doc):
+        for doc, doc_scores in zip(docs, scores_per_doc):
+            for token, token_score in zip(doc, doc_scores):
 
-                if score_token[0] > self.cfg["threshold"]:
-                    score_token[0] = 1
+                if token_score[0] > self.cfg["threshold"]:
+                    token_score[0] = 1
                 else:
-                    score_token[0] = 0
+                    token_score[0] = 0
 
-                if score_token[1] > self.cfg["threshold"]:
-                    score_token[1] = 1
+                if token_score[1] > self.cfg["threshold"]:
+                    token_score[1] = 1
                 else:
-                    score_token[1] = 0
+                    token_score[1] = 0
 
-                token._.span_start = score_token[0]
-                token._.span_end = score_token[1]
+                token._.span_start = token_score[0]
+                token._.span_end = token_score[1]
 
     def update(
         self,

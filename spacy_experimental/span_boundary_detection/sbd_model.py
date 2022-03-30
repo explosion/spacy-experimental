@@ -30,7 +30,9 @@ def build_boundary_model_v2(
 
 
 def flattener() -> Model[Floats1d, Floats1d]:
-    def forward(model: Model[Floats1d, Floats1d], X, is_train: bool) -> Floats1d:
+    def forward(
+        model: Model[Floats1d, Floats1d], X: Floats1d, is_train: bool
+    ) -> Floats1d:
         output = []
         lengths = []
 
