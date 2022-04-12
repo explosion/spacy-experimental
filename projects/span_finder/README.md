@@ -1,8 +1,8 @@
 <!-- SPACY PROJECT: AUTO-GENERATED DOCS START (do not remove) -->
 
-# 🪐 spaCy Project: Span Boundary Detection
+# 🪐 spaCy Project: Span Finder
 
-This project introduces a new experimental suggester that learns to predict span boundaries for more precise candidate spans.
+This project introduces a new experimental suggester that learns to predict span boundaries to produce more precise candidate spans.
 
 ## 📋 project.yml
 
@@ -18,14 +18,15 @@ Commands are only re-run if their inputs have changed.
 
 | Command | Description |
 | --- | --- |
+| `install` | Install requirements |
 | `preprocess_healthsea` | Format Healthsea annotations into .spaCy training format |
 | `preprocess_genia` | Format Genia annotations into .spaCy training format |
 | `preprocess_toxic` | Format annotations into .spaCy training format |
 | `analyze_healthsea` | Analyze Healthsea training dataset |
 | `analyze_toxic` | Analyze ToxicSpans training dataset |
 | `analyze_genia` | Analyze Genia training dataset |
-| `train_sbd` | Train SpanBoundaryDetection model |
-| `evaluate_sbd` | Evaluate a trained SpanBoundaryDetection model |
+| `train_span_finder` | Train SpanFinder model |
+| `evaluate_span_finder` | Evaluate a trained SpanFinder model |
 | `train_spancat` | Train a spancat model |
 | `evaluate_spancat` | Evaluate a trained spancat model |
 | `evaluate_suggester` | Evaluate the suggester of a trained spancat model |
@@ -40,9 +41,12 @@ inputs have changed.
 
 | Workflow | Steps |
 | --- | --- |
-| `preprocess` | `preprocess_healthsea` &rarr; `preprocess_toxic` &rarr; `preprocess_genia` |
-| `analyze` | `analyze_healthsea` &rarr; `analyze_toxic` &rarr; `analyze_genia` |
-| `train` | `train_sbd` &rarr; `evaluate_sbd` &rarr; `train_spancat` &rarr; `evaluate_spancat` &rarr; `evaluate_suggester` |
+| `healthsea_data` | `preprocess_healthsea` &rarr; `analyze_healthsea` |
+| `toxic_data` | `preprocess_healthsea` &rarr; `analyze_healthsea` |
+| `genia_data` | `preprocess_healthsea` &rarr; `analyze_healthsea` |
+| `preprocess_all` | `preprocess_healthsea` &rarr; `preprocess_toxic` &rarr; `preprocess_genia` |
+| `analyze_all` | `analyze_healthsea` &rarr; `analyze_toxic` &rarr; `analyze_genia` |
+| `train` | `train_span_finder` &rarr; `evaluate_span_finder` &rarr; `train_spancat` &rarr; `evaluate_spancat` &rarr; `evaluate_suggester` |
 
 ### 🗂 Assets
 
