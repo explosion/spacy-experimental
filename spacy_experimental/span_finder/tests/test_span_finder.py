@@ -7,7 +7,7 @@ SPAN_KEY = "pytest"
 
 DEFAULT_SBD_MODEL_CONFIG = """
 [model]
-@architectures = "spacy-experimental.span_boundary_detection_model.v1"
+@architectures = "experimental.span_finder_model.v1"
 
 [model.scorer]
 @layers = "spacy.LinearLogistic.v1"
@@ -32,7 +32,7 @@ depth = 4
 """
 
 
-def test_sbd_model():
+def test_span_finder_model():
     nlp = Language()
 
     docs = [nlp("This is an example."), nlp("This is the second example.")]
@@ -53,36 +53,39 @@ def test_sbd_model():
     assert len(predictions[0]) == 2
 
 
-def test_sbd_component():
+def test_span_finder_component():
     nlp = Language()
 
     docs = [nlp("This is an example."), nlp("This is the second example.")]
     docs[0].spans[SPAN_KEY] = [docs[0][3:4]]
     docs[1].spans[SPAN_KEY] = [docs[1][3:5]]
 
-    total_tokens = 0
-    for doc in docs:
-        total_tokens += len(doc)
-
-    sbd = nlp.add_pipe("experimental_span_boundary_detector")
+    span_finder = nlp.add_pipe("experimental_span_finder")
     nlp.initialize()
-    scores = sbd.predict(docs)
+    span_finder.set_annotations(docs, span_finder.predict(docs))
 
-    assert len(scores) == total_tokens
-    assert len(scores[0]) == 2
+    assert docs[0].spans["span_finder_candidates"]
 
 
-def test_sbd_suggester():
+def test_span_finder_suggester():
+
     nlp = Language()
-    nlp.add_pipe("experimental_span_boundary_detector")
-    nlp.initialize()
-    suggester = registry.misc.get(
-        "spacy-experimental.span_boundary_detection_suggester.v1"
-    )()
-
     docs = [nlp("This is an example."), nlp("This is the second example.")]
+    docs[0].spans[SPAN_KEY] = [docs[0][3:4]]
+    docs[1].spans[SPAN_KEY] = [docs[1][3:5]]
+    span_finder = nlp.add_pipe("experimental_span_finder")
+    nlp.initialize()
+    span_finder.set_annotations(docs, span_finder.predict(docs))
+
+    suggester = registry.misc.get("experimental.span_finder_suggester.v1")()
 
     candidates = suggester(docs)
 
+    span_length = 0
+    for doc in docs:
+        for span in doc.spans["span_finder_candidates"]:
+            span_length += 1
+
+    assert span_length == len(candidates.dataXd)
     assert type(candidates) == Ragged
     assert len(candidates.dataXd[0]) == 2

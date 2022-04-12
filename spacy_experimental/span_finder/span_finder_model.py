@@ -1,5 +1,4 @@
 from thinc.types import Floats2d, Floats1d
-
 from typing import List
 from thinc.api import (
     Model,
@@ -7,14 +6,13 @@ from thinc.api import (
     with_array,
 )
 from thinc.types import Floats2d
-
 from spacy.util import registry
 from spacy.tokens import Doc
 from numpy import float32
 
 
-@registry.architectures("spacy-experimental.span_boundary_detection_model.v1")
-def build_boundary_model_v2(
+@registry.architectures("experimental.span_finder_model.v1")
+def build_finder_model(
     tok2vec: Model[List[Doc], List[Floats2d]], scorer: Model[Floats2d, Floats2d]
 ) -> Model[List[Doc], Floats2d]:
 

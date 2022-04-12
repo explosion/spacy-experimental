@@ -13,7 +13,7 @@ from spacy.scorer import PRFScore
 
 SBD_DEFAULT_CONFIG = """
 [model]
-@architectures = "spacy-experimental.span_boundary_detection_model.v1"
+@architectures = "experimental.span_finder_model.v1"
 
 [model.scorer]
 @layers = "spacy.LinearLogistic.v1"
@@ -41,36 +41,32 @@ DEFAULT_SBD_MODEL = Config().from_str(SBD_DEFAULT_CONFIG)["model"]
 
 
 @Language.factory(
-    "experimental_span_boundary_detector",
-    # Placeholder -> throws error if empty
+    "experimental_span_finder",
     assigns=["doc.spans"],
     default_config={
-        "threshold": 0.5,
+        "threshold": 0.3,
         "model": DEFAULT_SBD_MODEL,
-        "scorer": {"@scorers": "spacy-experimental.span_boundary_detection_scorer.v1"},
+        "scorer": {"@scorers": "experimental.span_finder_scorer.v1"},
     },
     default_score_weights={
-        "sbd_start_f": 1.0,
-        "sbd_start_p": 0.0,
-        "sbd_start_r": 0.0,
-        "sbd_end_f": 1.0,
-        "sbd_end_p": 0.0,
-        "sbd_end_r": 0.0,
+        "span_finder_f": 1.0,
+        "span_finder_p": 0.0,
+        "span_finder_r": 0.0,
     },
 )
-def make_sbd(
+def make_span_finder(
     nlp: Language,
     name: str,
     model: Model[List[Doc], Floats2d],
     scorer: Optional[Callable],
     threshold: float,
-) -> "SpanBoundaryDetector":
-    """Create a SpanBoundaryDetection component. The component predicts whether a token is the start or the end of a potential span.
+) -> "SpanFinder":
+    """Create a SpanFinder component. The component predicts whether a token is the start or the end of a potential span.
     model (Model[List[Doc], Floats2d]): A model instance that
         is given a list of documents and predicts a probability for each token.
     threshold (float): Minimum probability to consider a prediction positive.
     """
-    return SpanBoundaryDetector(
+    return SpanFinder(
         nlp.vocab,
         model=model,
         threshold=threshold,
@@ -79,102 +75,72 @@ def make_sbd(
     )
 
 
-@registry.scorers("spacy-experimental.span_boundary_detection_scorer.v1")
-def make_sbd_scorer():
-    return sbd_score
+@registry.scorers("experimental.span_finder_scorer.v1")
+def make_span_finder_scorer():
+    return span_finder_score
 
 
-def sbd_score(examples: Iterable[Example], **kwargs) -> Dict[str, Any]:
+def span_finder_score(examples: Iterable[Example], **kwargs) -> Dict[str, Any]:
 
-    references = [doc.reference for doc in examples]
-    predictions = [doc.predicted for doc in examples]
+    references = get_span_references([doc.reference for doc in examples])
+    predictions = get_span_predictions([doc.predicted for doc in examples])
 
-    reference_results = get_reference(references)
-    prediction_results = get_predictions(predictions)
+    scorer = PRFScore()
 
-    scorer_start = PRFScore()
-    scorer_end = PRFScore()
+    for prediction_doc, reference_doc in zip(predictions, references):
+        for prediction, reference in zip(prediction_doc, reference_doc):
+            if prediction in reference_doc:
+                scorer.tp += 1
+            else:
+                scorer.fp += 1
 
-    for prediction, reference in zip(prediction_results, reference_results):
-
-        start_prediction = prediction[0]
-        end_prediction = prediction[1]
-        start_reference = reference[0]
-        end_reference = reference[1]
-
-        # Start
-        if start_prediction == 1 and start_reference == 1:
-            scorer_start.tp += 1
-        elif start_prediction == 1 and start_reference == 0:
-            scorer_start.fp += 1
-        elif start_prediction == 0 and start_reference == 1:
-            scorer_start.fn += 1
-
-        # End
-        if end_prediction == 1 and end_reference == 1:
-            scorer_end.tp += 1
-        elif end_prediction == 1 and end_reference == 0:
-            scorer_end.fp += 1
-        elif end_prediction == 0 and end_reference == 1:
-            scorer_end.fn += 1
+            if reference not in prediction_doc:
+                scorer.fn += 1
 
     # Assemble final result
     final_scores: Dict[str, Any] = {
-        f"sbd_start_f": scorer_start.fscore,
-        f"sbd_start_p": scorer_start.precision,
-        f"sbd_start_r": scorer_start.recall,
-        f"sbd_end_f": scorer_end.fscore,
-        f"sbd_end_p": scorer_end.precision,
-        f"sbd_end_r": scorer_end.recall,
+        f"span_finder_f": scorer.fscore,
+        f"span_finder_r": scorer.precision,
+        f"span_finder_p": scorer.recall,
     }
 
     return final_scores
 
 
-def get_reference(docs) -> Floats2d:
-    """Create a reference list of token probabilities for calculating loss and metrics"""
-    reference_results = []
+def get_span_predictions(docs) -> Floats2d:
+    """Create a list of predicted spans for scoring"""
+    doc_spans = []
     for doc in docs:
-        start_indices = []
-        end_indices = []
+        spans = set()
+        for span in doc.spans["span_finder_candidates"]:
+            spans.add((span.start, span.end))
+        doc_spans.append(spans)
+    return doc_spans
 
+
+def get_span_references(docs) -> Floats2d:
+    """Create a list of reference spans for scoring"""
+    doc_spans = []
+    for doc in docs:
+        spans = set()
         for spankey in doc.spans:
             for span in doc.spans[spankey]:
-                start_indices.append(span.start)
-                end_indices.append(span.end - 1)
-
-        for token in doc:
-            is_start = 0
-            is_end = 0
-            if token.i in start_indices:
-                is_start = 1
-            if token.i in end_indices:
-                is_end = 1
-            reference_results.append((is_start, is_end))
-
-    return reference_results
+                spans.add((span.start, span.end))
+        doc_spans.append(spans)
+    return doc_spans
 
 
-def get_predictions(docs) -> Floats2d:
-    """Create a prediction list of token start/end probabilities for evaluation"""
-    prediction_results = []
-    for doc in docs:
-        for token in doc:
-            prediction_results.append([token._.span_start, token._.span_end])
-    return prediction_results
-
-
-class SpanBoundaryDetector(TrainablePipe):
-    """Pipeline that learns start and end tokens of spans"""
+class SpanFinder(TrainablePipe):
+    """Pipeline that learns span boundaries"""
 
     def __init__(
         self,
         nlp: Language,
         model: Model[List[Doc], Floats2d],
-        name: str = "sbd",
+        name: str = "span_finder",
         *,
         threshold: float = 0.5,
-        scorer: Optional[Callable] = sbd_score,
+        scorer: Optional[Callable] = span_finder_score,
     ) -> None:
         """Initialize the span boundary detector.
         model (thinc.api.Model): The Thinc Model powering the pipeline component.
@@ -191,8 +157,6 @@ class SpanBoundaryDetector(TrainablePipe):
         self.model = model
         self.name = name
         self.scorer = scorer
-        Token.set_extension("span_start", default=0, force=True)
-        Token.set_extension("span_end", default=0, force=True)
 
     def predict(self, docs: Iterable[Doc]):
         """Apply the pipeline's model to a batch of docs, without modifying them.
@@ -216,20 +180,19 @@ class SpanBoundaryDetector(TrainablePipe):
             offset += length
 
         for doc, doc_scores in zip(docs, scores_per_doc):
+            starts = []
+            ends = []
+            doc.spans["span_finder_candidates"] = []
             for token, token_score in zip(doc, doc_scores):
-
                 if token_score[0] > self.cfg["threshold"]:
-                    token_score[0] = 1
-                else:
-                    token_score[0] = 0
+                    starts.append(token.i)
 
                 if token_score[1] > self.cfg["threshold"]:
-                    token_score[1] = 1
-                else:
-                    token_score[1] = 0
-
-                token._.span_start = token_score[0]
-                token._.span_end = token_score[1]
+                    ends.append(token.i + 1)
+            for start in starts:
+                for end in ends:
+                    if start < end:
+                        doc.spans["span_finder_candidates"].append(doc[start:end])
 
     def update(
         self,
@@ -251,9 +214,10 @@ class SpanBoundaryDetector(TrainablePipe):
         if losses is None:
             losses = {}
         losses.setdefault(self.name, 0.0)
+        predicted = [eg.predicted for eg in examples]
         references = [eg.reference for eg in examples]
         set_dropout_rate(self.model, drop)
-        scores, backprop_scores = self.model.begin_update(references)
+        scores, backprop_scores = self.model.begin_update(predicted)
         loss, d_scores = self.get_loss(references, scores)
         backprop_scores(d_scores)
         if sgd is not None:
@@ -268,10 +232,35 @@ class SpanBoundaryDetector(TrainablePipe):
         scores: Scores representing the model's predictions.
         RETURNS (Tuple[float, float]): The loss and the gradient.
         """
-        reference_results = self.model.ops.asarray(get_reference(docs), dtype=float32)
+        reference_results = self.model.ops.asarray(
+            self._get_reference(docs), dtype=float32
+        )
         d_scores = scores - reference_results
-        loss = float((d_scores ** 2).sum())
+        loss = float((d_scores**2).sum())
         return loss, d_scores
+
+    def _get_reference(self, docs) -> Floats2d:
+        """Create a reference list of token probabilities for calculating loss"""
+        reference_results = []
+        for doc in docs:
+            start_indices = []
+            end_indices = []
+
+            for spankey in doc.spans:
+                for span in doc.spans[spankey]:
+                    start_indices.append(span.start)
+                    end_indices.append(span.end - 1)
+
+            for token in doc:
+                is_start = 0
+                is_end = 0
+                if token.i in start_indices:
+                    is_start = 1
+                if token.i in end_indices:
+                    is_end = 1
+                reference_results.append((is_start, is_end))
+
+        return reference_results
 
     def initialize(
         self,
@@ -295,7 +284,7 @@ class SpanBoundaryDetector(TrainablePipe):
 
         if subbatch:
             docs = [eg.reference for eg in subbatch]
-            Y = self.model.ops.asarray(get_reference(docs), dtype=float32)
+            Y = self.model.ops.asarray(self._get_reference(docs), dtype=float32)
             self.model.initialize(X=docs, Y=Y)
         else:
             self.model.initialize()

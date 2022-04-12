@@ -14,32 +14,23 @@ class Suggester(Protocol):
         ...
 
 
-@registry.misc("spacy-experimental.span_boundary_detection_suggester.v1")
-def build_sbd_suggester() -> Suggester:
-    """Suggest every candidate predicted by the SBD"""
+@registry.misc("experimental.span_finder_suggester.v1")
+def build_span_finder_suggester() -> Suggester:
+    """Suggest every candidate predicted by the SpanFinder"""
 
-    def sbd_suggester(docs: Iterable[Doc], *, ops: Optional[Ops] = None) -> Ragged:
+    def span_finder_suggester(
+        docs: Iterable[Doc], *, ops: Optional[Ops] = None
+    ) -> Ragged:
         if ops is None:
             ops = get_current_ops()
         spans = []
         lengths = []
         for doc in docs:
-            starts = []
-            ends = []
             length = 0
-            cache = set()
-            for token in doc:
-                if token._.span_start == 1:
-                    starts.append(token.i)
-                if token._.span_end == 1:
-                    ends.append(token.i + 1)
-
-            for start in starts:
-                for end in ends:
-                    if start < end and (start, end) not in cache:
-                        spans.append([start, end])
-                        cache.add((start, end))
-                        length += 1
+            if doc.spans["span_finder_candidates"]:
+                for span in doc.spans["span_finder_candidates"]:
+                    spans.append([span.start, span.end])
+                    length += 1
 
             lengths.append(length)
 
@@ -51,4 +42,4 @@ def build_sbd_suggester() -> Suggester:
 
         return output
 
-    return sbd_suggester
+    return span_finder_suggester
