@@ -60,6 +60,7 @@ def make_span_finder(
     model: Model[List[Doc], Floats2d],
     scorer: Optional[Callable],
     threshold: float,
+    candidate_key: str,
 ) -> "SpanFinder":
     """Create a SpanFinder component. The component predicts whether a token is the start or the end of a potential span.
     model (Model[List[Doc], Floats2d]): A model instance that
@@ -72,18 +73,23 @@ def make_span_finder(
         threshold=threshold,
         name=name,
         scorer=scorer,
+        candidate_key=candidate_key,
     )
 
 
 @registry.scorers("experimental.span_finder_scorer.v1")
-def make_span_finder_scorer():
-    return span_finder_score
+def make_span_finder_scorer(candidates_key: str):
+    return span_finder_score(candidates_key=candidates_key)
 
 
-def span_finder_score(examples: Iterable[Example], **kwargs) -> Dict[str, Any]:
+def span_finder_score(
+    examples: Iterable[Example], candidates_key, **kwargs
+) -> Dict[str, Any]:
 
     references = get_span_references([doc.reference for doc in examples])
-    predictions = get_span_predictions([doc.predicted for doc in examples])
+    predictions = get_span_predictions(
+        [doc.predicted for doc in examples], candidates_key
+    )
 
     scorer = PRFScore()
 
@@ -107,12 +113,12 @@ def span_finder_score(examples: Iterable[Example], **kwargs) -> Dict[str, Any]:
     return final_scores
 
 
-def get_span_predictions(docs) -> Floats2d:
+def get_span_predictions(docs, candidates_key) -> Floats2d:
     """Create a list of predicted spans for scoring"""
     doc_spans = []
     for doc in docs:
         spans = set()
-        for span in doc.spans["span_finder_candidates"]:
+        for span in doc.spans[candidates_key]:
             spans.add((span.start, span.end))
         doc_spans.append(spans)
     return doc_spans
@@ -141,6 +147,7 @@ class SpanFinder(TrainablePipe):
         *,
         threshold: float = 0.5,
         scorer: Optional[Callable] = span_finder_score,
+        candidate_key: str = "span_finder_candidates",
     ) -> None:
         """Initialize the span boundary detector.
         model (thinc.api.Model): The Thinc Model powering the pipeline component.
@@ -157,6 +164,7 @@ class SpanFinder(TrainablePipe):
         self.model = model
         self.name = name
         self.scorer = scorer
+        self.candidate_key = candidate_key
 
     def predict(self, docs: Iterable[Doc]):
         """Apply the pipeline's model to a batch of docs, without modifying them.
@@ -182,7 +190,7 @@ class SpanFinder(TrainablePipe):
         for doc, doc_scores in zip(docs, scores_per_doc):
             starts = []
             ends = []
-            doc.spans["span_finder_candidates"] = []
+            doc.spans[self.candidate_key] = []
             for token, token_score in zip(doc, doc_scores):
                 if token_score[0] > self.cfg["threshold"]:
                     starts.append(token.i)
@@ -192,7 +200,7 @@ class SpanFinder(TrainablePipe):
             for start in starts:
                 for end in ends:
                     if start < end:
-                        doc.spans["span_finder_candidates"].append(doc[start:end])
+                        doc.spans[self.candidate_key].append(doc[start:end])
 
     def update(
         self,

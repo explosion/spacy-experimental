@@ -15,7 +15,7 @@ vars:
     model_span_finder: "training/span_finder/${vars.dataset}/${vars.config}/model-best"
     model_spancat: "training/spancat/${vars.dataset}/${vars.config}_${vars.suggester}/model-best"
 
-  gpu_id: -1
+  gpu_id: 0
   eval_split: 0.25
 
 # These are the directories that the project needs. The project CLI will make
@@ -169,6 +169,16 @@ commands:
     help: "Train a spancat model"
     script:
       - "python -m spacy train configs/spancat/${vars.config}_${vars.suggester}.cfg --output training/spancat/${vars.dataset}/${vars.config}_${vars.suggester}/ --paths.train data/${vars.dataset}_${vars.train}.spacy --paths.dev data/${vars.dataset}_${vars.dev}.spacy --paths.suggester_model ${vars.models.model_span_finder} --gpu-id ${vars.gpu_id} --paths.span_key ${vars.span_key}"
+    deps:
+      - "data/${vars.dataset}_${vars.train}.spacy"
+      - "data/${vars.dataset}_${vars.dev}.spacy"
+    outputs:
+      - "${vars.models.model_spancat}"
+
+  - name: "train_shared"
+    help: "Train a SpanFinder and Spancat model together with shared embeddings"
+    script:
+      - "python -m spacy train configs/shared_embedding/${vars.config}.cfg --output training/spancat/${vars.dataset}/${vars.config}_${vars.suggester}/ --paths.train data/${vars.dataset}_${vars.train}.spacy --paths.dev data/${vars.dataset}_${vars.dev}.spacy --gpu-id ${vars.gpu_id} --paths.span_key ${vars.span_key}"
     deps:
       - "data/${vars.dataset}_${vars.train}.spacy"
       - "data/${vars.dataset}_${vars.dev}.spacy"
