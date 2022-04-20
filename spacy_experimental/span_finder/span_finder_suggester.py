@@ -15,7 +15,7 @@ class Suggester(Protocol):
 
 
 @registry.misc("experimental.span_finder_suggester.v1")
-def build_span_finder_suggester() -> Suggester:
+def build_span_finder_suggester(candidates_key: str) -> Suggester:
     """Suggest every candidate predicted by the SpanFinder"""
 
     def span_finder_suggester(
@@ -27,8 +27,8 @@ def build_span_finder_suggester() -> Suggester:
         lengths = []
         for doc in docs:
             length = 0
-            if doc.spans["span_finder_candidates"]:
-                for span in doc.spans["span_finder_candidates"]:
+            if doc.spans[candidates_key]:
+                for span in doc.spans[candidates_key]:
                     spans.append([span.start, span.end])
                     length += 1
 
