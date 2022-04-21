@@ -79,9 +79,7 @@ def make_span_finder(
 
 @registry.scorers("experimental.span_finder_scorer.v1")
 def make_span_finder_scorer(candidates_key: str):
-    def span_finder_score(
-        examples: Iterable[Example], **kwargs
-    ) -> Dict[str, Any]:
+    def span_finder_score(examples: Iterable[Example], **kwargs) -> Dict[str, Any]:
 
         references = get_span_references([doc.reference for doc in examples])
         predictions = get_span_predictions(
@@ -108,10 +106,11 @@ def make_span_finder_scorer(candidates_key: str):
         }
 
         return final_scores
+
     return span_finder_score
 
 
-def get_span_predictions(docs, candidates_key:str) -> Floats2d:
+def get_span_predictions(docs, candidates_key: str) -> Floats2d:
     """Create a list of predicted spans for scoring"""
     doc_spans = []
     for doc in docs:
@@ -242,7 +241,7 @@ class SpanFinder(TrainablePipe):
             self._get_reference(docs), dtype=float32
         )
         d_scores = scores - reference_results
-        loss = float((d_scores**2).sum())
+        loss = float((d_scores ** 2).sum())
         return loss, d_scores
 
     def _get_reference(self, docs) -> Floats2d:
