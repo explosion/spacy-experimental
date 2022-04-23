@@ -1,16 +1,31 @@
-from spacy.language import Language
 from spacy.util import registry
 import spacy
-
-SPAN_KEY = "pytest"
 
 
 def test_subtree_suggester():
     nlp = spacy.load("en_core_web_sm")
-    doc = nlp(
-        "This is a super great interesting example for testing the subtree suggester."
-    )
+    doc = nlp("I decided to go for a little run.")
     suggester = registry.misc.get("experimental.subtree_suggester.v1")([1])
     candidates = suggester([doc])
 
-    print(candidates)
+    assert len(candidates.data) == 17
+
+
+def test_chunk_suggester():
+    nlp = spacy.load("en_core_web_sm")
+    doc = nlp(
+        "The best thing about visiting the President is the food! I must've drank me fifteen Dr.Peppers."
+    )
+    suggester = registry.misc.get("experimental.chunk_suggester.v1")([])
+    candidates = suggester([doc])
+
+    assert len(candidates.data) == 6
+
+
+def test_sentence_suggester():
+    nlp = spacy.load("en_core_web_sm")
+    doc = nlp("The first sentence. The second sentence. And the third sentence.")
+    suggester = registry.misc.get("experimental.sentence_suggester.v1")([])
+    candidates = suggester([doc])
+
+    assert len(candidates.data) == 3

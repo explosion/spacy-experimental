@@ -14,30 +14,30 @@ class Suggester(Protocol):
 
 @registry.misc("experimental.subtree_suggester.v1")
 def build_subtree_suggester(ngram_sizes: List[int]) -> Suggester:
-    """Suggest every set ngram and subtree. Requires annotations from the DependencyParser"""
+    """Suggest ngrams and subtrees. Requires annotations from the DependencyParser"""
 
     def subtree_suggester(docs: Iterable[Doc], *, ops: Optional[Ops] = None) -> Ragged:
         if ops is None:
             ops = get_current_ops()
         spans = []
         lengths = []
+
+        if ngram_sizes:
+            suggester = registry.misc.get("spacy.ngram_suggester.v1")(ngram_sizes)
+
         for doc in docs:
             cache = set()
             length = 0
 
+            # ngram-suggestion
             if ngram_sizes:
-                starts = ops.xp.arange(len(doc), dtype="i")
-                starts = starts.reshape((-1, 1))
-                length = 0
-                for size in ngram_sizes:
-                    if size <= len(doc):
-                        starts_size = starts[: len(doc) - (size - 1)]
-                        spans.append(ops.xp.hstack((starts_size, starts_size + size)))
-                        length += spans[-1].shape[0]
-                print(spans)
-                for span in spans:
-                    cache.add(span)
+                ngram_spans = suggester([doc], ops=ops)
+                for ngram_span in ngram_spans.data:
+                    spans.append((ngram_span[0], ngram_span[1]))
+                    cache.add((ngram_span[0], ngram_span[1]))
+                    length += 1
 
+            # subtree-suggestion
             for token in doc:
                 if (token.left_edge.i, token.i + 1) not in cache:
                     spans.append((token.left_edge.i, token.i + 1))
