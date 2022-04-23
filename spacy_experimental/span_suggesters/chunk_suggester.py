@@ -13,7 +13,7 @@ class Suggester(Protocol):
 
 
 @registry.misc("experimental.chunk_suggester.v1")
-def build_chunk_suggester(ngram_sizes: List[int]) -> Suggester:
+def build_chunk_suggester(sizes: List[int]) -> Suggester:
     """Suggest ngrams and noun chunks. Requires annotations from the Tagger"""
 
     def chunk_suggester(docs: Iterable[Doc], *, ops: Optional[Ops] = None) -> Ragged:
@@ -22,17 +22,18 @@ def build_chunk_suggester(ngram_sizes: List[int]) -> Suggester:
         spans = []
         lengths = []
 
-        if ngram_sizes:
-            suggester = registry.misc.get("spacy.ngram_suggester.v1")(ngram_sizes)
+        if sizes:
+            suggester = registry.misc.get("spacy.ngram_suggester.v1")(sizes)
 
         for doc in docs:
             cache = set()
             length = 0
 
             # ngram-suggestion
-            if ngram_sizes:
+            if sizes:
                 ngram_spans = suggester([doc], ops=ops)
                 for ngram_span in ngram_spans.data:
+                    ngram_span = ops.to_numpy(ngram_span)
                     spans.append((ngram_span[0], ngram_span[1]))
                     cache.add((ngram_span[0], ngram_span[1]))
                     length += 1

@@ -10,7 +10,7 @@ vars:
 
   spancat_model: "training/${vars.suggester}_suggester/model-best"
 
-  gpu_id: 0
+  gpu_id: -1
   eval_split: 0.25
 
 # These are the directories that the project needs. The project CLI will make
@@ -29,9 +29,9 @@ assets:
 # run them via "spacy project run [workflow]". If a commands's inputs/outputs
 # haven't changed, it won't be re-run.
 workflows:
-  train:
+  all:
+    - data
     - train_spancat
-    - evaluate_spancat
 
 # Project commands, specified in a style similar to CI config files (e.g. Azure
 # pipelines). The name is the command name that lets you trigger the command
@@ -41,43 +41,26 @@ commands:
   - name: "install"
     help: "Install requirements"
     script:
-      - "pip install -r requirements.txt"
+      - "spacy download en_core_web_sm"
 
-  - name: "preprocess_healthsea"
+  - name: "data"
     help: "Format Healthsea annotations into .spaCy training format"
     script:
-      - "python scripts/preprocess_healthsea.py assets/healthsea_ner.jsonl data/healthsea_${vars.train}.spacy data/healthsea_${vars.dev}.spacy ${vars.eval_split} ${vars.span_key}"
+      - "python scripts/preprocess_healthsea.py assets/healthsea_ner.jsonl data/${vars.train}.spacy data/${vars.dev}.spacy ${vars.eval_split} ${vars.span_key}"
     deps:
       - "assets/healthsea_ner.jsonl"
       - "scripts/preprocess_healthsea.py"
     outputs:
-      - "data/healthsea_${vars.train}.spacy"
-      - "data/healthsea_${vars.dev}.spacy"
+      - "data/${vars.train}.spacy"
+      - "data/${vars.dev}.spacy"
 
   - name: "train_spancat"
     help: "Train a spancat model"
     script:
-      - "python -m spacy train configs/${vars.suggester}_suggester.cfg --output training/${vars.suggester}_suggester/ --paths.train data/${vars.dataset}_${vars.train}.spacy --paths.dev data/${vars.dataset}_${vars.dev}.spacy --gpu-id ${vars.gpu_id} --paths.span_key ${vars.span_key}"
+      - "python -m spacy train configs/${vars.suggester}_suggester.cfg --output training/${vars.suggester}_suggester/ --paths.train data/${vars.train}.spacy --paths.dev data/${vars.dev}.spacy --gpu-id ${vars.gpu_id} --paths.span_key ${vars.span_key}"
     deps:
-      - "configs/${vars.suggester}/${vars.config}.cfg"
-      - "data/${vars.dataset}_${vars.train}.spacy"
-      - "data/${vars.dataset}_${vars.dev}.spacy"
+      - "configs/${vars.suggester}_suggester.cfg"
+      - "data/${vars.train}.spacy"
+      - "data/${vars.dev}.spacy"
     outputs:
       - "${vars.spancat_model}"
-
-  - name: "evaluate_spancat"
-    help: "Evaluate a trained spancat model"
-    script:
-      - "python -m spacy evaluate ${vars.spancat_model} data/${vars.dataset}_${vars.dev}.spacy --output metrics/${vars.suggester}_suggester.json --gpu-id ${vars.gpu_id}"
-    deps:
-      - "${vars.spancat_model}"
-      - "data/${vars.dataset}_${vars.dev}.spacy"
-    outputs:
-      - metrics/${vars.suggester}_suggester.json
-
-  - name: "reset"
-    help: "Reset the project to its original state and delete all training process"
-    script:
-      - "python scripts/reset.py training"
-      - "python scripts/reset.py assets"
-      - "python scripts/reset.py data"
