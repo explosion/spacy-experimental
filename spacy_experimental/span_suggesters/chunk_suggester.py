@@ -38,7 +38,7 @@ def build_chunk_suggester(sizes: List[int]) -> Suggester:
                     cache.add((ngram_span[0], ngram_span[1]))
                     length += 1
 
-            # subtree-suggestion
+            # noun-chunk-suggestion
             for noun_chunk in doc.noun_chunks:
                 if (noun_chunk.start, noun_chunk.end) not in cache:
                     spans.append((noun_chunk.start, noun_chunk.end))

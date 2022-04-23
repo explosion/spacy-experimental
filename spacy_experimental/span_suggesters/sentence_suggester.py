@@ -38,7 +38,7 @@ def build_sentence_suggester(sizes: List[int]) -> Suggester:
                     cache.add((ngram_span[0], ngram_span[1]))
                     length += 1
 
-            # subtree-suggestion
+            # sentence-suggestion
             for sentence in doc.sents:
                 if (sentence.start, sentence.end) not in cache:
                     spans.append((sentence.start, sentence.end))
