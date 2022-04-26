@@ -4,16 +4,17 @@ description: "This project introduces a new experimental suggester that learns t
 vars:
   config: "config_tok2vec" # config_tok2vec, config_trf
   dataset: "healthsea" # healthsea, toxic, genia
-  suggester: "ngram" # ngram, span_finder
+  suggester: "span_finder" # ngram, span_finder
 
   train: "train"
   dev: "dev"
   span_key: "sc"
 
+  gpu_id: -1
+  eval_split: 0.25
+
   spancat_model: "training/spancat/${vars.dataset}/${vars.config}_${vars.suggester}/model-best"
 
-  gpu_id: 0
-  eval_split: 0.25
 
 # These are the directories that the project needs. The project CLI will make
 # sure that they always exist.
@@ -51,23 +52,10 @@ assets:
 # run them via "spacy project run [workflow]". If a commands's inputs/outputs
 # haven't changed, it won't be re-run.
 workflows:
-  healthsea_data:
-    - preprocess_healthsea
-    - analyze_healthsea
-  toxic_data:
-    - preprocess_healthsea
-    - analyze_healthsea
-  genia_data:
-    - preprocess_healthsea
-    - analyze_healthsea
   preprocess:
     - preprocess_healthsea
     - preprocess_toxic
     - preprocess_genia
-  analyze:
-    - analyze_healthsea
-    - analyze_toxic
-    - analyze_genia
   train:
     - train_spancat
     - evaluate_spancat
@@ -96,7 +84,8 @@ commands:
   - name: "preprocess_genia"
     help: "Format Genia annotations into .spaCy training format"
     script:
-      - "python scripts/preprocessing/preprocess_genia.py assets/genia_train.iob assets/genia_dev.iob data/genia_${vars.train}.spacy data/genia_${vars.dev}.spacy"
+      - "python scripts/preprocessing/preprocess_genia.py assets/genia_train.iob  data/genia_${vars.train}.spacy"
+      - "python scripts/preprocessing/preprocess_genia.py assets/genia_dev.iob data/genia_${vars.dev}.spacy"
     deps:
       - "assets/genia_train.iob"
       - "assets/genia_dev.iob"
@@ -117,31 +106,8 @@ commands:
       - "data/toxic_${vars.train}.spacy"
       - "data/toxic_${vars.dev}.spacy"
 
-  # Required to have spacy-span-analyzer installed (https://github.com/ljvmiranda921/spacy-span-analyzer)
-  - name: "analyze_healthsea"
-    help: "Analyze Healthsea training dataset"
-    script:
-      - "spacy-span-analyzer data/healthsea_${vars.train}.spacy"
-    deps:
-      - "data/healthsea_${vars.train}.spacy"
-
-  - name: "analyze_toxic"
-    help: "Analyze ToxicSpans training dataset"
-    script:
-      - "spacy-span-analyzer data/toxic_${vars.train}.spacy"
-    deps:
-      - "data/toxic_${vars.train}.spacy"
-
-  - name: "analyze_genia"
-    help: "Analyze Genia training dataset"
-    script:
-      - "spacy-span-analyzer data/genia_${vars.train}.spacy"
-    deps:
-      - "data/genia_${vars.train}.spacy"
-  # ----------------------------------------------------------------------------------------------------
-
   - name: "train_spancat"
-    help: "Train a spancat model"
+    help: "Train a spancat model on the `dataset` defined in `project.yml`"
     script:
       - "python -m spacy train configs/${vars.suggester}/${vars.config}.cfg --output training/spancat/${vars.dataset}/${vars.config}_${vars.suggester}/ --paths.train data/${vars.dataset}_${vars.train}.spacy --paths.dev data/${vars.dataset}_${vars.dev}.spacy --gpu-id ${vars.gpu_id} --paths.span_key ${vars.span_key}"
     deps:
@@ -152,7 +118,7 @@ commands:
       - "${vars.spancat_model}"
 
   - name: "evaluate_spancat"
-    help: "Evaluate a trained spancat model"
+    help: "Evaluate a trained spancat model  on the `dataset` defined in `project.yml`"
     script:
       - "python -m spacy evaluate ${vars.spancat_model} data/${vars.dataset}_${vars.dev}.spacy --output metrics/spancat_${vars.dataset}_${vars.config}_${vars.suggester}.json --gpu-id ${vars.gpu_id}"
       - "python scripts/evaluation.py ${vars.span_key} ${vars.spancat_model} data/${vars.dataset}_${vars.dev}.spacy"

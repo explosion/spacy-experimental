@@ -10,6 +10,20 @@ The [`project.yml`](project.yml) defines the data assets required by the
 project, as well as the available commands and workflows. For details, see the
 [spaCy projects documentation](https://spacy.io/usage/projects).
 
+### 🔧 Parameters
+
+| Parameter | Description |
+| --- | --- |
+|`config`| Choose between a config with Tok2Vec embedding and Transformer (roberta-base) embedding |
+|`dataset`| Choose between three datasets (Healthsea, ToxicSpans, and Genia) |
+|`suggester`| Choose between two suggester architectures (SpanFinder, Ngram) |
+|`train`| Choose a filename for your training data |
+|`dev`| Choose a filename for your development data |
+|`span_key`| Choose a key to specify the SpanGropup for the   spancat component to save the predictions to |
+|`gpu_id`| Choose whether you want to use your GPU (device number) or CPU (-1) |
+|`eval_split`| Choose an evaluation split for the dataset (Only affects the Healthsea dataset) |
+
+
 ### ⏯ Commands
 
 The following commands are defined by the project. They
@@ -22,14 +36,8 @@ Commands are only re-run if their inputs have changed.
 | `preprocess_healthsea` | Format Healthsea annotations into .spaCy training format |
 | `preprocess_genia` | Format Genia annotations into .spaCy training format |
 | `preprocess_toxic` | Format annotations into .spaCy training format |
-| `analyze_healthsea` | Analyze Healthsea training dataset |
-| `analyze_toxic` | Analyze ToxicSpans training dataset |
-| `analyze_genia` | Analyze Genia training dataset |
-| `train_span_finder` | Train SpanFinder model |
-| `evaluate_span_finder` | Evaluate a trained SpanFinder model |
-| `train_spancat` | Train a spancat model |
-| `evaluate_spancat` | Evaluate a trained spancat model |
-| `evaluate_suggester` | Evaluate the suggester of a trained spancat model |
+| `train_spancat` | Train a spancat model on the `dataset` defined in `project.yml`|
+| `evaluate_spancat` | Evaluate a trained spancat model  on the `dataset` defined in `project.yml` |
 | `reset` | Reset the project to its original state and delete all training process |
 
 ### ⏭ Workflows
@@ -41,12 +49,8 @@ inputs have changed.
 
 | Workflow | Steps |
 | --- | --- |
-| `healthsea_data` | `preprocess_healthsea` &rarr; `analyze_healthsea` |
-| `toxic_data` | `preprocess_healthsea` &rarr; `analyze_healthsea` |
-| `genia_data` | `preprocess_healthsea` &rarr; `analyze_healthsea` |
-| `preprocess_all` | `preprocess_healthsea` &rarr; `preprocess_toxic` &rarr; `preprocess_genia` |
-| `analyze_all` | `analyze_healthsea` &rarr; `analyze_toxic` &rarr; `analyze_genia` |
-| `train` | `train_span_finder` &rarr; `evaluate_span_finder` &rarr; `train_spancat` &rarr; `evaluate_spancat` &rarr; `evaluate_suggester` |
+| `preprocess` | `preprocess_healthsea` &rarr; `preprocess_toxic` &rarr; `preprocess_genia` |
+| `train` | `train_spancat` &rarr; `evaluate_spancat` |
 
 ### 🗂 Assets
 

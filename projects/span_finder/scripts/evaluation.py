@@ -102,47 +102,9 @@ def main(
 
     msg.good("Evaluation successful")
 
-    # Table Config
-    header = ("Label", "F-Score", "Recall", "Precision")
-
-    # Spancat Table
-    spancat_data = []
-    spancat_fscore = 0
-    spancat_recall = 0
-    spancat_precision = 0
-
-    for label in scorer:
-        spancat_data.append(
-            (
-                label,
-                round(scorer[label].fscore, 2),
-                round(scorer[label].recall, 2),
-                round(scorer[label].precision, 2),
-            )
-        )
-        spancat_fscore += scorer[label].fscore
-        spancat_recall += scorer[label].recall
-        spancat_precision += scorer[label].precision
-
-    spancat_fscore /= len(scorer)
-    spancat_recall /= len(scorer)
-    spancat_precision /= len(scorer)
-
-    spancat_data.append(
-        (
-            "Average",
-            round(spancat_fscore, 2),
-            round(spancat_recall, 2),
-            round(spancat_precision, 2),
-        )
-    )
-
-    msg.divider("Spancat")
-    print(table(spancat_data, header=header, divider=True))
-
     print()
 
-    # Suggester Coverage    
+    # Suggester Coverage
     coverage = round((matching_candidates / total_real_candidates) * 100, 2)
     candidates_relation = round((total_candidates / total_real_candidates) * 100, 2)
 
@@ -154,11 +116,9 @@ def main(
         ("Real candidates", total_real_candidates),
         ("% Ratio", f"{candidates_relation}%"),
         ("% Coverage", f"{coverage}%"),
-        ("F-Score", round(spancat_fscore,2)),
-        ("Recall", round(spancat_recall,2)),
-        ("Precision", round(spancat_precision,2)),
     ]
     print(table(suggester_data, header=suggester_header, divider=True))
+
 
 if __name__ == "__main__":
     typer.run(main)

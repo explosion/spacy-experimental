@@ -64,24 +64,15 @@ def parse_genia(
     return docs_with_spans
 
 
-def main(
-    train_path: Path, dev_path: Path, train_output_path: Path, dev_output_path: Path
-):
+def main(input_path: Path, output_path: Path):
 
     msg.good(f"Processing Genia")
-    with train_path.open("r", encoding="utf-8") as f:
-        train_data = f.read()
-    with dev_path.open("r", encoding="utf-8") as f:
-        dev_data = f.read()
+    with input_path.open("r", encoding="utf-8") as f:
+        data = f.read()
 
-    train_docs = parse_genia(train_data)
-    dev_docs = parse_genia(dev_data)
-
-    train_doc_bin = DocBin(docs=train_docs)
-    dev_doc_bin = DocBin(docs=dev_docs)
-
-    train_doc_bin.to_disk(train_output_path)
-    dev_doc_bin.to_disk(dev_output_path)
+    docs = parse_genia(data)
+    doc_bin = DocBin(docs=docs)
+    doc_bin.to_disk(output_path)
 
     msg.good(f"Processing Genia done")
 
