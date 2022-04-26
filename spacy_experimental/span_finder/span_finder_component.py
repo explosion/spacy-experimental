@@ -46,7 +46,11 @@ DEFAULT_SBD_MODEL = Config().from_str(SBD_DEFAULT_CONFIG)["model"]
     default_config={
         "threshold": 0.3,
         "model": DEFAULT_SBD_MODEL,
-        "scorer": {"@scorers": "experimental.span_finder_scorer.v1"},
+        "candidates_key": "span_candidates",
+        "scorer": {
+            "@scorers": "experimental.span_finder_scorer.v1",
+            "candidates_key": "span_candidates",
+        },
     },
     default_score_weights={
         "span_finder_f": 1.0,
@@ -241,7 +245,7 @@ class SpanFinder(TrainablePipe):
             self._get_reference(docs), dtype=float32
         )
         d_scores = scores - reference_results
-        loss = float((d_scores ** 2).sum())
+        loss = float((d_scores**2).sum())
         return loss, d_scores
 
     def _get_reference(self, docs) -> Floats2d:

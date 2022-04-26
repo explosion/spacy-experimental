@@ -64,7 +64,7 @@ def test_span_finder_component():
     nlp.initialize()
     span_finder.set_annotations(docs, span_finder.predict(docs))
 
-    assert docs[0].spans["span_finder_candidates"]
+    assert docs[0].spans["span_candidates"]
 
 
 def test_span_finder_suggester():
@@ -77,13 +77,15 @@ def test_span_finder_suggester():
     nlp.initialize()
     span_finder.set_annotations(docs, span_finder.predict(docs))
 
-    suggester = registry.misc.get("experimental.span_finder_suggester.v1")()
+    suggester = registry.misc.get("experimental.span_finder_suggester.v1")(
+        candidates_key="span_candidates"
+    )
 
     candidates = suggester(docs)
 
     span_length = 0
     for doc in docs:
-        for span in doc.spans["span_finder_candidates"]:
+        for span in doc.spans["span_candidates"]:
             span_length += 1
 
     assert span_length == len(candidates.dataXd)
