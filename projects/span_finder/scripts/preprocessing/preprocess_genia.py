@@ -10,7 +10,7 @@ DOC_DELIMITER = "-DOCSTART- -X- O O\n"
 
 
 def parse_genia(
-    data: str, num_levels: int = 4, doc_delimiter: str = DOC_DELIMITER
+    data: str, span_key: str, num_levels: int = 4, doc_delimiter: str = DOC_DELIMITER
 ) -> List[Doc]:
     """Parse GENIA dataset into spaCy docs
 
@@ -57,20 +57,19 @@ def parse_genia(
     for docs in zip(*docs_per_level):
         spans = [ent for doc in docs for ent in doc.ents]
         doc = docs[0]
-        group = SpanGroup(doc, name="sc", spans=spans)
-        doc.spans["sc"] = group
+        group = SpanGroup(doc, name=span_key, spans=spans)
+        doc.spans[span_key] = group
         docs_with_spans.append(doc)
 
     return docs_with_spans
 
 
-def main(input_path: Path, output_path: Path):
-
+def main(input_path: Path, output_path: Path, span_key: str):
     msg.good(f"Processing Genia")
     with input_path.open("r", encoding="utf-8") as f:
         data = f.read()
 
-    docs = parse_genia(data)
+    docs = parse_genia(data, span_key=span_key)
     doc_bin = DocBin(docs=docs)
     doc_bin.to_disk(output_path)
 

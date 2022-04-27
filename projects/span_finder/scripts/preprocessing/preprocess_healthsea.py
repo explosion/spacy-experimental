@@ -1,9 +1,6 @@
 from spacy.tokens import DocBin, Span
 import spacy
-
 from wasabi import Printer
-from wasabi import table
-
 import json
 from pathlib import Path
 import typer

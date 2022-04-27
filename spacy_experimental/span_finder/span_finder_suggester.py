@@ -1,20 +1,12 @@
 from typing import Optional, Iterable, cast
 from thinc.api import get_current_ops, Ops
-
 from thinc.types import Ragged, Ints1d
-
-from spacy.compat import Protocol, runtime_checkable
 from spacy.tokens import Doc
 from spacy.util import registry
+from spacy.pipeline.spancat import Suggester
 
 
-@runtime_checkable
-class Suggester(Protocol):
-    def __call__(self, docs: Iterable[Doc], *, ops: Optional[Ops] = None) -> Ragged:
-        ...
-
-
-@registry.misc("experimental.span_finder_suggester.v1")
+@registry.misc("spacy-experimental.span_finder_suggester.v1")
 def build_span_finder_suggester(candidates_key: str) -> Suggester:
     """Suggest every candidate predicted by the SpanFinder"""
 

@@ -11,9 +11,9 @@ from spacy.tokens import Doc, Token
 from spacy.training import Example
 from spacy.scorer import PRFScore
 
-SBD_DEFAULT_CONFIG = """
+span_finder_default_config = """
 [model]
-@architectures = "experimental.span_finder_model.v1"
+@architectures = "spacy-experimental.span_finder_model.v1"
 
 [model.scorer]
 @layers = "spacy.LinearLogistic.v1"
@@ -37,7 +37,8 @@ maxout_pieces = 3
 depth = 4
 """
 
-DEFAULT_SBD_MODEL = Config().from_str(SBD_DEFAULT_CONFIG)["model"]
+DEFAULT_SPAN_FINDER_MODEL = Config().from_str(span_finder_default_config)["model"]
+DEFAULT_CANDIDATES_KEY = "span_candidates"
 
 
 @Language.factory(
@@ -45,11 +46,11 @@ DEFAULT_SBD_MODEL = Config().from_str(SBD_DEFAULT_CONFIG)["model"]
     assigns=["doc.spans"],
     default_config={
         "threshold": 0.3,
-        "model": DEFAULT_SBD_MODEL,
-        "candidates_key": "span_candidates",
+        "model": DEFAULT_SPAN_FINDER_MODEL,
+        "candidates_key": DEFAULT_CANDIDATES_KEY,
         "scorer": {
-            "@scorers": "experimental.span_finder_scorer.v1",
-            "candidates_key": "span_candidates",
+            "@scorers": "spacy-experimental.span_finder_scorer.v1",
+            "candidates_key": DEFAULT_CANDIDATES_KEY,
         },
     },
     default_score_weights={
@@ -64,7 +65,7 @@ def make_span_finder(
     model: Model[List[Doc], Floats2d],
     scorer: Optional[Callable],
     threshold: float,
-    candidates_key: str,
+    candidates_key: str = DEFAULT_CANDIDATES_KEY,
 ) -> "SpanFinder":
     """Create a SpanFinder component. The component predicts whether a token is the start or the end of a potential span.
     model (Model[List[Doc], Floats2d]): A model instance that
@@ -81,8 +82,8 @@ def make_span_finder(
     )
 
 
-@registry.scorers("experimental.span_finder_scorer.v1")
-def make_span_finder_scorer(candidates_key: str):
+@registry.scorers("spacy-experimental.span_finder_scorer.v1")
+def make_span_finder_scorer(candidates_key: str = DEFAULT_CANDIDATES_KEY):
     def span_finder_score(examples: Iterable[Example], **kwargs) -> Dict[str, Any]:
 
         references = get_span_references([doc.reference for doc in examples])
@@ -130,8 +131,8 @@ def get_span_references(docs) -> Floats2d:
     doc_spans = []
     for doc in docs:
         spans = set()
-        for spankey in doc.spans:
-            for span in doc.spans[spankey]:
+        for span_key in doc.spans:
+            for span in doc.spans[span_key]:
                 spans.add((span.start, span.end))
         doc_spans.append(spans)
     return doc_spans
@@ -157,6 +158,7 @@ class SpanFinder(TrainablePipe):
         threshold (float): Minimum probability to consider a prediction
             positive.
         scorer (Optional[Callable]): The scoring method.
+        candidates_key (str): Name of the SpanGroup the span candidates are saved to
         """
         self.vocab = nlp
         self.cfg = {
@@ -215,8 +217,8 @@ class SpanFinder(TrainablePipe):
         updating the pipe's model. Delegates to predict and get_loss.
         examples (Iterable[Example]): A batch of Example objects.
         drop (float): The dropout rate.
-        sgd (thinc.api.Optimizer): The optimizer.
-        losses (Dict[str, float]): Optional record of the loss during training.
+        sgd (Optional[thinc.api.Optimizer]): The optimizer.
+        losses (Optional[Dict[str, float]]): Optional record of the loss during training.
             Updated using the component name as the key.
         RETURNS (Dict[str, float]): The updated losses dictionary.
         """
@@ -224,25 +226,25 @@ class SpanFinder(TrainablePipe):
             losses = {}
         losses.setdefault(self.name, 0.0)
         predicted = [eg.predicted for eg in examples]
-        references = [eg.reference for eg in examples]
         set_dropout_rate(self.model, drop)
         scores, backprop_scores = self.model.begin_update(predicted)
-        loss, d_scores = self.get_loss(references, scores)
+        loss, d_scores = self.get_loss(examples, scores)
         backprop_scores(d_scores)
         if sgd is not None:
             self.finish_update(sgd)
         losses[self.name] += loss
         return losses
 
-    def get_loss(self, docs, scores) -> Tuple[float, float]:
+    def get_loss(self, examples, scores) -> Tuple[float, float]:
         """Find the loss and gradient of loss for the batch of documents and
         their predicted scores.
         examples (Iterable[Examples]): The batch of examples.
         scores: Scores representing the model's predictions.
         RETURNS (Tuple[float, float]): The loss and the gradient.
         """
+        references = [eg.reference for eg in examples]
         reference_results = self.model.ops.asarray(
-            self._get_reference(docs), dtype=float32
+            self._get_reference(references), dtype=float32
         )
         d_scores = scores - reference_results
         loss = float((d_scores**2).sum())
@@ -282,9 +284,6 @@ class SpanFinder(TrainablePipe):
         get_examples (Callable[[], Iterable[Example]]): Function that
             returns a representative sample of gold-standard Example objects.
         nlp (Optional[Language]): The current nlp object the component is part of.
-        labels (Optional[List[str]]): The labels to add to the component, typically generated by the
-            `init labels` command. If no labels are provided, the get_examples
-            callback is used to extract the labels from the data.
         """
         subbatch: List[Example] = []
 

@@ -15,7 +15,6 @@ vars:
 
   spancat_model: "training/spancat/${vars.dataset}/${vars.config}_${vars.suggester}/model-best"
 
-
 # These are the directories that the project needs. The project CLI will make
 # sure that they always exist.
 directories: ["assets", "training", "configs", "scripts", "data", "metrics"]
@@ -56,7 +55,7 @@ workflows:
     - preprocess_healthsea
     - preprocess_toxic
     - preprocess_genia
-  train:
+  spancat:
     - train_spancat
     - evaluate_spancat
 
@@ -84,8 +83,8 @@ commands:
   - name: "preprocess_genia"
     help: "Format Genia annotations into .spaCy training format"
     script:
-      - "python scripts/preprocessing/preprocess_genia.py assets/genia_train.iob  data/genia_${vars.train}.spacy"
-      - "python scripts/preprocessing/preprocess_genia.py assets/genia_dev.iob data/genia_${vars.dev}.spacy"
+      - "python scripts/preprocessing/preprocess_genia.py assets/genia_train.iob  data/genia_${vars.train}.spacy ${vars.span_key}"
+      - "python scripts/preprocessing/preprocess_genia.py assets/genia_dev.iob data/genia_${vars.dev}.spacy ${vars.span_key}"
     deps:
       - "assets/genia_train.iob"
       - "assets/genia_dev.iob"
@@ -121,7 +120,7 @@ commands:
     help: "Evaluate a trained spancat model  on the `dataset` defined in `project.yml`"
     script:
       - "python -m spacy evaluate ${vars.spancat_model} data/${vars.dataset}_${vars.dev}.spacy --output metrics/spancat_${vars.dataset}_${vars.config}_${vars.suggester}.json --gpu-id ${vars.gpu_id}"
-      - "python scripts/evaluation.py ${vars.span_key} ${vars.spancat_model} data/${vars.dataset}_${vars.dev}.spacy"
+      - "python scripts/suggester_evaluation.py ${vars.span_key} ${vars.spancat_model} data/${vars.dataset}_${vars.dev}.spacy"
     deps:
       - "${vars.spancat_model}"
       - "data/${vars.dataset}_${vars.dev}.spacy"

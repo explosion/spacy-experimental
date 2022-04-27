@@ -2,34 +2,9 @@ from spacy.language import Language
 from spacy.util import registry
 from thinc.api import Config
 from thinc.types import Ragged
+import spacy_experimental.span_finder.span_finder_component as span_finder
 
 SPAN_KEY = "pytest"
-
-DEFAULT_SBD_MODEL_CONFIG = """
-[model]
-@architectures = "experimental.span_finder_model.v1"
-
-[model.scorer]
-@layers = "spacy.LinearLogistic.v1"
-nO = 2
-
-[model.tok2vec]
-@architectures = "spacy.Tok2Vec.v1"
-
-[model.tok2vec.embed]
-@architectures = "spacy.MultiHashEmbed.v1"
-width = 96
-rows = [5000, 2000, 1000, 1000]
-attrs = ["ORTH", "PREFIX", "SUFFIX", "SHAPE"]
-include_static_vectors = false
-
-[model.tok2vec.encode]
-@architectures = "spacy.MaxoutWindowEncoder.v1"
-width = ${model.tok2vec.embed.width}
-window_size = 1
-maxout_pieces = 3
-depth = 4
-"""
 
 
 def test_span_finder_model():
@@ -43,7 +18,7 @@ def test_span_finder_model():
     for doc in docs:
         total_tokens += len(doc)
 
-    config = Config().from_str(DEFAULT_SBD_MODEL_CONFIG).interpolate()
+    config = Config().from_str(span_finder.span_finder_default_config).interpolate()
     model = registry.resolve(config)["model"]
 
     model.initialize(X=docs)
@@ -77,7 +52,7 @@ def test_span_finder_suggester():
     nlp.initialize()
     span_finder.set_annotations(docs, span_finder.predict(docs))
 
-    suggester = registry.misc.get("experimental.span_finder_suggester.v1")(
+    suggester = registry.misc.get("spacy-experimental.span_finder_suggester.v1")(
         candidates_key="span_candidates"
     )
 
@@ -85,8 +60,7 @@ def test_span_finder_suggester():
 
     span_length = 0
     for doc in docs:
-        for span in doc.spans["span_candidates"]:
-            span_length += 1
+        span_length += len(doc.spans["span_candidates"])
 
     assert span_length == len(candidates.dataXd)
     assert type(candidates) == Ragged

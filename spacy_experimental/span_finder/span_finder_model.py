@@ -1,17 +1,12 @@
 from thinc.types import Floats2d, Floats1d
 from typing import List
-from thinc.api import (
-    Model,
-    chain,
-    with_array,
-)
-from thinc.types import Floats2d
+from thinc.api import Model, chain, with_array
 from spacy.util import registry
 from spacy.tokens import Doc
 from numpy import float32
 
 
-@registry.architectures("experimental.span_finder_model.v1")
+@registry.architectures("spacy-experimental.span_finder_model.v1")
 def build_finder_model(
     tok2vec: Model[List[Doc], List[Floats2d]], scorer: Model[Floats2d, Floats2d]
 ) -> Model[List[Doc], Floats2d]:
