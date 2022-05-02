@@ -6,7 +6,6 @@ vars:
 
   train: "train"
   dev: "dev"
-  span_key: "sc"
 
   spancat_model: "training/${vars.suggester}_suggester/model-best"
 
@@ -46,7 +45,7 @@ commands:
   - name: "data"
     help: "Format Healthsea annotations into .spaCy training format"
     script:
-      - "python scripts/preprocess_healthsea.py assets/healthsea_ner.jsonl data/${vars.train}.spacy data/${vars.dev}.spacy ${vars.eval_split} ${vars.span_key}"
+      - "python scripts/preprocess_healthsea.py assets/healthsea_ner.jsonl data/${vars.train}.spacy data/${vars.dev}.spacy ${vars.eval_split} sc"
     deps:
       - "assets/healthsea_ner.jsonl"
       - "scripts/preprocess_healthsea.py"
@@ -57,7 +56,7 @@ commands:
   - name: "train_spancat"
     help: "Train a spancat model"
     script:
-      - "python -m spacy train configs/${vars.suggester}_suggester.cfg --output training/${vars.suggester}_suggester/ --paths.train data/${vars.train}.spacy --paths.dev data/${vars.dev}.spacy --gpu-id ${vars.gpu_id} --paths.span_key ${vars.span_key}"
+      - "python -m spacy train configs/${vars.suggester}_suggester.cfg --output training/${vars.suggester}_suggester/ --paths.train data/${vars.train}.spacy --paths.dev data/${vars.dev}.spacy --gpu-id ${vars.gpu_id} --paths.span_key"
     deps:
       - "configs/${vars.suggester}_suggester.cfg"
       - "data/${vars.train}.spacy"
