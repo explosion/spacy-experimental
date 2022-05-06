@@ -40,7 +40,7 @@ DEFAULT_ARC_LABELER_MODEL = Config().from_str(default_model_config)["model"]
     assigns=["token.dep"],
     default_config={
         "model": DEFAULT_ARC_LABELER_MODEL,
-        "scorer": {"@scorers": "biaffine.parser_scorer.v1"}
+        "scorer": {"@scorers": "spacy-experimental.biaffine_parser_scorer.v1"}
     },
 )
 def make_arc_labeler(
