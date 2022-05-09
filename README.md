@@ -232,6 +232,24 @@ annotating_components = ["senter"]
 The [biaffine parser sample project](projects/biaffine_parser) provides an
 example biaffine parser pipeline.
 
+### Custom Spancat suggesters
+
+The spancat component uses suggester functions to extract spans from text for prediction. With this package we add more experimental suggester functions:
+
+**subtree-tree suggester**: Uses annotations from the [DependencyParser](https://spacy.io/api/dependencyparser) to suggest tokens with their syntactic decendants.
+`spacy-experimental.subtree_suggester.v1`
+`spacy-experimental.ngram_subtree_suggester.v1`
+
+**chunk suggester**: Uses annotations from the [DependencyParser](https://spacy.io/api/dependencyparser) and [Part-of-Speech Tagger](https://spacy.io/api/tagger) to suggest noun chunks.
+`spacy-experimental.chunk_suggester.v1`
+`spacy-experimental.ngram_chunk_suggester.v1`
+
+**sentence suggester**: Uses sentence boundaries to suggest sentences.
+`spacy-experimental.sentence_suggester.v1`
+`spacy-experimental.ngram_sentence_suggester.v1`
+
+The package also contains a `merge-suggesters` script which can be used to combine multiple suggesters together. 
+
 ## Architectures
 
 None currently.

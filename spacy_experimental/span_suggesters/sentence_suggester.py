@@ -7,7 +7,6 @@ from spacy.pipeline.spancat import Suggester
 from .merge_suggesters import merge_suggestions
 
 
-@registry.misc("experimental.sentence_suggester.v1")
 def build_ngram_sentence_suggester(sizes: List[int]) -> Suggester:
     """Suggest ngrams and sentences. Requires sentence boundaries."""
     ngram_suggester = registry.misc.get("spacy.ngram_suggester.v1")(sizes)
@@ -22,9 +21,8 @@ def build_ngram_sentence_suggester(sizes: List[int]) -> Suggester:
     return ngram_sentence_suggester
 
 
-@registry.misc("experimental.sentence_suggester.v1")
 def build_sentence_suggester() -> Suggester:
-    """Suggest sentences. Requires Requires sentence boundaries."""
+    """Suggest sentences. Requires sentence boundaries."""
     return sentence_suggester
 
 

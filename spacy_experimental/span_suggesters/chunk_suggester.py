@@ -7,7 +7,6 @@ from spacy.pipeline.spancat import Suggester
 from .merge_suggesters import merge_suggestions
 
 
-@registry.misc("experimental.ngram_chunk_suggester.v1")
 def build_ngram_chunk_suggester(sizes: List[int]) -> Suggester:
     """Suggest ngrams and noun chunks. Requires annotations from the Tagger & DependencyParser"""
     ngram_suggester = registry.misc.get("spacy.ngram_suggester.v1")(sizes)
@@ -22,7 +21,6 @@ def build_ngram_chunk_suggester(sizes: List[int]) -> Suggester:
     return ngram_chunk_suggester
 
 
-@registry.misc("experimental.chunk_suggester.v1")
 def build_chunk_suggester() -> Suggester:
     """Suggest noun chunks. Requires annotations from the Tagger & DependencyParser"""
     return chunk_suggester

@@ -7,7 +7,6 @@ from spacy.util import registry
 from .merge_suggesters import merge_suggestions
 
 
-@registry.misc("experimental.ngram_subtree_suggester.v1")
 def build_ngram_subtree_suggester(sizes: List[int]) -> Suggester:
     """Suggest ngrams and subtrees. Requires annotations from the DependencyParser"""
 
@@ -23,7 +22,6 @@ def build_ngram_subtree_suggester(sizes: List[int]) -> Suggester:
     return ngram_subtree_suggester
 
 
-@registry.misc("experimental.subtree_suggester.v1")
 def build_subtree_suggester() -> Suggester:
     """Suggest subtrees. Requires annotations from the DependencyParser"""
     return subtree_suggester
