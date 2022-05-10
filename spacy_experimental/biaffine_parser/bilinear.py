@@ -10,7 +10,6 @@ from thinc.types import ArgsKwargs, Floats2d, Ints1d
 from .pytorch_bilinear import BilinearModel as PyTorchBilinearModel
 
 
-@registry.architectures("spacy-experimental.Bilinear.v1")
 def build_bilinear(
     tok2vec: Model[List[Doc], List[Floats2d]],
     nO: Optional[int] = None,

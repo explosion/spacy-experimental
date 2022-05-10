@@ -32,27 +32,11 @@ Then you can add the experimental components to your config or import from
 `spacy_experimental`:
 
 ```ini
-[components.experimental_edit_tree_lemmatizer]
-factory = "experimental_edit_tree_lemmatizer"
+[components.experimental_char_ner_tokenizer]
+factory = "experimental_char_ner_tokenizer"
 ```
 
 ## Components
-
-### Edit tree lemmatizer
-
-```ini
-[components.experimental_edit_tree_lemmatizer]
-factory = "experimental_edit_tree_lemmatizer"
-# token attr to use as backoff with the predicted trees are not applicable; null to leave unset
-backoff = "orth"
-# prune trees that are applied less than this frequency in the training data
-min_tree_freq = 2
-# whether to overwrite existing lemma annotation
-overwrite = false
-scorer = {"@scorers":"spacy.lemmatizer_scorer.v1"}
-# try to apply at most the k most probable edit trees
-top_k = 1
-```
 
 ### Trainable character-based tokenizers
 
