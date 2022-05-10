@@ -6,7 +6,6 @@ from spacy.tokens import Doc
 from numpy import float32
 
 
-@registry.architectures("spacy-experimental.span_finder_model.v1")
 def build_finder_model(
     tok2vec: Model[List[Doc], List[Floats2d]], scorer: Model[Floats2d, Floats2d]
 ) -> Model[List[Doc], Floats2d]:

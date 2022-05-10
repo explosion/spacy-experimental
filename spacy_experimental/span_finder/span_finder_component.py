@@ -13,7 +13,7 @@ from spacy.scorer import PRFScore
 
 span_finder_default_config = """
 [model]
-@architectures = "spacy-experimental.span_finder_model.v1"
+@architectures = "spacy-experimental.SpanFinder.v1"
 
 [model.scorer]
 @layers = "spacy.LinearLogistic.v1"
@@ -82,7 +82,6 @@ def make_span_finder(
     )
 
 
-@registry.scorers("spacy-experimental.span_finder_scorer.v1")
 def make_span_finder_scorer(candidates_key: str = DEFAULT_CANDIDATES_KEY):
     def span_finder_score(examples: Iterable[Example], **kwargs) -> Dict[str, Any]:
 
@@ -180,7 +179,7 @@ class SpanFinder(TrainablePipe):
     def set_annotations(self, docs: Iterable[Doc], scores: Floats2d) -> None:
         """Modify a batch of Doc objects, using pre-computed scores.
         docs (Iterable[Doc]): The documents to modify.
-        scores: The scores to set, produced by SpanCategorizer.predict.
+        scores: The scores to set, produced by SpanFinder predict method.
         """
         lengths = [len(doc) for doc in docs]
 
@@ -191,19 +190,17 @@ class SpanFinder(TrainablePipe):
             offset += length
 
         for doc, doc_scores in zip(docs, scores_per_doc):
-            starts = []
-            ends = []
             doc.spans[self.candidates_key] = []
-            for token, token_score in zip(doc, doc_scores):
-                if token_score[0] > self.cfg["threshold"]:
-                    starts.append(token.i)
-
-                if token_score[1] > self.cfg["threshold"]:
-                    ends.append(token.i + 1)
-            for start in starts:
-                for end in ends:
-                    if start < end:
-                        doc.spans[self.candidates_key].append(doc[start:end])
+            for start_token, start_token_score in zip(doc, doc_scores):
+                if start_token_score[0] > self.cfg["threshold"]:
+                    for end_token, end_token_score in zip(doc, doc_scores):
+                        if (
+                            end_token_score[1] > self.cfg["threshold"]
+                            and end_token.i + 1 > start_token.i
+                        ):
+                            doc.spans[self.candidates_key].append(
+                                doc[start_token.i : end_token.i + 1]
+                            )
 
     def update(
         self,

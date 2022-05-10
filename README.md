@@ -232,6 +232,12 @@ annotating_components = ["senter"]
 The [biaffine parser sample project](projects/biaffine_parser) provides an
 example biaffine parser pipeline.
 
+### Span Finder
+
+The SpanFinder is a new experimental component that tries to learn span boundaries by tagging potential start and end tokens. It's an ML approach on suggester functions to produce fewer and more precise span candidates than the ngram suggester. 
+
+This package includes a spaCy project which showcases how to train and include the SpanFinder in a Spancat pipeline.
+
 ## Architectures
 
 None currently.
