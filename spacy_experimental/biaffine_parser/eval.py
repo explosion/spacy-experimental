@@ -2,14 +2,12 @@ from typing import Iterable
 
 from spacy.scorer import PRFScore, Scorer
 from spacy.training import Example
-from spacy.util import registry
 
 
 def parser_score(examples, **kwargs):
     return score_deps(examples)
 
 
-@registry.scorers("biaffine.parser_scorer.v1")
 def make_parser_scorer():
     return parser_score
 

@@ -12,7 +12,6 @@ from .pytorch_pairwise_bilinear import (
 )
 
 
-@registry.architectures("spacy-experimental.PairwiseBilinear.v1")
 def build_pairwise_bilinear(
     tok2vec: Model[List[Doc], List[Floats2d]],
     nO=None,
