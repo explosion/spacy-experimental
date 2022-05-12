@@ -232,24 +232,6 @@ annotating_components = ["senter"]
 The [biaffine parser sample project](projects/biaffine_parser) provides an
 example biaffine parser pipeline.
 
-### Custom Spancat suggesters
-
-The spancat component uses suggester functions to extract spans from text for prediction. With this package we add more experimental suggester functions:
-
-**subtree-tree suggester**: Uses annotations from the [DependencyParser](https://spacy.io/api/dependencyparser) to suggest tokens with their syntactic decendants.
-`spacy-experimental.subtree_suggester.v1`
-`spacy-experimental.ngram_subtree_suggester.v1`
-
-**chunk suggester**: Uses annotations from the [DependencyParser](https://spacy.io/api/dependencyparser) and [Part-of-Speech Tagger](https://spacy.io/api/tagger) to suggest noun chunks.
-`spacy-experimental.chunk_suggester.v1`
-`spacy-experimental.ngram_chunk_suggester.v1`
-
-**sentence suggester**: Uses sentence boundaries to suggest sentences.
-`spacy-experimental.sentence_suggester.v1`
-`spacy-experimental.ngram_sentence_suggester.v1`
-
-The package also contains a `merge-suggesters` script which can be used to combine multiple suggesters together. 
-
 ## Architectures
 
 None currently.
@@ -266,6 +248,24 @@ None currently.
 - `spacy-experimental.tokenizer_scorer.v1`: Score tokenization.
 - `spacy-experimental.tokenizer_senter_scorer.v1`: Score tokenization and
   sentence segmentation.
+
+### Misc
+
+Suggester functions for spancat:
+
+**Subtree suggester**: Uses dependency annotation to suggest tokens with their syntactic descendants.
+- `spacy-experimental.subtree_suggester.v1`
+- `spacy-experimental.ngram_subtree_suggester.v1`
+
+**Chunk suggester**: Suggests noun chunks using the noun chunk iterator, which requires POS and dependency annotation.
+- `spacy-experimental.chunk_suggester.v1`
+- `spacy-experimental.ngram_chunk_suggester.v1`
+
+**Sentence suggester**: Uses sentence boundaries to suggest sentence spans.
+- `spacy-experimental.sentence_suggester.v1`
+- `spacy-experimental.ngram_sentence_suggester.v1`
+
+The package also contains a [`merge_suggesters`](spacy_experimental/span_suggesters/merge_suggesters.py) function which can be used to combine suggestions from multiple suggesters.
 
 ## Bug reports and issues
 
