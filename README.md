@@ -267,6 +267,23 @@ Suggester functions for spancat:
 
 The package also contains a [`merge_suggesters`](spacy_experimental/span_suggesters/merge_suggesters.py) function which can be used to combine suggestions from multiple suggesters.
 
+Here are two config excerpts for using the `subtree suggester` with and without the ngram functionality:
+
+```
+[components.spancat.suggester]
+@misc = "spacy-experimental.subtree_suggester.v1"
+```
+
+```
+[components.spancat.suggester]
+@misc = "spacy-experimental.ngram_subtree_suggester.v1"
+sizes = [1, 2, 3]
+```
+
+> Note that all the custom suggester functions are registered in `@misc`
+
+
+
 ## Bug reports and issues
 
 Please report bugs in the [spaCy issue
