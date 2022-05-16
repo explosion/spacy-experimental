@@ -48,6 +48,8 @@ DEFAULT_CANDIDATES_KEY = "span_candidates"
         "threshold": 0.3,
         "model": DEFAULT_SPAN_FINDER_MODEL,
         "candidates_key": DEFAULT_CANDIDATES_KEY,
+        "max_length": 0,
+        "min_length": 0,
         "scorer": {
             "@scorers": "spacy-experimental.span_finder_scorer.v1",
             "candidates_key": DEFAULT_CANDIDATES_KEY,
@@ -65,12 +67,17 @@ def make_span_finder(
     model: Model[List[Doc], Floats2d],
     scorer: Optional[Callable],
     threshold: float,
+    max_length: int,
+    min_length: int,
     candidates_key: str = DEFAULT_CANDIDATES_KEY,
 ) -> "SpanFinder":
     """Create a SpanFinder component. The component predicts whether a token is the start or the end of a potential span.
     model (Model[List[Doc], Floats2d]): A model instance that
         is given a list of documents and predicts a probability for each token.
     threshold (float): Minimum probability to consider a prediction positive.
+    candidates_key (str): Name of the SpanGroup the predicted spans are saved to
+    max_length (int): Max length of the produced spans (no max limitation when set to 0)
+    min_length (int): Min length of the produced spans (no min limitation when set to 0)
     """
     return SpanFinder(
         nlp.vocab,
@@ -78,6 +85,8 @@ def make_span_finder(
         threshold=threshold,
         name=name,
         scorer=scorer,
+        max_length=max_length,
+        min_length=min_length,
         candidates_key=candidates_key,
     )
 
@@ -147,6 +156,8 @@ class SpanFinder(TrainablePipe):
         name: str = "span_finder",
         *,
         threshold: float = 0.5,
+        max_length: int = 0,
+        min_length: int = 0,
         scorer: Optional[Callable],
         candidates_key: str = "span_finder_candidates",
     ) -> None:
@@ -158,15 +169,19 @@ class SpanFinder(TrainablePipe):
             positive.
         scorer (Optional[Callable]): The scoring method.
         candidates_key (str): Name of the SpanGroup the span candidates are saved to
+        max_length (int): Max length of the produced spans (unlimited when set to 0)
+        min_length (int): Min length of the produced spans (unlimited when set to 0)
         """
         self.vocab = nlp
         self.cfg = {
             "threshold": threshold,
+            "max_length": max_length,
+            "min_length": min_length,
+            "candidates_key": candidates_key,
         }
         self.model = model
         self.name = name
         self.scorer = scorer
-        self.candidates_key = candidates_key
 
     def predict(self, docs: Iterable[Doc]):
         """Apply the pipeline's model to a batch of docs, without modifying them.
@@ -190,15 +205,14 @@ class SpanFinder(TrainablePipe):
             offset += length
 
         for doc, doc_scores in zip(docs, scores_per_doc):
-            doc.spans[self.candidates_key] = []
+            doc.spans[self.cfg["candidates_key"]] = []
             for start_token, start_token_score in zip(doc, doc_scores):
                 if start_token_score[0] > self.cfg["threshold"]:
                     for end_token, end_token_score in zip(doc, doc_scores):
-                        if (
-                            end_token_score[1] > self.cfg["threshold"]
-                            and end_token.i + 1 > start_token.i
-                        ):
-                            doc.spans[self.candidates_key].append(
+                        if end_token_score[1] > self.cfg[
+                            "threshold"
+                        ] and self._check_length(start_token.i, end_token.i):
+                            doc.spans[self.cfg["candidates_key"]].append(
                                 doc[start_token.i : end_token.i + 1]
                             )
 
@@ -269,6 +283,38 @@ class SpanFinder(TrainablePipe):
                 reference_results.append((is_start, is_end))
 
         return reference_results
+
+    def _check_length(self, start_i: int, end_i: int):
+        """Check whether the length of a produced span is within the length limitation
+        start_i (int): Start ID
+        end_i (int): End ID
+        """
+        difference = end_i + 1 - start_i
+
+        if difference <= 0:
+            return False
+
+        # No Limitations
+        if self.cfg["min_length"] <= 0:
+            if self.cfg["max_length"] <= 0:
+                return True
+
+        # Within both limitations
+        if difference >= self.cfg["min_length"] and self.cfg["min_length"] > 0:
+            if difference <= self.cfg["max_length"] and self.cfg["max_length"] > 0:
+                return True
+            elif self.cfg["max_length"] <= 0:
+                return True
+            else:
+                return False
+
+        if difference <= self.cfg["max_length"] and self.cfg["max_length"] > 0:
+            if difference >= self.cfg["min_length"] and self.cfg["min_length"] > 0:
+                return True
+            elif self.cfg["min_length"] <= 0:
+                return True
+            else:
+                return False
 
     def initialize(
         self,

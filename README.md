@@ -220,7 +220,97 @@ example biaffine parser pipeline.
 
 The SpanFinder is a new experimental component that tries to learn span boundaries by tagging potential start and end tokens. It's an ML approach on suggester functions to produce fewer and more precise span candidates than the ngram suggester. 
 
-This package includes a spaCy project which showcases how to train and include the SpanFinder in a Spancat pipeline.
+`SpanFinder` requires three parameters for initialization:
+- `threshold`: Threshold of the required probabilty for predicted spans.
+- `candidates_key`: Name of the [SpanGroup](https://spacy.io/api/spangroup) in which the predicted spans are saved to.
+- `max_length`: Max length of the predicted spans (no limit when set to 0).
+- `min_length`: Min length of the predicted spans (no limit when set to 0).
+
+Here is a config excerpt for the `SpanFinder` together with `Spancat`:
+ 
+``` ini
+[nlp]
+lang = "en"
+pipeline = ["tok2vec","span_finder","spancat"]
+batch_size = 128
+disabled = []
+before_creation = null
+after_creation = null
+after_pipeline_creation = null
+tokenizer = {"@tokenizers":"spacy.Tokenizer.v1"}
+
+[components]
+
+[components.tok2vec]
+factory = "tok2vec"
+
+[components.tok2vec.model]
+@architectures = "spacy.Tok2Vec.v1"
+
+[components.tok2vec.model.embed]
+@architectures = "spacy.MultiHashEmbed.v2"
+width = ${components.tok2vec.model.encode.width}
+attrs = ["ORTH", "SHAPE"]
+rows = [5000, 2500]
+include_static_vectors = false
+
+[components.tok2vec.model.encode]
+@architectures = "spacy.MaxoutWindowEncoder.v2"
+width = 96
+depth = 4
+window_size = 1
+maxout_pieces = 3
+
+[components.span_finder]
+factory = "experimental_span_finder"
+threshold = 0.35
+candidates_key = "span_candidates"
+min_length = 1
+max_length = 0
+
+[components.span_finder.scorer]
+@scorers = "spacy-experimental.span_finder_scorer.v1"
+candidates_key = ${components.span_finder.candidates_key}
+
+[components.span_finder.model]
+@architectures = "spacy-experimental.span_finder_model.v1"
+
+[components.span_finder.model.scorer]
+@layers = "spacy.LinearLogistic.v1"
+nO=2
+
+[components.span_finder.model.tok2vec]
+@architectures = "spacy.Tok2VecListener.v1"
+width = ${components.tok2vec.model.encode.width}
+
+[components.spancat]
+factory = "spancat"
+max_positive = null
+spans_key = ${paths.span_key}
+threshold = 0.5
+
+[components.spancat.model]
+@architectures = "spacy.SpanCategorizer.v1"
+
+[components.spancat.model.reducer]
+@layers = "spacy.mean_max_reducer.v1"
+hidden_size = 128
+
+[components.spancat.model.scorer]
+@layers = "spacy.LinearLogistic.v1"
+nO = null
+nI = null
+
+[components.spancat.model.tok2vec]
+@architectures = "spacy.Tok2VecListener.v1"
+width = ${components.tok2vec.model.encode.width}
+
+[components.spancat.suggester]
+@misc = "spacy-experimental.span_finder_suggester.v1"
+candidates_key = ${components.span_finder.candidates_key}
+```
+
+This package includes a [spaCy project](./projects/span_finder) which shows how to train and use the `SpanFinder` together with `Spancat`.
 
 ## Architectures
 
