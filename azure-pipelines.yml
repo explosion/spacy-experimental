@@ -31,6 +31,7 @@ jobs:
       python -m pip install --upgrade pip setuptools
       pip install -r requirements.txt
     displayName: 'Install dependencies'
+
   - script: python setup.py sdist
     displayName: 'Build sdist'
 
@@ -38,6 +39,7 @@ jobs:
       pip freeze > installed.txt
       pip uninstall -y -r installed.txt
     displayName: "Uninstall all packages"
+
   - script: pip install dist/*.tar.gz
     displayName: 'Install from sdist'
 
