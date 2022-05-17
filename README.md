@@ -280,7 +280,7 @@ Here are two config excerpts for using the `subtree suggester` with and without 
 sizes = [1, 2, 3]
 ```
 
-> Note that all the custom suggester functions are registered in `@misc`
+Note that all the suggester functions are registered in `@misc`.
 
 
 
