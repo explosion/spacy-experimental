@@ -329,6 +329,41 @@ None currently.
 - `spacy-experimental.tokenizer_senter_scorer.v1`: Score tokenization and
   sentence segmentation.
 
+### Misc
+
+Suggester functions for spancat:
+
+**Subtree suggester**: Uses dependency annotation to suggest tokens with their syntactic descendants.
+- `spacy-experimental.subtree_suggester.v1`
+- `spacy-experimental.ngram_subtree_suggester.v1`
+
+**Chunk suggester**: Suggests noun chunks using the noun chunk iterator, which requires POS and dependency annotation.
+- `spacy-experimental.chunk_suggester.v1`
+- `spacy-experimental.ngram_chunk_suggester.v1`
+
+**Sentence suggester**: Uses sentence boundaries to suggest sentence spans.
+- `spacy-experimental.sentence_suggester.v1`
+- `spacy-experimental.ngram_sentence_suggester.v1`
+
+The package also contains a [`merge_suggesters`](spacy_experimental/span_suggesters/merge_suggesters.py) function which can be used to combine suggestions from multiple suggesters.
+
+Here are two config excerpts for using the `subtree suggester` with and without the ngram functionality:
+
+```
+[components.spancat.suggester]
+@misc = "spacy-experimental.subtree_suggester.v1"
+```
+
+```
+[components.spancat.suggester]
+@misc = "spacy-experimental.ngram_subtree_suggester.v1"
+sizes = [1, 2, 3]
+```
+
+Note that all the suggester functions are registered in `@misc`.
+
+
+
 ## Bug reports and issues
 
 Please report bugs in the [spaCy issue
