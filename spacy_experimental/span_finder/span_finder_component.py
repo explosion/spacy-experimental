@@ -206,15 +206,29 @@ class SpanFinder(TrainablePipe):
 
         for doc, doc_scores in zip(docs, scores_per_doc):
             doc.spans[self.cfg["candidates_key"]] = []
-            for start_token, start_token_score in zip(doc, doc_scores):
-                if start_token_score[0] > self.cfg["threshold"]:
-                    for end_token, end_token_score in zip(doc, doc_scores):
-                        if end_token_score[1] > self.cfg[
-                            "threshold"
-                        ] and self._check_length(start_token.i, end_token.i):
-                            doc.spans[self.cfg["candidates_key"]].append(
-                                doc[start_token.i : end_token.i + 1]
-                            )
+            starts = []
+            ends = []
+
+            for token, token_score in zip(doc, doc_scores):
+                if token_score[0] >= self.cfg["threshold"]:
+                    starts.append(token.i)
+                if token_score[1] >= self.cfg["threshold"]:
+                    ends.append(token.i)
+
+            for start in starts:
+                for end in ends:
+                    if start < end + 1:
+                        if (
+                            self.cfg["min_length"] <= 0
+                            or start >= self.cfg["min_length"]
+                        ):
+                            if (
+                                self.cfg["max_length"] <= 0
+                                or end <= self.cfg["max_length"]
+                            ):
+                                doc.spans[self.cfg["candidates_key"]].append(
+                                    doc[start : end + 1]
+                                )
 
     def update(
         self,
@@ -283,38 +297,6 @@ class SpanFinder(TrainablePipe):
                 reference_results.append((is_start, is_end))
 
         return reference_results
-
-    def _check_length(self, start_i: int, end_i: int):
-        """Check whether the length of a produced span is within the length limitation
-        start_i (int): Start ID
-        end_i (int): End ID
-        """
-        difference = end_i + 1 - start_i
-
-        if difference <= 0:
-            return False
-
-        # No Limitations
-        if self.cfg["min_length"] <= 0:
-            if self.cfg["max_length"] <= 0:
-                return True
-
-        # Within both limitations
-        if difference >= self.cfg["min_length"] and self.cfg["min_length"] > 0:
-            if difference <= self.cfg["max_length"] and self.cfg["max_length"] > 0:
-                return True
-            elif self.cfg["max_length"] <= 0:
-                return True
-            else:
-                return False
-
-        if difference <= self.cfg["max_length"] and self.cfg["max_length"] > 0:
-            if difference >= self.cfg["min_length"] and self.cfg["min_length"] > 0:
-                return True
-            elif self.cfg["min_length"] <= 0:
-                return True
-            else:
-                return False
 
     def initialize(
         self,
