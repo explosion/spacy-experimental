@@ -218,17 +218,17 @@ class SpanFinder(TrainablePipe):
             for start in starts:
                 for end in ends:
                     if start < end + 1:
+                        span_length = end + 1 - start
                         if (
                             self.cfg["min_length"] <= 0
-                            or start >= self.cfg["min_length"]
+                            or span_length >= self.cfg["min_length"]
+                        ) and (
+                            self.cfg["max_length"] <= 0
+                            or span_length <= self.cfg["max_length"]
                         ):
-                            if (
-                                self.cfg["max_length"] <= 0
-                                or end <= self.cfg["max_length"]
-                            ):
-                                doc.spans[self.cfg["candidates_key"]].append(
-                                    doc[start : end + 1]
-                                )
+                            doc.spans[self.cfg["candidates_key"]].append(
+                                doc[start : end + 1]
+                            )
 
     def update(
         self,
