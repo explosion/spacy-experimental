@@ -3,7 +3,9 @@ from spacy.util import registry
 from thinc.api import Config
 from thinc.types import Ragged
 from spacy_experimental.span_finder.span_finder_component import DEFAULT_CANDIDATES_KEY
-from spacy_experimental.span_finder.span_finder_component import span_finder_default_config
+from spacy_experimental.span_finder.span_finder_component import (
+    span_finder_default_config,
+)
 
 
 SPAN_KEY = "pytest"
@@ -59,6 +61,40 @@ def test_span_finder_component_span_lengths():
     )
     nlp.initialize()
     span_finder.set_annotations([doc], span_finder.predict([doc]))
+
+    assert doc.spans[DEFAULT_CANDIDATES_KEY]
+    assert len(
+        doc.spans[DEFAULT_CANDIDATES_KEY][0]
+    ) >= test_min_length and test_max_length >= len(
+        doc.spans[DEFAULT_CANDIDATES_KEY][0]
+    )
+
+
+def test_span_finder_component_set_annotations_span_lengths():
+
+    test_min_length = 2
+    test_max_length = 3
+
+    nlp = Language()
+    doc = nlp("Me and Jenny goes together like peas and carrots.")
+    span_finder = nlp.add_pipe(
+        "experimental_span_finder",
+        config={"max_length": test_max_length, "min_length": test_min_length},
+    )
+    nlp.initialize()
+    scores = [
+        (1, 0),
+        (0, 0),
+        (1, 1),
+        (0, 0),
+        (0, 0),
+        (0, 0),
+        (1, 1),
+        (0, 0),
+        (0, 1),
+        (0, 1),
+    ]
+    span_finder.set_annotations([doc], scores)
 
     assert doc.spans[DEFAULT_CANDIDATES_KEY]
     assert len(
