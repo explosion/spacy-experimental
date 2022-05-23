@@ -1,7 +1,6 @@
 from thinc.types import Floats2d, Floats1d
 from typing import List
 from thinc.api import Model, chain, with_array
-from spacy.util import registry
 from spacy.tokens import Doc
 from numpy import float32
 
@@ -22,6 +21,8 @@ def build_finder_model(
 
 
 def flattener() -> Model[Floats1d, Floats1d]:
+    """Flattens the input to a 1-dimensional list of scores"""
+
     def forward(
         model: Model[Floats1d, Floats1d], X: Floats1d, is_train: bool
     ) -> Floats1d:

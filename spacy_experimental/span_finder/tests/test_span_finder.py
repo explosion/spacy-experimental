@@ -2,13 +2,9 @@ from spacy.language import Language
 from spacy.util import registry
 from thinc.api import Config
 from thinc.types import Ragged
-from spacy_experimental.span_finder.span_finder_component import DEFAULT_CANDIDATES_KEY
-from spacy_experimental.span_finder.span_finder_component import span_finder_default_config
-)
-
+from spacy_experimental.span_finder.span_finder_component import DEFAULT_CANDIDATES_KEY, span_finder_default_config
 
 SPAN_KEY = "pytest"
-
 
 def test_span_finder_model():
     nlp = Language()

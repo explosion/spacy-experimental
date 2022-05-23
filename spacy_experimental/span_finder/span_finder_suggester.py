@@ -2,7 +2,6 @@ from typing import Optional, Iterable, cast
 from thinc.api import get_current_ops, Ops
 from thinc.types import Ragged, Ints1d
 from spacy.tokens import Doc
-from spacy.util import registry
 from spacy.pipeline.spancat import Suggester
 
 

@@ -5,9 +5,8 @@ from thinc.types import Floats2d
 from numpy import float32
 
 from spacy.language import Language
-from spacy.util import registry
 from spacy.pipeline.trainable_pipe import TrainablePipe
-from spacy.tokens import Doc, Token
+from spacy.tokens import Doc
 from spacy.training import Example
 from spacy.scorer import PRFScore
 

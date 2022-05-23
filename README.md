@@ -218,7 +218,7 @@ example biaffine parser pipeline.
 
 ### Span Finder
 
-The SpanFinder is a new experimental component that tries to learn span boundaries by tagging potential start and end tokens. It's an ML approach on suggester functions to produce fewer and more precise span candidates than the ngram suggester. 
+The SpanFinder is a new experimental component that tries to learn span boundaries by tagging potential start and end tokens. It's an ML approach on suggester functions to produce fewer and more precise span candidates. 
 
 `SpanFinder` requires three parameters for initialization:
 - `threshold`: Threshold of the required probabilty for predicted spans.
