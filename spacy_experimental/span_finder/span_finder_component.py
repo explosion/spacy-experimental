@@ -81,7 +81,10 @@ def make_span_finder(
     model (Model[List[Doc], Floats2d]): A model instance that
         is given a list of documents and predicts a probability for each token.
     threshold (float): Minimum probability to consider a prediction positive.
-    candidates_key (str): Name of the SpanGroup the predicted spans are saved to
+    candidates_key (str): Name of the span group the predicted spans are saved
+        to
+    reference_key (str): Name of the span group the reference spans are read
+        from
     max_length (int): Max length of the produced spans (no max limitation when
         set to 0)
     min_length (int): Min length of the produced spans (no min limitation when
@@ -127,7 +130,8 @@ def span_finder_score(
     kwargs.setdefault("has_annotation", lambda doc: candidates_key in doc.spans)
     # score_spans can only score spans with the same key in both the reference
     # and predicted docs, so temporarily copy the reference spans from the
-    # reference key to the candidates key
+    # reference key to the candidates key in the reference docs, restoring the
+    # original span groups afterwards
     orig_span_groups = []
     for eg in examples:
         orig_span_groups.append(eg.reference.spans.get(candidates_key))
@@ -168,7 +172,7 @@ class SpanFinder(TrainablePipe):
             positive.
         scorer (Optional[Callable]): The scoring method.
         candidates_key (str): Name of the span group the candidate spans are saved to
-        reference_key (str): Name of the span group the reference spans are stored in
+        reference_key (str): Name of the span group the reference spans are read from
         max_length (int): Max length of the produced spans (unlimited when set to 0)
         min_length (int): Min length of the produced spans (unlimited when set to 0)
         """
