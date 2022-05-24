@@ -2,9 +2,14 @@ from spacy.language import Language
 from spacy.util import registry
 from thinc.api import Config
 from thinc.types import Ragged
-from spacy_experimental.span_finder.span_finder_component import DEFAULT_CANDIDATES_KEY, span_finder_default_config
+from spacy_experimental.span_finder.span_finder_component import (
+    DEFAULT_CANDIDATES_KEY,
+    span_finder_default_config,
+)
+import pytest
 
 SPAN_KEY = "pytest"
+
 
 def test_span_finder_model():
     nlp = Language()
@@ -41,42 +46,19 @@ def test_span_finder_component():
     assert docs[0].spans["span_candidates"]
 
 
-def test_span_finder_component_span_lengths():
-
-    test_min_length = 1
-    test_max_length = 4
-
-    nlp = Language()
-    doc = nlp(
-        "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum."
-    )
-    span_finder = nlp.add_pipe(
-        "experimental_span_finder",
-        config={"max_length": test_max_length, "min_length": test_min_length},
-    )
-    nlp.initialize()
-    span_finder.set_annotations([doc], span_finder.predict([doc]))
-
-    assert doc.spans[DEFAULT_CANDIDATES_KEY]
-    assert len(
-        doc.spans[DEFAULT_CANDIDATES_KEY][0]
-    ) >= test_min_length and test_max_length >= len(
-        doc.spans[DEFAULT_CANDIDATES_KEY][0]
-    )
-
-
-def test_span_finder_component_set_annotations_span_lengths():
-
-    test_min_length = 2
-    test_max_length = 3
-
+@pytest.mark.parametrize(
+    "min_length, max_length, span_count", [(0, 0, 8), (2, 0, 6), (0, 1, 2), (2, 3, 2)]
+)
+def test_set_annotations_span_lengths(min_length, max_length, span_count):
     nlp = Language()
     doc = nlp("Me and Jenny goes together like peas and carrots.")
     span_finder = nlp.add_pipe(
         "experimental_span_finder",
-        config={"max_length": test_max_length, "min_length": test_min_length},
+        config={"max_length": max_length, "min_length": min_length},
     )
     nlp.initialize()
+    # Starts    [Me, Jenny, peas]
+    # Ends      [Jenny, peas, carrots]
     scores = [
         (1, 0),
         (0, 0),
@@ -87,15 +69,20 @@ def test_span_finder_component_set_annotations_span_lengths():
         (1, 1),
         (0, 0),
         (0, 1),
-        (0, 1),
+        (0, 0),
     ]
     span_finder.set_annotations([doc], scores)
 
     assert doc.spans[DEFAULT_CANDIDATES_KEY]
-    assert len(
-        doc.spans[DEFAULT_CANDIDATES_KEY][0]
-    ) >= test_min_length and test_max_length >= len(
-        doc.spans[DEFAULT_CANDIDATES_KEY][0]
+    assert len(doc.spans[DEFAULT_CANDIDATES_KEY]) == span_count
+
+    # Assert below will fail when max_length is set to 0
+    if max_length <= 0:
+        max_length = 1000
+
+    assert all(
+        min_length <= len(span) <= max_length
+        for span in doc.spans[DEFAULT_CANDIDATES_KEY]
     )
 
 
