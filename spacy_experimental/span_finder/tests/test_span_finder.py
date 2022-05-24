@@ -8,15 +8,15 @@ from spacy_experimental.span_finder.span_finder_component import (
 )
 import pytest
 
-SPAN_KEY = "pytest"
+REFERENCE_KEY = "pytest"
 
 
 def test_span_finder_model():
     nlp = Language()
 
     docs = [nlp("This is an example."), nlp("This is the second example.")]
-    docs[0].spans[SPAN_KEY] = [docs[0][3:4]]
-    docs[1].spans[SPAN_KEY] = [docs[1][3:5]]
+    docs[0].spans[REFERENCE_KEY] = [docs[0][3:4]]
+    docs[1].spans[REFERENCE_KEY] = [docs[1][3:5]]
 
     total_tokens = 0
     for doc in docs:
@@ -36,12 +36,14 @@ def test_span_finder_component():
     nlp = Language()
 
     docs = [nlp("This is an example."), nlp("This is the second example.")]
-    docs[0].spans[SPAN_KEY] = [docs[0][3:4]]
-    docs[1].spans[SPAN_KEY] = [docs[1][3:5]]
+    docs[0].spans[REFERENCE_KEY] = [docs[0][3:4]]
+    docs[1].spans[REFERENCE_KEY] = [docs[1][3:5]]
 
-    span_finder = nlp.add_pipe("experimental_span_finder")
+    span_finder = nlp.add_pipe(
+        "experimental_span_finder", config={"reference_key": REFERENCE_KEY}
+    )
     nlp.initialize()
-    span_finder.set_annotations(docs, span_finder.predict(docs))
+    docs = list(span_finder.pipe(docs))
 
     assert docs[0].spans["span_candidates"]
 
@@ -54,7 +56,11 @@ def test_set_annotations_span_lengths(min_length, max_length, span_count):
     doc = nlp("Me and Jenny goes together like peas and carrots.")
     span_finder = nlp.add_pipe(
         "experimental_span_finder",
-        config={"max_length": max_length, "min_length": min_length},
+        config={
+            "max_length": max_length,
+            "min_length": min_length,
+            "reference_key": REFERENCE_KEY,
+        },
     )
     nlp.initialize()
     # Starts    [Me, Jenny, peas]
@@ -87,12 +93,13 @@ def test_set_annotations_span_lengths(min_length, max_length, span_count):
 
 
 def test_span_finder_suggester():
-
     nlp = Language()
     docs = [nlp("This is an example."), nlp("This is the second example.")]
-    docs[0].spans[SPAN_KEY] = [docs[0][3:4]]
-    docs[1].spans[SPAN_KEY] = [docs[1][3:5]]
-    span_finder = nlp.add_pipe("experimental_span_finder")
+    docs[0].spans[REFERENCE_KEY] = [docs[0][3:4]]
+    docs[1].spans[REFERENCE_KEY] = [docs[1][3:5]]
+    span_finder = nlp.add_pipe(
+        "experimental_span_finder", config={"reference_key": REFERENCE_KEY}
+    )
     nlp.initialize()
     span_finder.set_annotations(docs, span_finder.predict(docs))
 

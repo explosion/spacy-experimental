@@ -1,4 +1,5 @@
 from typing import List, Dict, Callable, Tuple, Optional, Iterable, Any
+from functools import partial
 from thinc.api import Config, Model, set_dropout_rate
 from thinc.api import Optimizer
 from thinc.types import Floats2d
@@ -8,7 +9,7 @@ from spacy.language import Language
 from spacy.pipeline.trainable_pipe import TrainablePipe
 from spacy.tokens import Doc
 from spacy.training import Example
-from spacy.scorer import PRFScore
+from spacy.scorer import Scorer
 
 span_finder_default_config = """
 [model]
@@ -38,6 +39,7 @@ depth = 4
 
 DEFAULT_SPAN_FINDER_MODEL = Config().from_str(span_finder_default_config)["model"]
 DEFAULT_CANDIDATES_KEY = "span_candidates"
+DEFAULT_REFERENCE_KEY = "sc"  # TODO: define in spancat
 
 
 @Language.factory(
@@ -47,17 +49,19 @@ DEFAULT_CANDIDATES_KEY = "span_candidates"
         "threshold": 0.3,
         "model": DEFAULT_SPAN_FINDER_MODEL,
         "candidates_key": DEFAULT_CANDIDATES_KEY,
+        "reference_key": DEFAULT_REFERENCE_KEY,
         "max_length": 0,
         "min_length": 0,
         "scorer": {
             "@scorers": "spacy-experimental.span_finder_scorer.v1",
             "candidates_key": DEFAULT_CANDIDATES_KEY,
+            "reference_key": DEFAULT_REFERENCE_KEY,
         },
     },
     default_score_weights={
-        "span_finder_f": 1.0,
-        "span_finder_p": 0.0,
-        "span_finder_r": 0.0,
+        f"span_finder_{DEFAULT_CANDIDATES_KEY}_f": 1.0,
+        f"span_finder_{DEFAULT_CANDIDATES_KEY}_p": 0.0,
+        f"span_finder_{DEFAULT_CANDIDATES_KEY}_r": 0.0,
     },
 )
 def make_span_finder(
@@ -69,14 +73,19 @@ def make_span_finder(
     max_length: int,
     min_length: int,
     candidates_key: str = DEFAULT_CANDIDATES_KEY,
+    reference_key: str = DEFAULT_REFERENCE_KEY,
 ) -> "SpanFinder":
-    """Create a SpanFinder component. The component predicts whether a token is the start or the end of a potential span.
+    """Create a SpanFinder component. The component predicts whether a token is
+    the start or the end of a potential span.
+
     model (Model[List[Doc], Floats2d]): A model instance that
         is given a list of documents and predicts a probability for each token.
     threshold (float): Minimum probability to consider a prediction positive.
     candidates_key (str): Name of the SpanGroup the predicted spans are saved to
-    max_length (int): Max length of the produced spans (no max limitation when set to 0)
-    min_length (int): Min length of the produced spans (no min limitation when set to 0)
+    max_length (int): Max length of the produced spans (no max limitation when
+        set to 0)
+    min_length (int): Min length of the produced spans (no min limitation when
+        set to 0)
     """
     return SpanFinder(
         nlp.vocab,
@@ -87,62 +96,48 @@ def make_span_finder(
         max_length=max_length,
         min_length=min_length,
         candidates_key=candidates_key,
+        reference_key=reference_key,
     )
 
 
-def make_span_finder_scorer(candidates_key: str = DEFAULT_CANDIDATES_KEY):
-    def span_finder_score(examples: Iterable[Example], **kwargs) -> Dict[str, Any]:
-
-        references = get_span_references([doc.reference for doc in examples])
-        predictions = get_span_predictions(
-            [doc.predicted for doc in examples], candidates_key
-        )
-
-        scorer = PRFScore()
-
-        for prediction_doc, reference_doc in zip(predictions, references):
-            for prediction, reference in zip(prediction_doc, reference_doc):
-                if prediction in reference_doc:
-                    scorer.tp += 1
-                else:
-                    scorer.fp += 1
-
-                if reference not in prediction_doc:
-                    scorer.fn += 1
-
-        # Assemble final result
-        final_scores: Dict[str, Any] = {
-            f"span_finder_f": scorer.fscore,
-            f"span_finder_r": scorer.precision,
-            f"span_finder_p": scorer.recall,
-        }
-
-        return final_scores
-
-    return span_finder_score
+def make_span_finder_scorer(
+    candidates_key: str = DEFAULT_CANDIDATES_KEY,
+    reference_key: str = DEFAULT_REFERENCE_KEY,
+):
+    return partial(
+        span_finder_score, candidates_key=candidates_key, reference_key=reference_key
+    )
 
 
-def get_span_predictions(docs, candidates_key: str) -> Floats2d:
-    """Create a list of predicted spans for scoring"""
-    doc_spans = []
-    for doc in docs:
-        spans = set()
-        for span in doc.spans[candidates_key]:
-            spans.add((span.start, span.end))
-        doc_spans.append(spans)
-    return doc_spans
-
-
-def get_span_references(docs) -> Floats2d:
-    """Create a list of reference spans for scoring"""
-    doc_spans = []
-    for doc in docs:
-        spans = set()
-        for span_key in doc.spans:
-            for span in doc.spans[span_key]:
-                spans.add((span.start, span.end))
-        doc_spans.append(spans)
-    return doc_spans
+def span_finder_score(
+    examples: Iterable[Example],
+    *,
+    candidates_key: str = DEFAULT_CANDIDATES_KEY,
+    reference_key: str = DEFAULT_REFERENCE_KEY,
+    **kwargs,
+) -> Dict[str, Any]:
+    kwargs = dict(kwargs)
+    attr_prefix = "span_finder_"
+    kwargs.setdefault("attr", f"{attr_prefix}{candidates_key}")
+    kwargs.setdefault("allow_overlap", True)
+    kwargs.setdefault(
+        "getter", lambda doc, key: doc.spans.get(key[len(attr_prefix) :], [])
+    )
+    kwargs.setdefault("labeled", False)
+    kwargs.setdefault("has_annotation", lambda doc: candidates_key in doc.spans)
+    # score_spans can only score spans with the same key in both the reference
+    # and predicted docs, so temporarily copy the reference spans from the
+    # reference key to the candidates key
+    orig_span_groups = []
+    for eg in examples:
+        orig_span_groups.append(eg.reference.spans.get(candidates_key))
+        if reference_key in eg.reference.spans:
+            eg.reference.spans[candidates_key] = eg.reference.spans[reference_key]
+    scores = Scorer.score_spans(examples, **kwargs)
+    for orig_span_group, eg in zip(orig_span_groups, examples):
+        if orig_span_group is not None:
+            eg.reference.spans[candidates_key] = orig_span_group
+    return scores
 
 
 class SpanFinder(TrainablePipe):
@@ -157,8 +152,13 @@ class SpanFinder(TrainablePipe):
         threshold: float = 0.5,
         max_length: int = 0,
         min_length: int = 0,
-        scorer: Optional[Callable],
-        candidates_key: str = "span_finder_candidates",
+        scorer: Optional[Callable] = partial(
+            span_finder_score,
+            candidates_key=DEFAULT_CANDIDATES_KEY,
+            reference_key=DEFAULT_REFERENCE_KEY,
+        ),
+        candidates_key: str = DEFAULT_CANDIDATES_KEY,
+        reference_key: str = DEFAULT_REFERENCE_KEY,
     ) -> None:
         """Initialize the span boundary detector.
         model (thinc.api.Model): The Thinc Model powering the pipeline component.
@@ -167,7 +167,8 @@ class SpanFinder(TrainablePipe):
         threshold (float): Minimum probability to consider a prediction
             positive.
         scorer (Optional[Callable]): The scoring method.
-        candidates_key (str): Name of the SpanGroup the span candidates are saved to
+        candidates_key (str): Name of the span group the candidate spans are saved to
+        reference_key (str): Name of the span group the reference spans are stored in
         max_length (int): Max length of the produced spans (unlimited when set to 0)
         min_length (int): Min length of the produced spans (unlimited when set to 0)
         """
@@ -177,6 +178,7 @@ class SpanFinder(TrainablePipe):
             "max_length": max_length,
             "min_length": min_length,
             "candidates_key": candidates_key,
+            "reference_key": reference_key,
         }
         self.model = model
         self.name = name
@@ -283,22 +285,21 @@ class SpanFinder(TrainablePipe):
         """Create a reference list of token probabilities for calculating loss"""
         reference_results = []
         for doc in docs:
-            start_indices = []
-            end_indices = []
+            start_indices = set()
+            end_indices = set()
 
-            for spankey in doc.spans:
-                for span in doc.spans[spankey]:
-                    start_indices.append(span.start)
-                    end_indices.append(span.end - 1)
+            if self.cfg["reference_key"] in doc.spans:
+                for span in doc.spans[self.cfg["reference_key"]]:
+                    start_indices.add(span.start)
+                    end_indices.add(span.end - 1)
 
             for token in doc:
-                is_start = 0
-                is_end = 0
-                if token.i in start_indices:
-                    is_start = 1
-                if token.i in end_indices:
-                    is_end = 1
-                reference_results.append((is_start, is_end))
+                reference_results.append(
+                    (
+                        1 if token.i in start_indices else 0,
+                        1 if token.i in end_indices else 0,
+                    )
+                )
 
         return reference_results
 
@@ -317,7 +318,8 @@ class SpanFinder(TrainablePipe):
         subbatch: List[Example] = []
 
         for eg in get_examples():
-            subbatch.append(eg)
+            if len(subbatch) < 10:
+                subbatch.append(eg)
 
         if subbatch:
             docs = [eg.reference for eg in subbatch]
