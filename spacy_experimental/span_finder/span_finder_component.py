@@ -173,13 +173,11 @@ class SpanFinder(TrainablePipe):
         min_length (int): Min length of the produced spans (unlimited when set to 0)
         """
         self.vocab = nlp
-        self.cfg = {
-            "threshold": threshold,
-            "max_length": max_length,
-            "min_length": min_length,
-            "candidates_key": candidates_key,
-            "reference_key": reference_key,
-        }
+        self.threshold = threshold
+        self.max_length = max_length
+        self.min_length = min_length
+        self.candidates_key = candidates_key
+        self.reference_key = reference_key
         self.model = model
         self.name = name
         self.scorer = scorer
@@ -206,14 +204,14 @@ class SpanFinder(TrainablePipe):
             offset += length
 
         for doc, doc_scores in zip(docs, scores_per_doc):
-            doc.spans[self.cfg["candidates_key"]] = []
+            doc.spans[self.candidates_key] = []
             starts = []
             ends = []
 
             for token, token_score in zip(doc, doc_scores):
-                if token_score[0] >= self.cfg["threshold"]:
+                if token_score[0] >= self.threshold:
                     starts.append(token.i)
-                if token_score[1] >= self.cfg["threshold"]:
+                if token_score[1] >= self.threshold:
                     ends.append(token.i)
 
             for start in starts:
@@ -221,19 +219,10 @@ class SpanFinder(TrainablePipe):
                     span_length = end + 1 - start
                     if span_length > 0:
                         if (
-                            self.cfg["min_length"] <= 0
-                            or span_length >= self.cfg["min_length"]
-                        ) and (
-                            self.cfg["max_length"] <= 0
-                            or span_length <= self.cfg["max_length"]
-                        ):
-                            doc.spans[self.cfg["candidates_key"]].append(
-                                doc[start : end + 1]
-                            )
-                        elif (
-                            self.cfg["max_length"] > 0
-                            and span_length > self.cfg["max_length"]
-                        ):
+                            self.min_length <= 0 or span_length >= self.min_length
+                        ) and (self.max_length <= 0 or span_length <= self.max_length):
+                            doc.spans[self.candidates_key].append(doc[start : end + 1])
+                        elif self.max_length > 0 and span_length > self.max_length:
                             break
 
     def update(
@@ -288,8 +277,8 @@ class SpanFinder(TrainablePipe):
             start_indices = set()
             end_indices = set()
 
-            if self.cfg["reference_key"] in doc.spans:
-                for span in doc.spans[self.cfg["reference_key"]]:
+            if self.reference_key in doc.spans:
+                for span in doc.spans[self.reference_key]:
                     start_indices.add(span.start)
                     end_indices.add(span.end - 1)
 
