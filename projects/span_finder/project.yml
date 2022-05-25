@@ -8,7 +8,7 @@ vars:
 
   train: "train"
   dev: "dev"
-  span_key: "sc"
+  spans_key: "sc"
 
   gpu_id: -1
   eval_split: 0.25
@@ -72,7 +72,7 @@ commands:
   - name: "preprocess_healthsea"
     help: "Format Healthsea annotations into .spaCy training format"
     script:
-      - "python scripts/preprocessing/preprocess_healthsea.py assets/healthsea_ner.jsonl data/healthsea_${vars.train}.spacy data/healthsea_${vars.dev}.spacy ${vars.eval_split} ${vars.span_key}"
+      - "python scripts/preprocessing/preprocess_healthsea.py assets/healthsea_ner.jsonl data/healthsea_${vars.train}.spacy data/healthsea_${vars.dev}.spacy ${vars.eval_split} ${vars.spans_key}"
     deps:
       - "assets/healthsea_ner.jsonl"
       - "scripts/preprocessing/preprocess_healthsea.py"
@@ -83,8 +83,8 @@ commands:
   - name: "preprocess_genia"
     help: "Format Genia annotations into .spaCy training format"
     script:
-      - "python scripts/preprocessing/preprocess_genia.py assets/genia_train.iob  data/genia_${vars.train}.spacy ${vars.span_key}"
-      - "python scripts/preprocessing/preprocess_genia.py assets/genia_dev.iob data/genia_${vars.dev}.spacy ${vars.span_key}"
+      - "python scripts/preprocessing/preprocess_genia.py assets/genia_train.iob  data/genia_${vars.train}.spacy ${vars.spans_key}"
+      - "python scripts/preprocessing/preprocess_genia.py assets/genia_dev.iob data/genia_${vars.dev}.spacy ${vars.spans_key}"
     deps:
       - "assets/genia_train.iob"
       - "assets/genia_dev.iob"
@@ -95,7 +95,7 @@ commands:
   - name: "preprocess_toxic"
     help: "Format annotations into .spaCy training format"
     script:
-      - "python scripts/preprocessing/preprocess_toxic.py assets/toxic_spans.csv assets/toxic_spans_annotations.csv assets/toxic_spans_comments.csv data/toxic_${vars.train}.spacy data/toxic_${vars.dev}.spacy ${vars.eval_split} ${vars.span_key}"
+      - "python scripts/preprocessing/preprocess_toxic.py assets/toxic_spans.csv assets/toxic_spans_annotations.csv assets/toxic_spans_comments.csv data/toxic_${vars.train}.spacy data/toxic_${vars.dev}.spacy ${vars.eval_split} ${vars.spans_key}"
     deps:
       - "assets/toxic_spans.csv"
       - "assets/toxic_spans_annotations.csv"
@@ -108,7 +108,7 @@ commands:
   - name: "train_spancat"
     help: "Train a spancat model on the `dataset` defined in `project.yml`"
     script:
-      - "python -m spacy train configs/${vars.suggester}/${vars.config}.cfg --output training/spancat/${vars.dataset}/${vars.config}_${vars.suggester}/ --paths.train data/${vars.dataset}_${vars.train}.spacy --paths.dev data/${vars.dataset}_${vars.dev}.spacy --gpu-id ${vars.gpu_id} --paths.span_key ${vars.span_key}"
+      - "python -m spacy train configs/${vars.suggester}/${vars.config}.cfg --output training/spancat/${vars.dataset}/${vars.config}_${vars.suggester}/ --paths.train data/${vars.dataset}_${vars.train}.spacy --paths.dev data/${vars.dataset}_${vars.dev}.spacy --gpu-id ${vars.gpu_id} --paths.spans_key ${vars.spans_key}"
     deps:
       - "configs/${vars.suggester}/${vars.config}.cfg"
       - "data/${vars.dataset}_${vars.train}.spacy"
@@ -120,7 +120,7 @@ commands:
     help: "Evaluate a trained spancat model  on the `dataset` defined in `project.yml`"
     script:
       - "python -m spacy evaluate ${vars.spancat_model} data/${vars.dataset}_${vars.dev}.spacy --output metrics/spancat_${vars.dataset}_${vars.config}_${vars.suggester}.json --gpu-id ${vars.gpu_id}"
-      - "python scripts/suggester_evaluation.py ${vars.span_key} ${vars.spancat_model} data/${vars.dataset}_${vars.dev}.spacy"
+      - "python scripts/suggester_evaluation.py ${vars.spans_key} ${vars.spancat_model} data/${vars.dataset}_${vars.dev}.spacy"
     deps:
       - "${vars.spancat_model}"
       - "data/${vars.dataset}_${vars.dev}.spacy"
