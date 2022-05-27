@@ -218,13 +218,16 @@ example biaffine parser pipeline.
 
 ### Span Finder
 
-The SpanFinder is a new experimental component that tries to learn span boundaries by tagging potential start and end tokens. It's an ML approach on suggester functions to produce fewer and more precise span candidates. 
+The SpanFinder is a new experimental component that identifies span boundaries
+by tagging potential start and end tokens. It's an ML approach to suggest
+candidate spans with higher precision.
 
-`SpanFinder` requires three parameters for initialization:
-- `threshold`: Threshold of the required probabilty for predicted spans.
-- `candidates_key`: Name of the [SpanGroup](https://spacy.io/api/spangroup) in which the predicted spans are saved to.
-- `max_length`: Max length of the predicted spans (no limit when set to 0).
-- `min_length`: Min length of the predicted spans (no limit when set to 0).
+`SpanFinder` uses the following parameters:
+- `threshold`: Probability threshold for predicted spans.
+- `candidates_key`: Name of the [SpanGroup](https://spacy.io/api/spangroup) the predicted spans are saved to.
+- `reference_key`: Name of the [SpanGroup](https://spacy.io/api/spangroup) the reference spans are read from.
+- `max_length`: Max length of the predicted spans. No limit when set to `0`. Defaults to `0`.
+- `min_length`: Min length of the predicted spans. No limit when set to `0`. Defaults to `0`.
 
 Here is a config excerpt for the `SpanFinder` together with `Spancat`:
  
@@ -269,7 +272,7 @@ min_length = 1
 max_length = 0
 
 [components.span_finder.scorer]
-@scorers = "spacy-experimental.span_finder_scorer.v1"
+@scorers = "spacy-experimental.SpanFinder.v1"
 candidates_key = ${components.span_finder.candidates_key}
 
 [components.span_finder.model]
@@ -310,7 +313,7 @@ width = ${components.tok2vec.model.encode.width}
 candidates_key = ${components.span_finder.candidates_key}
 ```
 
-This package includes a [spaCy project](./projects/span_finder) which shows how to train and use the `SpanFinder` together with `Spancat`.
+This package includes a [spaCy project](./projects/span_finder) which shows how to train and use the `SpanFinder` together with `SpanCategorizer`.
 
 ## Architectures
 

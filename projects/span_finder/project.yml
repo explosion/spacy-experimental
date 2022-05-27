@@ -25,27 +25,27 @@ directories: ["assets", "training", "configs", "scripts", "data", "metrics"]
 assets:
   - dest: "assets/healthsea_ner.jsonl"
     description: "Annotations from the Healthsea dataset"
-    url: https://github.com/explosion/healthsea/blob/main/project/assets/ner/annotation.jsonl
+    url: https://raw.githubusercontent.com/explosion/healthsea/main/project/assets/ner/annotation.jsonl
 
   - dest: "assets/toxic_spans_annotations.csv"
     description: "Annotations from the ToxicSpans dataset"
-    url: https://github.com/ipavlopoulos/toxic_spans/tree/master/data/annotations.csv
+    url: https://raw.githubusercontent.com/ipavlopoulos/toxic_spans/master/data/annotations.csv
 
   - dest: "assets/toxic_spans.csv"
     description: "Spans from the ToxicSpans dataset"
-    url: https://github.com/ipavlopoulos/toxic_spans/tree/master/data/spans.csv
+    url: https://raw.githubusercontent.com/ipavlopoulos/toxic_spans/master/data/spans.csv
 
   - dest: "assets/toxic_spans_comments.csv"
     description: "Comments from the ToxicSpans dataset"
-    url: https://github.com/ipavlopoulos/toxic_spans/tree/master/data/comments.csv
+    url: https://raw.githubusercontent.com/ipavlopoulos/toxic_spans/master/data/comments.csv
 
   - dest: "assets/genia_train.iob"
     description: "Training annotations from the Genia dataset"
-    url: "https://github.com/thecharm/boundary-aware-nested-ner/tree/master/Our_boundary-aware_model/data/genia/genia.train.iob2"
+    url: "https://raw.githubusercontent.com/thecharm/boundary-aware-nested-ner/master/Our_boundary-aware_model/data/genia/genia.train.iob2"
 
   - dest: "assets/genia_dev.iob"
     description: "Dev annotations from the Genia dataset"
-    url: "https://github.com/thecharm/boundary-aware-nested-ner/tree/master/Our_boundary-aware_model/data/genia/genia.dev.iob2"
+    url: "https://raw.githubusercontent.com/thecharm/boundary-aware-nested-ner/master/Our_boundary-aware_model/data/genia/genia.dev.iob2"
 
 # Workflows are sequences of commands (see below) executed in order. You can
 # run them via "spacy project run [workflow]". If a commands's inputs/outputs

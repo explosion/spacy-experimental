@@ -84,7 +84,7 @@ def test_set_annotations_span_lengths(min_length, max_length, span_count):
 
     # Assert below will fail when max_length is set to 0
     if max_length <= 0:
-        max_length = 1000
+        max_length = len(doc)
 
     assert all(
         min_length <= len(span) <= max_length
