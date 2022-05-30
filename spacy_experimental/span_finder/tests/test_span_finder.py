@@ -1,5 +1,7 @@
 from spacy.language import Language
 from spacy.util import registry
+from spacy.tokens import Doc
+from spacy.training import Example
 from thinc.api import Config
 from thinc.types import Ragged
 from spacy_experimental.span_finder.span_finder_component import (
@@ -9,6 +11,24 @@ from spacy_experimental.span_finder.span_finder_component import (
 import pytest
 
 REFERENCE_KEY = "pytest"
+
+
+def test_loss_alignment():
+    nlp = Language()
+    tokens_predicted = ["Apply", "some", "sun", "screen"]
+    tokens_reference = ["Apply", "some", "sunscreen"]
+    predicted = Doc(nlp.vocab, words=tokens_predicted)
+
+    example = Example.from_dict(predicted, {"words": tokens_reference})
+    example.predicted.spans[REFERENCE_KEY] = [example.predicted[2:4]]
+    example.reference.spans[REFERENCE_KEY] = [example.predicted[2:3]]
+
+    span_finder = nlp.add_pipe(
+        "experimental_span_finder", config={"reference_key": REFERENCE_KEY}
+    )
+    nlp.initialize()
+
+    span_finder._get_aligned_scores([example])
 
 
 def test_span_finder_model():

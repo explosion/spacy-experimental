@@ -267,12 +267,67 @@ class SpanFinder(TrainablePipe):
         RETURNS (Tuple[float, float]): The loss and the gradient.
         """
         references = [eg.reference for eg in examples]
+
+        # TO DO
+        # Use _get_aligned_scores
         reference_results = self.model.ops.asarray(
             self._get_reference(references), dtype=float32
         )
+        # TO DO
+        # Use results from _get_aligned_scores
+
         d_scores = scores - reference_results
         loss = float((d_scores**2).sum())
         return loss, d_scores
+
+    def _get_aligned_scores(self, examples) -> Tuple[Floats2d, Floats2d]:
+        """Align scores of the predictions to the references for calculating loss"""
+        reference_results = []
+        predicted_results = []
+        for eg in examples:
+            alignment = eg.alignment
+            reference_start_indices = set()
+            reference_end_indices = set()
+            predicted_start_indices = set()
+            predicted_end_indices = set()
+
+            if self.reference_key in eg.reference.spans:
+                for span in eg.reference.spans[self.reference_key]:
+                    reference_start_indices.add(span.start)
+                    reference_end_indices.add(span.end - 1)
+            if self.reference_key in eg.predicted.spans:
+                for span in eg.predicted.spans[self.reference_key]:
+                    predicted_start_indices.add(span.start)
+                    predicted_end_indices.add(span.end - 1)
+
+            # 1. Case: No Alignment problem
+            if len(eg.predicted) == len(eg.reference):
+                for token in eg.reference:
+                    reference_results.append(
+                        (
+                            1 if token.i in reference_start_indices else 0,
+                            1 if token.i in reference_end_indices else 0,
+                        )
+                    )
+                for token in eg.predicted:
+                    predicted_results.append(
+                        (
+                            1 if token.i in predicted_start_indices else 0,
+                            1 if token.i in predicted_end_indices else 0,
+                        )
+                    )
+
+            # 2. Case: Predicted has less tokens than Reference
+            if len(eg.predicted) < len(eg.reference):
+                # TO DO
+                print(alignment.y2x.data)
+
+            # 3. Case: Predicted has more tokens than Reference
+            if len(eg.predicted) > len(eg.reference):
+                # TO DO
+                print(alignment.x2y.data)
+
+        return reference_results, predicted_results
 
     def _get_reference(self, docs) -> Floats2d:
         """Create a reference list of token probabilities for calculating loss"""
