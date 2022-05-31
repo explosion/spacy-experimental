@@ -13,54 +13,56 @@ import pytest
 REFERENCE_KEY = "pytest"
 
 
-def test_loss_alignment_case_2():
-    """2. Case: Predicted has less tokens than Reference"""
+@pytest.mark.parametrize(
+    "tokens_predicted, tokens_reference, predicted_scores, reference_scores",
+    [
+        (
+            ["Mon", ".", "-", "June", "16"],
+            ["Mon.", "-", "June", "16"],
+            [(0, 0), (0, 0), (0, 0), (1, 1), (0, 0)],
+            [(0, 0), (0, 0), (0, 0), (1, 1), (0, 0)],
+        ),
+        (
+            ["Mon.-June", "16"],
+            ["Mon.", "-", "June", "16"],
+            [(0, 0), (0, 0)],
+            [(0, 0), (0, 0)],
+        ),
+        (
+            ["Mon.", "-", "J", "une", "16"],
+            ["Mon.", "-", "June", "16"],
+            [(0, 0), (0, 0), (1, 1), (0, 0), (0, 0)],
+            [(0, 0), (0, 0), (1, 0), (0, 1), (0, 0)],
+        ),
+        (
+            ["Mon", ".", "-", "June", "16"],
+            ["Mon.", "-", "June", "1", "6"],
+            [(0, 0), (0, 0), (0, 0), (1, 1), (0, 0)],
+            [(0, 0), (0, 0), (0, 0), (1, 1), (0, 0)],
+        ),
+        (
+            ["Mon.", "-J", "un", "e 16"],
+            ["Mon.", "-", "June", "16"],
+            [(0, 0), (0, 0), (0, 0), (0, 0)],
+            [(0, 0), (0, 0), (0, 0), (0, 0)],
+        ),
+    ],
+)
+def test_loss_alignment_example(
+    tokens_predicted, tokens_reference, predicted_scores, reference_scores
+):
     nlp = Language()
-    tokens_predicted = ["Apply", "some", "sunscreen"]
-    tokens_reference = ["Apply", "some", "sun", "screen"]
     predicted = Doc(nlp.vocab, words=tokens_predicted)
-
     example = Example.from_dict(predicted, {"words": tokens_reference})
-    scores = ((0, 0), (0, 0), (1, 1))
-    example.reference.spans[REFERENCE_KEY] = [example.reference[2:4]]
-
+    example.reference.spans[REFERENCE_KEY] = [example.reference[2:3]]
     span_finder = nlp.add_pipe(
         "experimental_span_finder", config={"reference_key": REFERENCE_KEY}
     )
     nlp.initialize()
 
-    reference_results, predicted_results = span_finder._get_aligned_scores(
-        [example], scores
-    )
-
-    assert len(reference_results) == len(predicted_results)
-    assert predicted_results == [(0, 0), (0, 0), (1, 1), (1, 1)]
-    assert reference_results == [(0, 0), (0, 0), (1, 0), (0, 1)]
-
-
-def test_loss_alignment_case_3():
-    """3. Case: Predicted has more tokens than Reference"""
-    nlp = Language()
-    tokens_predicted = ["Apply", "some", "sun", "screen"]
-    tokens_reference = ["Apply", "some", "sunscreen"]
-    predicted = Doc(nlp.vocab, words=tokens_predicted)
-
-    example = Example.from_dict(predicted, {"words": tokens_reference})
-    scores = ((0, 0), (0, 0), (1, 0), (0, 1))
-    example.reference.spans[REFERENCE_KEY] = [example.predicted[2:3]]
-
-    span_finder = nlp.add_pipe(
-        "experimental_span_finder", config={"reference_key": REFERENCE_KEY}
-    )
-    nlp.initialize()
-
-    reference_results, predicted_results = span_finder._get_aligned_scores(
-        [example], scores
-    )
-
-    assert len(reference_results) == len(predicted_results)
-    assert predicted_results == [(0, 0), (0, 0), (1, 0), (0, 1)]
-    assert reference_results == [(0, 0), (0, 0), (1, 1), (1, 1)]
+    truth_scores = span_finder._get_aligned_scores([example])
+    assert len(truth_scores) == len(predicted_scores)
+    assert truth_scores == reference_scores
 
 
 def test_span_finder_model():
