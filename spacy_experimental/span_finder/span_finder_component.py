@@ -266,39 +266,35 @@ class SpanFinder(TrainablePipe):
         scores: Scores representing the model's predictions.
         RETURNS (Tuple[float, float]): The loss and the gradient.
         """
-        references = [eg.reference for eg in examples]
-
-        # TO DO
-        # Use _get_aligned_scores
-        reference_results = self.model.ops.asarray(
-            self._get_reference(references), dtype=float32
+        reference_results, predicted_results = self._get_aligned_scores(
+            examples, scores
         )
-        # TO DO
-        # Use results from _get_aligned_scores
-
-        d_scores = scores - reference_results
+        d_scores = self.model.ops.asarray(
+            predicted_results, dtype=float32
+        ) - self.model.ops.asarray(reference_results, dtype=float32)
         loss = float((d_scores**2).sum())
         return loss, d_scores
 
-    def _get_aligned_scores(self, examples) -> Tuple[Floats2d, Floats2d]:
-        """Align scores of the predictions to the references for calculating loss"""
+    def _get_aligned_scores(self, examples, scores) -> Tuple[Floats2d, Floats2d]:
+        """Align scores of the predictions to the references for calculating the loss"""
         reference_results = []
         predicted_results = []
-        for eg in examples:
-            alignment = eg.alignment
+
+        lengths = [len(eg.predicted) for eg in examples]
+        offset = 0
+        scores_per_predicted_doc = []
+        for length in lengths:
+            scores_per_predicted_doc.append(scores[offset : offset + length])
+            offset += length
+
+        for eg, predicted_scores in zip(examples, scores_per_predicted_doc):
             reference_start_indices = set()
             reference_end_indices = set()
-            predicted_start_indices = set()
-            predicted_end_indices = set()
 
             if self.reference_key in eg.reference.spans:
                 for span in eg.reference.spans[self.reference_key]:
                     reference_start_indices.add(span.start)
                     reference_end_indices.add(span.end - 1)
-            if self.reference_key in eg.predicted.spans:
-                for span in eg.predicted.spans[self.reference_key]:
-                    predicted_start_indices.add(span.start)
-                    predicted_end_indices.add(span.end - 1)
 
             # 1. Case: No Alignment problem
             if len(eg.predicted) == len(eg.reference):
@@ -309,23 +305,55 @@ class SpanFinder(TrainablePipe):
                             1 if token.i in reference_end_indices else 0,
                         )
                     )
-                for token in eg.predicted:
+                for token, score in zip(eg.predicted, predicted_scores):
                     predicted_results.append(
                         (
-                            1 if token.i in predicted_start_indices else 0,
-                            1 if token.i in predicted_end_indices else 0,
+                            score[0],
+                            score[1],
                         )
                     )
 
             # 2. Case: Predicted has less tokens than Reference
-            if len(eg.predicted) < len(eg.reference):
-                # TO DO
-                print(alignment.y2x.data)
+            elif len(eg.predicted) < len(eg.reference):
+                index_counter = 0
+                for token_i in eg.alignment.y2x.data:
+                    reference_results.append(
+                        (
+                            1
+                            if eg.reference[index_counter].i in reference_start_indices
+                            else 0,
+                            1
+                            if eg.reference[index_counter].i in reference_end_indices
+                            else 0,
+                        )
+                    )
+                    predicted_results.append(
+                        (predicted_scores[token_i][0], predicted_scores[token_i][1])
+                    )
+                    index_counter += 1
 
             # 3. Case: Predicted has more tokens than Reference
-            if len(eg.predicted) > len(eg.reference):
-                # TO DO
-                print(alignment.x2y.data)
+            elif len(eg.predicted) > len(eg.reference):
+                index_counter = 0
+                for token_i in eg.alignment.x2y.data:
+                    reference_results.append(
+                        (
+                            1
+                            if eg.reference[token_i].i in reference_start_indices
+                            else 0,
+                            1
+                            if eg.reference[token_i].i in reference_end_indices
+                            else 0,
+                        )
+                    )
+                    predicted_results.append(
+                        (
+                            predicted_scores[index_counter][0],
+                            predicted_scores[index_counter][1],
+                        )
+                    )
+
+                    index_counter += 1
 
         return reference_results, predicted_results
 
