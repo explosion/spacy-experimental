@@ -40,19 +40,16 @@ REFERENCE_KEY = "pytest"
             ["Mon.-June", "16"],
             ["Mon.", "-", "June", "16"],
             [(0, 1), (0, 0)],
-            marks=pytest.mark.xfail(),
         ),
         pytest.param(
             ["Mon.-", "June", "16"],
             ["Mon.", "-", "J", "une", "16"],
             [(0, 0), (1, 1), (0, 0)],
-            marks=pytest.mark.xfail(),
         ),
         pytest.param(
-            ["Mon.-", "June", "16"],
-            ["Mon.", "-", "J", "un", "e 16"],
-            [(0, 0), (1, 0), (0, 0)],
-            marks=pytest.mark.xfail(),
+            ["Mon.-", "June 16"],
+            ["Mon.", "-", "June", "16"],
+            [(0, 0), (1, 0)],
         ),
     ],
 )

@@ -282,41 +282,18 @@ class SpanFinder(TrainablePipe):
 
             if self.reference_key in eg.reference.spans:
                 for span in eg.reference.spans[self.reference_key]:
-                    start_indices.add(span.start)
-                    end_indices.add(span.end - 1)
+                    start_indices.add(eg.reference[span.start].idx)
+                    end_indices.add(
+                        eg.reference[span.end - 1].idx + len(eg.reference[span.end - 1])
+                    )
 
-            prediction_index = 0
-            for reference_tokens_indices in eg.alignment.x2y:
+            for token in eg.predicted:
                 reference_start_score = 0
                 reference_end_score = 0
-                for reference_index in reference_tokens_indices:
-                    if len(eg.alignment.y2x[int(reference_index)]) > 1:
-                        if (
-                            eg.alignment.y2x[int(reference_index)][0]
-                            == prediction_index
-                        ):
-                            if eg.reference[reference_index].i in start_indices:
-                                reference_start_score += 1
-                        elif (
-                            eg.alignment.y2x[int(reference_index)][-1]
-                            == prediction_index
-                        ):
-                            if eg.reference[reference_index].i in end_indices:
-                                reference_end_score += 1
-                    else:
-                        if eg.reference[reference_index].i in start_indices:
-                            reference_start_score += 1
-                        if eg.reference[reference_index].i in end_indices:
-                            reference_end_score += 1
-                if reference_start_score / len(reference_tokens_indices) == 1:
+                if token.idx in start_indices:
                     reference_start_score = 1
-                else:
-                    reference_start_score = 0
-
-                if reference_end_score / len(reference_tokens_indices) == 1:
+                if token.idx + len(token) in end_indices:
                     reference_end_score = 1
-                else:
-                    reference_end_score = 0
 
                 reference_results.append(
                     (
@@ -324,7 +301,6 @@ class SpanFinder(TrainablePipe):
                         reference_end_score,
                     )
                 )
-                prediction_index += 1
 
         return reference_results
 
