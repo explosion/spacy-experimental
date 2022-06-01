@@ -14,55 +14,66 @@ REFERENCE_KEY = "pytest"
 
 
 @pytest.mark.parametrize(
-    "tokens_predicted, tokens_reference, predicted_scores, reference_scores",
+    "tokens_predicted, tokens_reference, reference_truths",
     [
         (
             ["Mon", ".", "-", "June", "16"],
             ["Mon.", "-", "June", "16"],
             [(0, 0), (0, 0), (0, 0), (1, 1), (0, 0)],
-            [(0, 0), (0, 0), (0, 0), (1, 1), (0, 0)],
-        ),
-        (
-            ["Mon.-June", "16"],
-            ["Mon.", "-", "June", "16"],
-            [(0, 0), (0, 0)],
-            [(0, 0), (0, 0)],
         ),
         (
             ["Mon.", "-", "J", "une", "16"],
             ["Mon.", "-", "June", "16"],
-            [(0, 0), (0, 0), (1, 1), (0, 0), (0, 0)],
             [(0, 0), (0, 0), (1, 0), (0, 1), (0, 0)],
         ),
         (
             ["Mon", ".", "-", "June", "16"],
             ["Mon.", "-", "June", "1", "6"],
             [(0, 0), (0, 0), (0, 0), (1, 1), (0, 0)],
-            [(0, 0), (0, 0), (0, 0), (1, 1), (0, 0)],
         ),
         (
             ["Mon.", "-J", "un", "e 16"],
             ["Mon.", "-", "June", "16"],
             [(0, 0), (0, 0), (0, 0), (0, 0)],
-            [(0, 0), (0, 0), (0, 0), (0, 0)],
+        ),
+        pytest.param(
+            ["Mon.-June", "16"],
+            ["Mon.", "-", "June", "16"],
+            [(0, 1), (0, 0)],
+            marks=pytest.mark.xfail(),
+        ),
+        pytest.param(
+            ["Mon.-", "June", "16"],
+            ["Mon.", "-", "J", "une", "16"],
+            [(0, 0), (1, 1), (0, 0)],
+            marks=pytest.mark.xfail(),
+        ),
+        pytest.param(
+            ["Mon.-", "June", "16"],
+            ["Mon.", "-", "J", "un", "e 16"],
+            [(0, 0), (1, 0), (0, 0)],
+            marks=pytest.mark.xfail(),
         ),
     ],
 )
-def test_loss_alignment_example(
-    tokens_predicted, tokens_reference, predicted_scores, reference_scores
-):
+def test_loss_alignment_example(tokens_predicted, tokens_reference, reference_truths):
     nlp = Language()
-    predicted = Doc(nlp.vocab, words=tokens_predicted)
-    example = Example.from_dict(predicted, {"words": tokens_reference})
-    example.reference.spans[REFERENCE_KEY] = [example.reference[2:3]]
+    predicted = Doc(
+        nlp.vocab, words=tokens_predicted, spaces=[False] * len(tokens_predicted)
+    )
+    reference = Doc(
+        nlp.vocab, words=tokens_reference, spaces=[False] * len(tokens_reference)
+    )
+    example = Example(predicted, reference)
+    example.reference.spans[REFERENCE_KEY] = [example.reference.char_span(5, 9)]
     span_finder = nlp.add_pipe(
         "experimental_span_finder", config={"reference_key": REFERENCE_KEY}
     )
     nlp.initialize()
 
     truth_scores = span_finder._get_aligned_scores([example])
-    assert len(truth_scores) == len(predicted_scores)
-    assert truth_scores == reference_scores
+    assert len(truth_scores) == len(tokens_predicted)
+    assert truth_scores == reference_truths
 
 
 def test_span_finder_model():
