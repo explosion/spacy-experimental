@@ -10,7 +10,7 @@ vars:
   dev: "dev"
   spans_key: "sc"
 
-  gpu_id: -1
+  gpu_id: 0
   eval_split: 0.25
 
   spancat_model: "training/spancat/${vars.dataset}/${vars.config}_${vars.suggester}/model-best"

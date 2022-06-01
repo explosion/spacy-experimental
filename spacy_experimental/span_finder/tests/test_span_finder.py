@@ -107,7 +107,8 @@ def test_span_finder_component():
     nlp.initialize()
     docs = list(span_finder.pipe(docs))
 
-    assert docs[0].spans["span_candidates"]
+    # TODO: update hard-coded name
+    assert "span_candidates" in docs[0].spans
 
 
 @pytest.mark.parametrize(
