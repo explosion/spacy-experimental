@@ -273,6 +273,7 @@ class SpanFinder(TrainablePipe):
 
     def _get_aligned_scores(self, examples) -> Tuple[Floats2d, Floats2d]:
         """Align scores of the predictions to the references for calculating the loss"""
+        # TODO: handle 1-to-many alignments (see xfailed tests)
         reference_results = []
 
         for eg in examples:
