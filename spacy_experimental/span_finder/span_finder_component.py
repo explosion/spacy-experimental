@@ -288,17 +288,10 @@ class SpanFinder(TrainablePipe):
                     )
 
             for token in eg.predicted:
-                reference_start_score = 0
-                reference_end_score = 0
-                if token.idx in start_indices:
-                    reference_start_score = 1
-                if token.idx + len(token) in end_indices:
-                    reference_end_score = 1
-
                 reference_results.append(
                     (
-                        reference_start_score,
-                        reference_end_score,
+                        1 if token.idx in start_indices else 0,
+                        1 if token.idx + len(token) in end_indices else 0,
                     )
                 )
 
