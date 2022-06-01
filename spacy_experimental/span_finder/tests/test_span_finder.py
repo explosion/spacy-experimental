@@ -102,7 +102,7 @@ def test_span_finder_component():
     docs[1].spans[TRAINING_KEY] = [docs[1][3:5]]
 
     span_finder = nlp.add_pipe(
-        "experimental_span_finder", config={"reference_key": TRAINING_KEY}
+        "experimental_span_finder", config={"training_key": TRAINING_KEY}
     )
     nlp.initialize()
     docs = list(span_finder.pipe(docs))
@@ -122,7 +122,7 @@ def test_set_annotations_span_lengths(min_length, max_length, span_count):
         config={
             "max_length": max_length,
             "min_length": min_length,
-            "reference_key": TRAINING_KEY,
+            "training_key": TRAINING_KEY,
         },
     )
     nlp.initialize()
@@ -161,13 +161,13 @@ def test_span_finder_suggester():
     docs[0].spans[TRAINING_KEY] = [docs[0][3:4]]
     docs[1].spans[TRAINING_KEY] = [docs[1][3:5]]
     span_finder = nlp.add_pipe(
-        "experimental_span_finder", config={"reference_key": TRAINING_KEY}
+        "experimental_span_finder", config={"training_key": TRAINING_KEY}
     )
     nlp.initialize()
     span_finder.set_annotations(docs, span_finder.predict(docs))
 
     suggester = registry.misc.get("spacy-experimental.span_finder_suggester.v1")(
-        candidates_key="span_candidates"
+        predicted_key="span_candidates"
     )
 
     candidates = suggester(docs)

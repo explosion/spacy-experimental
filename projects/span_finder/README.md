@@ -49,7 +49,7 @@ inputs have changed.
 | Workflow     | Steps                                                                      |
 | ------------ | -------------------------------------------------------------------------- |
 | `preprocess` | `preprocess_healthsea` &rarr; `preprocess_toxic` &rarr; `preprocess_genia` |
-| `train`      | `train_spancat` &rarr; `evaluate_spancat`                                  |
+| `spancat`    | `train_spancat` &rarr; `evaluate_spancat`                                  |
 
 ### 🗂 Assets
 
