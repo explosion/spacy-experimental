@@ -5,7 +5,7 @@ from spacy.tokens import Doc
 from spacy.pipeline.spancat import Suggester
 
 
-def build_span_finder_suggester(candidates_key: str) -> Suggester:
+def build_span_finder_suggester(predicted_key: str) -> Suggester:
     """Suggest every candidate predicted by the SpanFinder"""
 
     def span_finder_suggester(
@@ -17,8 +17,8 @@ def build_span_finder_suggester(candidates_key: str) -> Suggester:
         lengths = []
         for doc in docs:
             length = 0
-            if doc.spans[candidates_key]:
-                for span in doc.spans[candidates_key]:
+            if doc.spans[predicted_key]:
+                for span in doc.spans[predicted_key]:
                     spans.append([span.start, span.end])
                     length += 1
 

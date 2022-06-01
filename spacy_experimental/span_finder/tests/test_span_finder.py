@@ -5,12 +5,12 @@ from spacy.training import Example
 from thinc.api import Config
 from thinc.types import Ragged
 from spacy_experimental.span_finder.span_finder_component import (
-    DEFAULT_CANDIDATES_KEY,
+    DEFAULT_PREDICTED_KEY,
     span_finder_default_config,
 )
 import pytest
 
-REFERENCE_KEY = "pytest"
+TRAINING_KEY = "pytest"
 
 
 @pytest.mark.parametrize(
@@ -62,9 +62,9 @@ def test_loss_alignment_example(tokens_predicted, tokens_reference, reference_tr
         nlp.vocab, words=tokens_reference, spaces=[False] * len(tokens_reference)
     )
     example = Example(predicted, reference)
-    example.reference.spans[REFERENCE_KEY] = [example.reference.char_span(5, 9)]
+    example.reference.spans[TRAINING_KEY] = [example.reference.char_span(5, 9)]
     span_finder = nlp.add_pipe(
-        "experimental_span_finder", config={"reference_key": REFERENCE_KEY}
+        "experimental_span_finder", config={"training_key": TRAINING_KEY}
     )
     nlp.initialize()
 
@@ -77,8 +77,8 @@ def test_span_finder_model():
     nlp = Language()
 
     docs = [nlp("This is an example."), nlp("This is the second example.")]
-    docs[0].spans[REFERENCE_KEY] = [docs[0][3:4]]
-    docs[1].spans[REFERENCE_KEY] = [docs[1][3:5]]
+    docs[0].spans[TRAINING_KEY] = [docs[0][3:4]]
+    docs[1].spans[TRAINING_KEY] = [docs[1][3:5]]
 
     total_tokens = 0
     for doc in docs:
@@ -98,11 +98,11 @@ def test_span_finder_component():
     nlp = Language()
 
     docs = [nlp("This is an example."), nlp("This is the second example.")]
-    docs[0].spans[REFERENCE_KEY] = [docs[0][3:4]]
-    docs[1].spans[REFERENCE_KEY] = [docs[1][3:5]]
+    docs[0].spans[TRAINING_KEY] = [docs[0][3:4]]
+    docs[1].spans[TRAINING_KEY] = [docs[1][3:5]]
 
     span_finder = nlp.add_pipe(
-        "experimental_span_finder", config={"reference_key": REFERENCE_KEY}
+        "experimental_span_finder", config={"reference_key": TRAINING_KEY}
     )
     nlp.initialize()
     docs = list(span_finder.pipe(docs))
@@ -122,7 +122,7 @@ def test_set_annotations_span_lengths(min_length, max_length, span_count):
         config={
             "max_length": max_length,
             "min_length": min_length,
-            "reference_key": REFERENCE_KEY,
+            "reference_key": TRAINING_KEY,
         },
     )
     nlp.initialize()
@@ -142,8 +142,8 @@ def test_set_annotations_span_lengths(min_length, max_length, span_count):
     ]
     span_finder.set_annotations([doc], scores)
 
-    assert doc.spans[DEFAULT_CANDIDATES_KEY]
-    assert len(doc.spans[DEFAULT_CANDIDATES_KEY]) == span_count
+    assert doc.spans[DEFAULT_PREDICTED_KEY]
+    assert len(doc.spans[DEFAULT_PREDICTED_KEY]) == span_count
 
     # Assert below will fail when max_length is set to 0
     if max_length <= 0:
@@ -151,17 +151,17 @@ def test_set_annotations_span_lengths(min_length, max_length, span_count):
 
     assert all(
         min_length <= len(span) <= max_length
-        for span in doc.spans[DEFAULT_CANDIDATES_KEY]
+        for span in doc.spans[DEFAULT_PREDICTED_KEY]
     )
 
 
 def test_span_finder_suggester():
     nlp = Language()
     docs = [nlp("This is an example."), nlp("This is the second example.")]
-    docs[0].spans[REFERENCE_KEY] = [docs[0][3:4]]
-    docs[1].spans[REFERENCE_KEY] = [docs[1][3:5]]
+    docs[0].spans[TRAINING_KEY] = [docs[0][3:4]]
+    docs[1].spans[TRAINING_KEY] = [docs[1][3:5]]
     span_finder = nlp.add_pipe(
-        "experimental_span_finder", config={"reference_key": REFERENCE_KEY}
+        "experimental_span_finder", config={"reference_key": TRAINING_KEY}
     )
     nlp.initialize()
     span_finder.set_annotations(docs, span_finder.predict(docs))

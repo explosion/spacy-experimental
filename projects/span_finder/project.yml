@@ -10,7 +10,7 @@ vars:
   dev: "dev"
   spans_key: "sc"
 
-  gpu_id: 0
+  gpu_id: -1
   eval_split: 0.25
 
   spancat_model: "training/spancat/${vars.dataset}/${vars.config}_${vars.suggester}/model-best"
@@ -108,7 +108,7 @@ commands:
   - name: "train_spancat"
     help: "Train a spancat model on the `dataset` defined in `project.yml`"
     script:
-      - "python -m spacy train configs/${vars.suggester}/${vars.config}.cfg --output training/spancat/${vars.dataset}/${vars.config}_${vars.suggester}/ --paths.train data/${vars.dataset}_${vars.train}.spacy --paths.dev data/${vars.dataset}_${vars.dev}.spacy --gpu-id ${vars.gpu_id} --paths.spans_key ${vars.spans_key}"
+      - "python -m spacy train configs/${vars.suggester}/${vars.config}.cfg --output training/spancat/${vars.dataset}/${vars.config}_${vars.suggester}/ --paths.train data/${vars.dataset}_${vars.train}.spacy --paths.dev data/${vars.dataset}_${vars.dev}.spacy --gpu-id ${vars.gpu_id} --vars.spans_key ${vars.spans_key}"
     deps:
       - "configs/${vars.suggester}/${vars.config}.cfg"
       - "data/${vars.dataset}_${vars.train}.spacy"
