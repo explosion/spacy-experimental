@@ -68,7 +68,7 @@ def test_loss_alignment_example(tokens_predicted, tokens_reference, reference_tr
     )
     nlp.initialize()
 
-    truth_scores = span_finder._get_aligned_scores([example])
+    truth_scores = span_finder._get_aligned_truth_scores([example])
     assert len(truth_scores) == len(tokens_predicted)
     assert truth_scores == reference_truths
 
@@ -167,7 +167,7 @@ def test_span_finder_suggester():
     span_finder.set_annotations(docs, span_finder.predict(docs))
 
     suggester = registry.misc.get("spacy-experimental.span_finder_suggester.v1")(
-        predicted_key="span_candidates"
+        candidates_key="span_candidates"
     )
 
     candidates = suggester(docs)
