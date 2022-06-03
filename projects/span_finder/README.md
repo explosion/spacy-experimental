@@ -68,6 +68,6 @@ in the project directory.
 | `suggester`  | Choose between two suggester architectures (SpanFinder, Ngram)                             |
 | `train`      | Choose a filename for your training data                                                   |
 | `dev`        | Choose a filename for your development data                                                |
-| `span_key`   | Choose a key to specify the SpanGroup for the spancat component to save the predictions to |
+| `spans_key`   | Choose a key to specify the SpanGroup for the spancat component to save the predictions to |
 | `gpu_id`     | Choose whether you want to use your GPU (device number) or CPU (-1)                        |
 | `eval_split` | Choose an evaluation split for the dataset (Only affects the Healthsea dataset)            |
