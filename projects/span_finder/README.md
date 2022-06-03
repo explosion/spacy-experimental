@@ -2,7 +2,11 @@
 
 # 🪐 spaCy Project: Span Finder
 
-This project introduces a new experimental suggester that learns to predict span boundaries to produce more precise candidate spans.
+The SpanFinder is a new experimental component that identifies span boundaries
+by tagging potential start and end tokens. It's an ML approach to suggest
+candidate spans with higher precision.
+
+This project shows how to use the `SpanFinder` together with a `SpanCategorizer`.
 
 ## 📋 project.yml
 
@@ -54,3 +58,16 @@ in the project directory.
 | `assets/genia_dev.iob` | URL | Dev annotations from the Genia dataset |
 
 <!-- SPACY PROJECT: AUTO-GENERATED DOCS END (do not remove) -->
+
+### 🔧 Parameters
+
+| Parameter    | Description                                                                                |
+| ------------ | ------------------------------------------------------------------------------------------ |
+| `config`     | Choose between a config with Tok2Vec embedding and Transformer (roberta-base) embedding    |
+| `dataset`    | Choose between three datasets (Healthsea, ToxicSpans, and Genia)                           |
+| `suggester`  | Choose between two suggester architectures (SpanFinder, Ngram)                             |
+| `train`      | Choose a filename for your training data                                                   |
+| `dev`        | Choose a filename for your development data                                                |
+| `span_key`   | Choose a key to specify the SpanGroup for the spancat component to save the predictions to |
+| `gpu_id`     | Choose whether you want to use your GPU (device number) or CPU (-1)                        |
+| `eval_split` | Choose an evaluation split for the dataset (Only affects the Healthsea dataset)            |

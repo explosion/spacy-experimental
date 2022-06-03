@@ -230,7 +230,7 @@ candidate spans with higher precision.
 - `max_length`: Max length of the predicted spans. No limit when set to `0`. Defaults to `0`.
 - `min_length`: Min length of the predicted spans. No limit when set to `0`. Defaults to `0`.
 
-Here is a config excerpt for the `SpanFinder` together with `Spancat`:
+Here is a config excerpt for the `SpanFinder` together with a `SpanCategorizer`:
 
 ```ini
 [nlp]

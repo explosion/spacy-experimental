@@ -83,7 +83,7 @@ def make_span_finder(
     threshold (float): Minimum probability to consider a prediction positive.
     predicted_key (str): Name of the span group the predicted spans are saved
         to
-    training_key (str): Name of the span group the reference spans are read
+    training_key (str): Name of the span group the training spans are read
         from
     max_length (int): Max length of the produced spans (no max limitation when
         set to 0)
@@ -172,7 +172,7 @@ class SpanFinder(TrainablePipe):
             positive.
         scorer (Optional[Callable]): The scoring method.
         predicted_key (str): Name of the span group the candidate spans are saved to
-        training_key (str): Name of the span group the reference spans are read from
+        training_key (str): Name of the span group the training spans are read from
         max_length (int): Max length of the produced spans (unlimited when set to 0)
         min_length (int): Min length of the produced spans (unlimited when set to 0)
         """
@@ -266,16 +266,16 @@ class SpanFinder(TrainablePipe):
         scores: Scores representing the model's predictions.
         RETURNS (Tuple[float, float]): The loss and the gradient.
         """
-        reference_results = self._get_aligned_scores(examples)
-        d_scores = scores - self.model.ops.asarray(reference_results, dtype=float32)
+        reference_truths = self._get_aligned_truth_scores(examples)
+        d_scores = scores - self.model.ops.asarray(reference_truths, dtype=float32)
         loss = float((d_scores**2).sum())
         return loss, d_scores
 
-    def _get_aligned_scores(self, examples) -> Tuple[Floats2d, Floats2d]:
+    def _get_aligned_truth_scores(self, examples) -> Tuple[Floats2d, Floats2d]:
         """Align scores of the predictions to the references for calculating the loss"""
         # TODO: handle misaligned (None) alignments
         # TODO: handle cases with differing whitespace in texts
-        reference_results = []
+        reference_truths = []
 
         for eg in examples:
             start_indices = set()
@@ -289,18 +289,18 @@ class SpanFinder(TrainablePipe):
                     )
 
             for token in eg.predicted:
-                reference_results.append(
+                reference_truths.append(
                     (
                         1 if token.idx in start_indices else 0,
                         1 if token.idx + len(token) in end_indices else 0,
                     )
                 )
 
-        return reference_results
+        return reference_truths
 
     def _get_reference(self, docs) -> Floats2d:
-        """Create a reference list of token probabilities for calculating loss"""
-        reference_results = []
+        """Create a reference list of token probabilities"""
+        reference_probabilities = []
         for doc in docs:
             start_indices = set()
             end_indices = set()
@@ -311,14 +311,14 @@ class SpanFinder(TrainablePipe):
                     end_indices.add(span.end - 1)
 
             for token in doc:
-                reference_results.append(
+                reference_probabilities.append(
                     (
                         1 if token.i in start_indices else 0,
                         1 if token.i in end_indices else 0,
                     )
                 )
 
-        return reference_results
+        return reference_probabilities
 
     def initialize(
         self,

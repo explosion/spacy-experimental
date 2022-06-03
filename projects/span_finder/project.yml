@@ -1,5 +1,9 @@
 title: "Span Finder"
-description: "This project introduces a new experimental suggester that learns to predict span boundaries to produce more precise candidate spans."
+description: "The SpanFinder is a new experimental component that identifies span boundaries
+by tagging potential start and end tokens. It's an ML approach to suggest
+candidate spans with higher precision.
+
+This project shows how to use the `SpanFinder` together with a `SpanCategorizer`."
 # Variables can be referenced across the project.yml using ${vars.var_name}
 vars:
   config: "config_tok2vec" # config_tok2vec, config_trf
