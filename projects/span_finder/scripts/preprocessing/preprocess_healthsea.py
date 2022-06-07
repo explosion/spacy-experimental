@@ -66,8 +66,9 @@ def main(
     dev = []
 
     split = int(len(docs) * eval_split)
-    train = docs[split:] + empty_docs[split:]
-    dev = docs[:split] + empty_docs[:split]
+    empty_split = int(len(empty_docs) * eval_split)
+    train = docs[split:] + empty_docs[empty_split:]
+    dev = docs[:split] + empty_docs[:empty_split]
 
     # Save to disk
     docbin = DocBin(docs=train, store_user_data=True)
