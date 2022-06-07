@@ -1,0 +1,140 @@
+title: "Span Finder"
+description: "The SpanFinder is a new experimental component that identifies span boundaries
+by tagging potential start and end tokens. It's an ML approach to suggest
+candidate spans with higher precision.
+
+This project shows how to use the `SpanFinder` together with a `SpanCategorizer`."
+# Variables can be referenced across the project.yml using ${vars.var_name}
+vars:
+  config: "config_tok2vec" # config_tok2vec, config_trf
+  dataset: "healthsea" # healthsea, toxic, genia
+  suggester: "span_finder" # ngram, span_finder
+
+  train: "train"
+  dev: "dev"
+  spans_key: "sc"
+
+  gpu_id: -1
+  eval_split: 0.25
+
+  spancat_model: "training/spancat/${vars.dataset}/${vars.config}_${vars.suggester}/model-best"
+
+# These are the directories that the project needs. The project CLI will make
+# sure that they always exist.
+directories: ["assets", "training", "configs", "scripts", "data", "metrics"]
+
+# Assets that should be downloaded or available in the directory. We're shipping
+# them with the project, so they won't have to be downloaded. But the
+# 'project assets' command still lets you verify that all required files are available.
+assets:
+  - dest: "assets/healthsea_ner.jsonl"
+    description: "Annotations from the Healthsea dataset"
+    url: https://raw.githubusercontent.com/explosion/healthsea/main/project/assets/ner/annotation.jsonl
+
+  - dest: "assets/toxic_spans_annotations.csv"
+    description: "Annotations from the ToxicSpans dataset"
+    url: https://raw.githubusercontent.com/ipavlopoulos/toxic_spans/master/data/annotations.csv
+
+  - dest: "assets/toxic_spans.csv"
+    description: "Spans from the ToxicSpans dataset"
+    url: https://raw.githubusercontent.com/ipavlopoulos/toxic_spans/master/data/spans.csv
+
+  - dest: "assets/toxic_spans_comments.csv"
+    description: "Comments from the ToxicSpans dataset"
+    url: https://raw.githubusercontent.com/ipavlopoulos/toxic_spans/master/data/comments.csv
+
+  - dest: "assets/genia_train.iob"
+    description: "Training annotations from the Genia dataset"
+    url: "https://raw.githubusercontent.com/thecharm/boundary-aware-nested-ner/master/Our_boundary-aware_model/data/genia/genia.train.iob2"
+
+  - dest: "assets/genia_dev.iob"
+    description: "Dev annotations from the Genia dataset"
+    url: "https://raw.githubusercontent.com/thecharm/boundary-aware-nested-ner/master/Our_boundary-aware_model/data/genia/genia.dev.iob2"
+
+# Workflows are sequences of commands (see below) executed in order. You can
+# run them via "spacy project run [workflow]". If a commands's inputs/outputs
+# haven't changed, it won't be re-run.
+workflows:
+  preprocess:
+    - preprocess_healthsea
+    - preprocess_toxic
+    - preprocess_genia
+  spancat:
+    - train_spancat
+    - evaluate_spancat
+
+# Project commands, specified in a style similar to CI config files (e.g. Azure
+# pipelines). The name is the command name that lets you trigger the command
+# via "spacy project run [command] [path]". The help message is optional and
+# shown when executing "spacy project run [optional command] [path] --help".
+commands:
+  - name: "install"
+    help: "Install requirements"
+    script:
+      - "pip install -r requirements.txt"
+
+  - name: "preprocess_healthsea"
+    help: "Format Healthsea annotations into .spaCy training format"
+    script:
+      - "python scripts/preprocessing/preprocess_healthsea.py assets/healthsea_ner.jsonl data/healthsea_${vars.train}.spacy data/healthsea_${vars.dev}.spacy ${vars.eval_split} ${vars.spans_key}"
+    deps:
+      - "assets/healthsea_ner.jsonl"
+      - "scripts/preprocessing/preprocess_healthsea.py"
+    outputs:
+      - "data/healthsea_${vars.train}.spacy"
+      - "data/healthsea_${vars.dev}.spacy"
+
+  - name: "preprocess_genia"
+    help: "Format Genia annotations into .spaCy training format"
+    script:
+      - "python scripts/preprocessing/preprocess_genia.py assets/genia_train.iob  data/genia_${vars.train}.spacy ${vars.spans_key}"
+      - "python scripts/preprocessing/preprocess_genia.py assets/genia_dev.iob data/genia_${vars.dev}.spacy ${vars.spans_key}"
+    deps:
+      - "assets/genia_train.iob"
+      - "assets/genia_dev.iob"
+    outputs:
+      - "data/genia_${vars.train}.spacy"
+      - "data/genia_${vars.dev}.spacy"
+
+  - name: "preprocess_toxic"
+    help: "Format annotations into .spaCy training format"
+    script:
+      - "python scripts/preprocessing/preprocess_toxic.py assets/toxic_spans.csv assets/toxic_spans_annotations.csv assets/toxic_spans_comments.csv data/toxic_${vars.train}.spacy data/toxic_${vars.dev}.spacy ${vars.eval_split} ${vars.spans_key}"
+    deps:
+      - "assets/toxic_spans.csv"
+      - "assets/toxic_spans_annotations.csv"
+      - "assets/toxic_spans_comments.csv"
+      - "scripts/preprocessing/preprocess_toxic.py"
+    outputs:
+      - "data/toxic_${vars.train}.spacy"
+      - "data/toxic_${vars.dev}.spacy"
+
+  - name: "train_spancat"
+    help: "Train a spancat model on the `dataset` defined in `project.yml`"
+    script:
+      - "python -m spacy train configs/${vars.suggester}/${vars.config}.cfg --output training/spancat/${vars.dataset}/${vars.config}_${vars.suggester}/ --paths.train data/${vars.dataset}_${vars.train}.spacy --paths.dev data/${vars.dataset}_${vars.dev}.spacy --gpu-id ${vars.gpu_id} --vars.spans_key ${vars.spans_key}"
+    deps:
+      - "configs/${vars.suggester}/${vars.config}.cfg"
+      - "data/${vars.dataset}_${vars.train}.spacy"
+      - "data/${vars.dataset}_${vars.dev}.spacy"
+    outputs:
+      - "${vars.spancat_model}"
+
+  - name: "evaluate_spancat"
+    help: "Evaluate a trained spancat model  on the `dataset` defined in `project.yml`"
+    script:
+      - "python -m spacy evaluate ${vars.spancat_model} data/${vars.dataset}_${vars.dev}.spacy --output metrics/spancat_${vars.dataset}_${vars.config}_${vars.suggester}.json --gpu-id ${vars.gpu_id}"
+      - "python scripts/suggester_evaluation.py ${vars.spans_key} ${vars.spancat_model} data/${vars.dataset}_${vars.dev}.spacy"
+    deps:
+      - "${vars.spancat_model}"
+      - "data/${vars.dataset}_${vars.dev}.spacy"
+    outputs:
+      - metrics/spancat_${vars.dataset}_${vars.config}_${vars.suggester}.json
+
+  - name: "reset"
+    help: "Reset the project to its original state and delete all training process"
+    script:
+      - "python scripts/reset.py training"
+      - "python scripts/reset.py metrics"
+      - "python scripts/reset.py assets"
+      - "python scripts/reset.py data"
