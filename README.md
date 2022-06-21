@@ -32,27 +32,11 @@ Then you can add the experimental components to your config or import from
 `spacy_experimental`:
 
 ```ini
-[components.experimental_edit_tree_lemmatizer]
-factory = "experimental_edit_tree_lemmatizer"
+[components.experimental_char_ner_tokenizer]
+factory = "experimental_char_ner_tokenizer"
 ```
 
 ## Components
-
-### Edit tree lemmatizer
-
-```ini
-[components.experimental_edit_tree_lemmatizer]
-factory = "experimental_edit_tree_lemmatizer"
-# token attr to use as backoff with the predicted trees are not applicable; null to leave unset
-backoff = "orth"
-# prune trees that are applied less than this frequency in the training data
-min_tree_freq = 2
-# whether to overwrite existing lemma annotation
-overwrite = false
-scorer = {"@scorers":"spacy.lemmatizer_scorer.v1"}
-# try to apply at most the k most probable edit trees
-top_k = 1
-```
 
 ### Trainable character-based tokenizers
 
@@ -212,7 +196,7 @@ Attention for Neural Dependency Parsing](Deep Biaffine Attention for Neural
 Dependency Parsing) (Dozat & Manning, 2016). The parser consists of two parts:
 an edge predicter and an edge labeler. For example:
 
-``` ini
+```ini
 [components.experimental_arc_predicter]
 factory = "experimental_arc_predicter"
 
@@ -224,13 +208,115 @@ The arc predicter requires that a previous component (such as `senter`) sets
 sentence boundaries during training. Therefore, such a component must be
 added to `annotating_components`:
 
-``` ini
+```ini
 [training]
 annotating_components = ["senter"]
 ```
 
 The [biaffine parser sample project](projects/biaffine_parser) provides an
 example biaffine parser pipeline.
+
+### Span Finder
+
+The SpanFinder is a new experimental component that identifies span boundaries
+by tagging potential start and end tokens. It's an ML approach to suggest
+candidate spans with higher precision.
+
+`SpanFinder` uses the following parameters:
+
+- `threshold`: Probability threshold for predicted spans.
+- `predicted_key`: Name of the [SpanGroup](https://spacy.io/api/spangroup) the predicted spans are saved to.
+- `training_key`: Name of the [SpanGroup](https://spacy.io/api/spangroup) the training spans are read from.
+- `max_length`: Max length of the predicted spans. No limit when set to `0`. Defaults to `0`.
+- `min_length`: Min length of the predicted spans. No limit when set to `0`. Defaults to `0`.
+
+Here is a config excerpt for the `SpanFinder` together with a `SpanCategorizer`:
+
+```ini
+[nlp]
+lang = "en"
+pipeline = ["tok2vec","span_finder","spancat"]
+batch_size = 128
+disabled = []
+before_creation = null
+after_creation = null
+after_pipeline_creation = null
+tokenizer = {"@tokenizers":"spacy.Tokenizer.v1"}
+
+[components]
+
+[components.tok2vec]
+factory = "tok2vec"
+
+[components.tok2vec.model]
+@architectures = "spacy.Tok2Vec.v1"
+
+[components.tok2vec.model.embed]
+@architectures = "spacy.MultiHashEmbed.v2"
+width = ${components.tok2vec.model.encode.width}
+attrs = ["ORTH", "SHAPE"]
+rows = [5000, 2500]
+include_static_vectors = false
+
+[components.tok2vec.model.encode]
+@architectures = "spacy.MaxoutWindowEncoder.v2"
+width = 96
+depth = 4
+window_size = 1
+maxout_pieces = 3
+
+[components.span_finder]
+factory = "experimental_span_finder"
+threshold = 0.35
+predicted_key = "span_candidates"
+training_key = ${vars.spans_key}
+min_length = 0
+max_length = 0
+
+[components.span_finder.scorer]
+@scorers = "spacy-experimental.span_finder_scorer.v1"
+predicted_key = ${components.span_finder.predicted_key}
+training_key = ${vars.spans_key}
+
+[components.span_finder.model]
+@architectures = "spacy-experimental.SpanFinder.v1"
+
+[components.span_finder.model.scorer]
+@layers = "spacy.LinearLogistic.v1"
+nO=2
+
+[components.span_finder.model.tok2vec]
+@architectures = "spacy.Tok2VecListener.v1"
+width = ${components.tok2vec.model.encode.width}
+
+[components.spancat]
+factory = "spancat"
+max_positive = null
+spans_key = ${vars.spans_key}
+threshold = 0.5
+
+[components.spancat.model]
+@architectures = "spacy.SpanCategorizer.v1"
+
+[components.spancat.model.reducer]
+@layers = "spacy.mean_max_reducer.v1"
+hidden_size = 128
+
+[components.spancat.model.scorer]
+@layers = "spacy.LinearLogistic.v1"
+nO = null
+nI = null
+
+[components.spancat.model.tok2vec]
+@architectures = "spacy.Tok2VecListener.v1"
+width = ${components.tok2vec.model.encode.width}
+
+[components.spancat.suggester]
+@misc = "spacy-experimental.span_finder_suggester.v1"
+predicted_key = ${components.span_finder.predicted_key}
+```
+
+This package includes a [spaCy project](./projects/span_finder) which shows how to train and use the `SpanFinder` together with `SpanCategorizer`.
 
 ## Architectures
 
@@ -248,6 +334,42 @@ None currently.
 - `spacy-experimental.tokenizer_scorer.v1`: Score tokenization.
 - `spacy-experimental.tokenizer_senter_scorer.v1`: Score tokenization and
   sentence segmentation.
+
+### Misc
+
+Suggester functions for spancat:
+
+**Subtree suggester**: Uses dependency annotation to suggest tokens with their syntactic descendants.
+
+- `spacy-experimental.subtree_suggester.v1`
+- `spacy-experimental.ngram_subtree_suggester.v1`
+
+**Chunk suggester**: Suggests noun chunks using the noun chunk iterator, which requires POS and dependency annotation.
+
+- `spacy-experimental.chunk_suggester.v1`
+- `spacy-experimental.ngram_chunk_suggester.v1`
+
+**Sentence suggester**: Uses sentence boundaries to suggest sentence spans.
+
+- `spacy-experimental.sentence_suggester.v1`
+- `spacy-experimental.ngram_sentence_suggester.v1`
+
+The package also contains a [`merge_suggesters`](spacy_experimental/span_suggesters/merge_suggesters.py) function which can be used to combine suggestions from multiple suggesters.
+
+Here are two config excerpts for using the `subtree suggester` with and without the ngram functionality:
+
+```
+[components.spancat.suggester]
+@misc = "spacy-experimental.subtree_suggester.v1"
+```
+
+```
+[components.spancat.suggester]
+@misc = "spacy-experimental.ngram_subtree_suggester.v1"
+sizes = [1, 2, 3]
+```
+
+Note that all the suggester functions are registered in `@misc`.
 
 ## Bug reports and issues
 

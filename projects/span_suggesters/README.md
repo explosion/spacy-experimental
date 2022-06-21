@@ -1,6 +1,8 @@
 <!-- SPACY PROJECT: AUTO-GENERATED DOCS START (do not remove) -->
 
-# 🪐 spaCy Project: Edit tree lemmatizer
+# 🪐 spaCy Project: Span Suggesters
+
+This project introduces new experimental suggester functions
 
 ## 📋 project.yml
 
@@ -16,10 +18,9 @@ Commands are only re-run if their inputs have changed.
 
 | Command | Description |
 | --- | --- |
-| `preprocess` | Convert data to spaCy format |
-| `create-config` | Create a config |
-| `train` | Train the lemmatizer |
-| `evaluate` | Evaluate the lemmatization model evaluate on the test corpus. |
+| `install` | Install requirements |
+| `data` | Format Healthsea annotations into .spaCy training format |
+| `train_spancat` | Train a spancat model |
 
 ### ⏭ Workflows
 
@@ -30,7 +31,7 @@ inputs have changed.
 
 | Workflow | Steps |
 | --- | --- |
-| `all` | `preprocess` &rarr; `create-config` &rarr; `train` &rarr; `evaluate` |
+| `all` | `data` &rarr; `train_spancat` |
 
 ### 🗂 Assets
 
@@ -40,6 +41,6 @@ in the project directory.
 
 | File | Source | Description |
 | --- | --- | --- |
-| `assets/UD_Dutch-Alpino` | Git |  |
+| `assets/healthsea_ner.jsonl` | URL | Annotations from the Healthsea dataset |
 
 <!-- SPACY PROJECT: AUTO-GENERATED DOCS END (do not remove) -->

@@ -1,0 +1,65 @@
+title: "Span Suggesters"
+description: "This project introduces new experimental suggester functions"
+# Variables can be referenced across the project.yml using ${vars.var_name}
+vars:
+  suggester: "sentence" # subtree, chunk, sentence
+
+  train: "train"
+  dev: "dev"
+
+  spancat_model: "training/${vars.suggester}_suggester/model-best"
+
+  gpu_id: -1
+  eval_split: 0.25
+
+# These are the directories that the project needs. The project CLI will make
+# sure that they always exist.
+directories: ["assets", "training", "configs", "scripts", "data"]
+
+# Assets that should be downloaded or available in the directory. We're shipping
+# them with the project, so they won't have to be downloaded. But the
+# 'project assets' command still lets you verify that all required files are available.
+assets:
+  - dest: "assets/healthsea_ner.jsonl"
+    description: "Annotations from the Healthsea dataset"
+    url: https://github.com/explosion/healthsea/blob/main/project/assets/ner/annotation.jsonl
+
+# Workflows are sequences of commands (see below) executed in order. You can
+# run them via "spacy project run [workflow]". If a commands's inputs/outputs
+# haven't changed, it won't be re-run.
+workflows:
+  all:
+    - data
+    - train_spancat
+
+# Project commands, specified in a style similar to CI config files (e.g. Azure
+# pipelines). The name is the command name that lets you trigger the command
+# via "spacy project run [command] [path]". The help message is optional and
+# shown when executing "spacy project run [optional command] [path] --help".
+commands:
+  - name: "install"
+    help: "Install requirements"
+    script:
+      - "spacy download en_core_web_sm"
+
+  - name: "data"
+    help: "Format Healthsea annotations into .spaCy training format"
+    script:
+      - "python scripts/preprocess_healthsea.py assets/healthsea_ner.jsonl data/${vars.train}.spacy data/${vars.dev}.spacy ${vars.eval_split} sc"
+    deps:
+      - "assets/healthsea_ner.jsonl"
+      - "scripts/preprocess_healthsea.py"
+    outputs:
+      - "data/${vars.train}.spacy"
+      - "data/${vars.dev}.spacy"
+
+  - name: "train_spancat"
+    help: "Train a spancat model"
+    script:
+      - "python -m spacy train configs/${vars.suggester}_suggester.cfg --output training/${vars.suggester}_suggester/ --paths.train data/${vars.train}.spacy --paths.dev data/${vars.dev}.spacy --gpu-id ${vars.gpu_id} --paths.span_key"
+    deps:
+      - "configs/${vars.suggester}_suggester.cfg"
+      - "data/${vars.train}.spacy"
+      - "data/${vars.dev}.spacy"
+    outputs:
+      - "${vars.spancat_model}"

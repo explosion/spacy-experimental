@@ -7,10 +7,15 @@ from thinc.api import with_getitem, xp2torch
 from thinc.shims.pytorch_grad_scaler import PyTorchGradScaler
 from thinc.types import ArgsKwargs, Floats2d, Ints1d
 
-from .pytorch_bilinear import BilinearModel as PyTorchBilinearModel
+
+# Ensure that the spacy-experimental package can register entry points without
+# Torch installed.
+try:
+    from .pytorch_bilinear import BilinearModel as PyTorchBilinearModel
+except ImportError:
+    PyTorchBilinearModel = None
 
 
-@registry.architectures("spacy-experimental.Bilinear.v1")
 def build_bilinear(
     tok2vec: Model[List[Doc], List[Floats2d]],
     nO: Optional[int] = None,
@@ -20,6 +25,9 @@ def build_bilinear(
     mixed_precision: bool = False,
     grad_scaler: Optional[PyTorchGradScaler] = None
 ) -> Model[Tuple[List[Doc], Ints1d], Floats2d]:
+    if PyTorchBilinearModel is None:
+        raise ImportError("BiLinear layer requires PyTorch: pip install thinc[torch]")
+
     nI = None
     if tok2vec.has_dim("nO") is True:
         nI = tok2vec.get_dim("nO")

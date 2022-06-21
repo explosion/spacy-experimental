@@ -66,13 +66,6 @@ def setup_package():
             extra_compile_args=["-std=c++11"],
         ),
         Extension(
-            "spacy_experimental.edit_tree_lemmatizer.edit_trees",
-            ["spacy_experimental/edit_tree_lemmatizer/edit_trees.pyx"],
-            language="c++",
-            include_dirs=[],
-            extra_compile_args=["-std=c++11"],
-        ),
-        Extension(
             "spacy_experimental.char_tokenizer.char_tagger_tokenizer",
             ["spacy_experimental/char_tokenizer/char_tagger_tokenizer.pyx"],
             language="c++",
