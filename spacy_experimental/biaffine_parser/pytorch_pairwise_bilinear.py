@@ -16,7 +16,9 @@ class VariationalDropout(nn.Module):
 
         batch_size, _, repr_size = x.shape
         dropout_mask = F.dropout(
-            torch.ones((batch_size, 1, repr_size), device=x.device), self.p, self.training
+            torch.ones((batch_size, 1, repr_size), device=x.device),
+            self.p,
+            self.training,
         )
 
         return x * dropout_mask
