@@ -37,7 +37,7 @@ def build_pairwise_bilinear(
 
     pairwise_bilinear: Model[Tuple[Floats2d, Ints1d], Floats2d] = Model(
         "pairwise_bilinear",
-        forward=pairswise_bilinear_forward,
+        forward=pairwise_bilinear_forward,
         init=pairwise_bilinear_init,
         dims={"nI": nI, "nO": nO},
         attrs={
@@ -94,7 +94,7 @@ def pairwise_bilinear_init(model: Model, X=None, Y=None):
     ]
 
 
-def pairswise_bilinear_forward(model: Model, X, is_train: bool):
+def pairwise_bilinear_forward(model: Model, X, is_train: bool):
     return model.layers[0](X, is_train)
 
 
