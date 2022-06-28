@@ -162,7 +162,7 @@ class ArcPredicter(TrainablePipe):
         docs = list(docs)
 
         if self.senter:
-            lengths = split_greedily(docs, ops=self.model.ops, max_length=self.max_length, senter=self.senter, is_train=False)
+            lengths = split_lazily(docs, ops=self.model.ops, max_length=self.max_length, senter=self.senter, is_train=False)
         else:
             lengths = sents2lens(docs, ops=self.model.ops)
         scores = self.model.predict((docs, lengths))
@@ -224,7 +224,7 @@ class ArcPredicter(TrainablePipe):
         docs = [eg.predicted for eg in examples]
 
         if self.senter:
-            lens = split_greedily(docs, ops=self.model.ops, max_length=self.max_length, senter=self.senter, is_train=True)
+            lens = split_lazily(docs, ops=self.model.ops, max_length=self.max_length, senter=self.senter, is_train=True)
         else:
             lens = sents2lens(docs, ops=self.model.ops)
         if lens.sum() == 0:
@@ -316,11 +316,13 @@ def sents2lens(docs: List[Doc], *, ops: Ops) -> Ints1d:
 
     return ops.asarray1i(lens)
 
-def split_greedily(docs: List[Doc], *, ops: Ops, max_length: int, senter: SentenceRecognizer, is_train: bool):
-    split_predictions, _ = senter.model(docs, is_train)
-
+def split_lazily(docs: List[Doc], *, ops: Ops, max_length: int, senter: SentenceRecognizer, is_train: bool) -> Ints1d:
     lens = []
-    for (doc, scores) in zip(docs, split_predictions):
+    for doc in docs:
+        activations = doc.activations.get(senter.name, None)
+        if activations is None:
+            raise ValueError("Greedy splitting requires senter with `store_activations` enabled.")
+        scores = activations['probs']
         split_recursive(scores[:,1], ops, max_length, lens)
 
     assert sum(lens) == sum([len(doc) for doc in docs])
