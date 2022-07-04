@@ -6,6 +6,7 @@ from typing import Callable, Dict, Iterable, Optional
 import spacy
 from spacy import Language, Vocab
 from spacy.errors import Errors
+from spacy.pipeline.dep_parser import parser_score
 from spacy.pipeline.trainable_pipe cimport TrainablePipe
 from spacy.tokens.token cimport Token
 from spacy.tokens.doc cimport Doc
@@ -16,7 +17,6 @@ from thinc.api import Config, Model, Ops, Optimizer
 from thinc.api import to_numpy
 from thinc.types import Floats2d, Ints1d, Tuple
 
-from .eval import parser_score
 
 default_model_config = """
 [model]
@@ -40,7 +40,7 @@ DEFAULT_ARC_LABELER_MODEL = Config().from_str(default_model_config)["model"]
     assigns=["token.dep"],
     default_config={
         "model": DEFAULT_ARC_LABELER_MODEL,
-        "scorer": {"@scorers": "spacy-experimental.biaffine_parser_scorer.v1"}
+        "scorer": {"@scorers": "spacy.parser_scorer.v1"}
     },
 )
 def make_arc_labeler(
@@ -60,7 +60,7 @@ class ArcLabeler(TrainablePipe):
         name: str = "arc_labeler",
         *,
         overwrite=False,
-        scorer=parser_score
+        scorer=parser_score,
     ):
         self.name = name
         self.model = model
@@ -85,10 +85,7 @@ class ArcLabeler(TrainablePipe):
         offset = 0
         for eg in examples:
             aligned_heads, aligned_labels = eg.get_aligned_parse(projectivize=False)
-            for token in eg.predicted:
-                gold_head = aligned_heads[token.i]
-                gold_label = aligned_labels[token.i]
-
+            for gold_head, gold_label in zip(aligned_heads, aligned_labels):
                 # Do not learn from misaligned tokens, since we could no use
                 # their correct head representations.
                 if gold_head is not None and gold_label is not None:
@@ -170,11 +167,10 @@ class ArcLabeler(TrainablePipe):
 
         offset = 0
         for doc in docs:
-            for sent in doc.sents:
-                for token in sent:
-                    label = self.cfg["labels"][predictions[offset]]
-                    doc.c[token.i].dep = self.vocab.strings[label]
-                    offset += 1
+            for token in doc:
+                label = self.cfg["labels"][predictions[offset]]
+                doc.c[token.i].dep = self.vocab.strings[label]
+                offset += 1
 
             for i in range(doc.length):
                 if doc.c[i].head == 0:
