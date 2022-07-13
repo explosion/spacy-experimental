@@ -9,7 +9,7 @@ from spacy.tokens import Doc
 from .coref_util import get_sentence_ids, MentionClusters
 
 
-def build_span_predictor(
+def build_span_resolver(
     tok2vec: Model[List[Doc], List[Floats2d]],
     hidden_size: int = 1024,
     distance_embedding_size: int = 64,
@@ -22,10 +22,10 @@ def build_span_predictor(
     nI = None
 
     with Model.define_operators({">>": chain, "&": tuplify}):
-        span_predictor: Model[List[Floats2d], List[Floats2d]] = Model(
-            "span_predictor",
-            forward=span_predictor_forward,
-            init=span_predictor_init,
+        span_resolver: Model[List[Floats2d], List[Floats2d]] = Model(
+            "span_resolver",
+            forward=span_resolver_forward,
+            init=span_resolver_init,
             dims={"nI": nI},
             attrs={
                 "distance_embedding_size": distance_embedding_size,
@@ -36,13 +36,13 @@ def build_span_predictor(
             },
         )
         head_info = build_get_head_metadata(prefix)
-        model = (tok2vec & head_info) >> span_predictor
-        model.set_ref("span_predictor", span_predictor)
+        model = (tok2vec & head_info) >> span_resolver
+        model.set_ref("span_resolver", span_resolver)
 
     return model
 
 
-def span_predictor_init(model: Model, X=None, Y=None):
+def span_resolver_init(model: Model, X=None, Y=None):
     if model.layers:
         return
 
@@ -57,7 +57,7 @@ def span_predictor_init(model: Model, X=None, Y=None):
 
     model._layers = [
         PyTorchWrapper(
-            SpanPredictor(
+            SpanResolver(
                 model.get_dim("nI"),
                 hidden_size,
                 distance_embedding_size,
@@ -65,17 +65,17 @@ def span_predictor_init(model: Model, X=None, Y=None):
                 window_size,
                 max_distance,
             ),
-            convert_inputs=convert_span_predictor_inputs,
+            convert_inputs=convert_span_resolver_inputs,
         )
         # TODO maybe we need mixed precision and grad scaling?
     ]
 
 
-def span_predictor_forward(model: Model, X, is_train: bool):
+def span_resolver_forward(model: Model, X, is_train: bool):
     return model.layers[0](X, is_train)
 
 
-def convert_span_predictor_inputs(
+def convert_span_resolver_inputs(
     model: Model,
     X: Tuple[List[Floats2d], Tuple[List[Ints1d], List[Ints1d]]],
     is_train: bool,
@@ -108,7 +108,7 @@ def build_get_head_metadata(prefix):
 
 
 def head_data_forward(model, docs, is_train):
-    """A layer to generate the extra data needed for the span predictor."""
+    """A layer to generate the extra data needed for the span resolver."""
     sent_ids = []
     head_ids = []
     prefix = model.attrs["prefix"]
@@ -131,7 +131,7 @@ def head_data_forward(model, docs, is_train):
 
 
 # TODO this should maybe have a different name from the component
-class SpanPredictor(torch.nn.Module):
+class SpanResolver(torch.nn.Module):
     def __init__(
         self,
         input_size: int,

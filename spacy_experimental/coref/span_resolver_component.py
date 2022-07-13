@@ -22,9 +22,9 @@ from .coref_util import (
 
 from .coref_scorer import doc2clusters, score_span_predictions
 
-default_span_predictor_config = """
+default_span_resolver_config = """
 [model]
-@architectures = "spacy-experimental.SpanPredictor.v1"
+@architectures = "spacy-experimental.SpanResolver.v1"
 hidden_size = 1024
 distance_embedding_size = 64
 conv_channels = 4
@@ -49,39 +49,39 @@ window_size = 1
 maxout_pieces = 3
 depth = 2
 """
-DEFAULT_SPAN_PREDICTOR_MODEL = Config().from_str(default_span_predictor_config)["model"]
+DEFAULT_SPAN_RESOLVER_MODEL = Config().from_str(default_span_resolver_config)["model"]
 
 
-def span_predictor_scorer(examples: Iterable[Example], **kwargs) -> Dict[str, Any]:
+def span_resolver_scorer(examples: Iterable[Example], **kwargs) -> Dict[str, Any]:
     return score_span_predictions(examples, **kwargs)
 
 
-def make_span_predictor_scorer():
-    return span_predictor_scorer
+def make_span_resolver_scorer():
+    return span_resolver_scorer
 
 
 @Language.factory(
-    "experimental_span_predictor",
+    "experimental_span_resolver",
     assigns=["doc.spans"],
     requires=["doc.spans"],
     default_config={
-        "model": DEFAULT_SPAN_PREDICTOR_MODEL,
+        "model": DEFAULT_SPAN_RESOLVER_MODEL,
         "input_prefix": "coref_head_clusters",
         "output_prefix": "coref_clusters",
-        "scorer": {"@scorers": "spacy-experimental.span_predictor_scorer.v1"},
+        "scorer": {"@scorers": "spacy-experimental.span_resolver_scorer.v1"},
     },
     default_score_weights={"span_accuracy": 1.0},
 )
-def make_span_predictor(
+def make_span_resolver(
     nlp: Language,
     name: str,
     model,
     input_prefix: str = "coref_head_clusters",
     output_prefix: str = "coref_clusters",
-    scorer: Optional[Callable] = span_predictor_scorer,
-) -> "SpanPredictor":
-    """Create a SpanPredictor component."""
-    return SpanPredictor(
+    scorer: Optional[Callable] = span_resolver_scorer,
+) -> "SpanResolver":
+    """Create a SpanResolver component."""
+    return SpanResolver(
         nlp.vocab,
         model,
         name,
@@ -91,23 +91,23 @@ def make_span_predictor(
     )
 
 
-class SpanPredictor(TrainablePipe):
+class SpanResolver(TrainablePipe):
     """Pipeline component to resolve one-token spans to full spans.
 
     Used in coreference resolution.
 
-    DOCS: https://spacy.io/api/span_predictor
+    DOCS: https://spacy.io/api/span_resolver
     """
 
     def __init__(
         self,
         vocab: Vocab,
         model: Model,
-        name: str = "span_predictor",
+        name: str = "span_resolver",
         *,
         input_prefix: str = "coref_head_clusters",
         output_prefix: str = "coref_clusters",
-        scorer: Optional[Callable] = span_predictor_scorer,
+        scorer: Optional[Callable] = span_resolver_scorer,
     ) -> None:
         self.vocab = vocab
         self.model = model
@@ -127,7 +127,7 @@ class SpanPredictor(TrainablePipe):
         docs (Iterable[Doc]): The documents to predict.
         RETURNS (List[MentionClusters]): The model's prediction for each document.
 
-        DOCS: https://spacy.io/api/span_predictor#predict
+        DOCS: https://spacy.io/api/span_resolver#predict
         """
         # for now pretend there's just one doc
 
@@ -164,9 +164,9 @@ class SpanPredictor(TrainablePipe):
         """Modify a batch of Doc objects, using pre-computed scores.
 
         docs (Iterable[Doc]): The documents to modify.
-        clusters: The span clusters, produced by SpanPredictor.predict.
+        clusters: The span clusters, produced by SpanResolver.predict.
 
-        DOCS: https://spacy.io/api/span_predictor#set_annotations
+        DOCS: https://spacy.io/api/span_resolver#set_annotations
         """
         for doc, clusters in zip(docs, clusters_by_doc):
             for ii, cluster in enumerate(clusters):
@@ -191,12 +191,12 @@ class SpanPredictor(TrainablePipe):
             Updated using the component name as the key.
         RETURNS (Dict[str, float]): The updated losses dictionary.
 
-        DOCS: https://spacy.io/api/span_predictor#update
+        DOCS: https://spacy.io/api/span_resolver#update
         """
         if losses is None:
             losses = {}
         losses.setdefault(self.name, 0.0)
-        validate_examples(examples, "SpanPredictor.update")
+        validate_examples(examples, "SpanResolver.update")
         if not any(len(eg.reference) if eg.reference else 0 for eg in examples):
             # Handle cases where there are no tokens in any docs.
             return losses
@@ -208,7 +208,7 @@ class SpanPredictor(TrainablePipe):
                 # TODO assign error number
                 raise ValueError(
                     """Text, including whitespace, must match between reference and
-                    predicted docs in span predictor training.
+                    predicted docs in span resolver training.
                     """
                 )
             span_scores, backprop = self.model.begin_update([eg.predicted])
@@ -236,7 +236,7 @@ class SpanPredictor(TrainablePipe):
         # TODO this should be added later
         raise NotImplementedError(
             Errors.E931.format(
-                parent="SpanPredictor", method="add_label", name=self.name
+                parent="SpanResolver", method="add_label", name=self.name
             )
         )
 
@@ -246,7 +246,7 @@ class SpanPredictor(TrainablePipe):
         """
         raise NotImplementedError(
             Errors.E931.format(
-                parent="SpanPredictor", method="add_label", name=self.name
+                parent="SpanResolver", method="add_label", name=self.name
             )
         )
 
@@ -262,7 +262,7 @@ class SpanPredictor(TrainablePipe):
         scores: Scores representing the model's predictions.
         RETURNS (Tuple[float, float]): The loss and the gradient.
 
-        DOCS: https://spacy.io/api/span_predictor#get_loss
+        DOCS: https://spacy.io/api/span_resolver#get_loss
         """
         ops = self.model.ops
 
@@ -284,7 +284,7 @@ class SpanPredictor(TrainablePipe):
                         span = eg.predicted.char_span(sch, ech)
                         # TODO add to errors.py
                         if span is None:
-                            warnings.warn("Could not align gold span in span predictor, skipping")
+                            warnings.warn("Could not align gold span in span resolver, skipping")
                             continue
                         starts.append(span.start)
                         ends.append(span.end)
@@ -327,9 +327,9 @@ class SpanPredictor(TrainablePipe):
             returns a representative sample of gold-standard Example objects.
         nlp (Language): The current nlp object the component is part of.
 
-        DOCS: https://spacy.io/api/span_predictor#initialize
+        DOCS: https://spacy.io/api/span_resolver#initialize
         """
-        validate_get_examples(get_examples, "SpanPredictor.initialize")
+        validate_get_examples(get_examples, "SpanResolver.initialize")
 
         X = []
         Y = []
@@ -351,8 +351,8 @@ class SpanPredictor(TrainablePipe):
         # for PyTorch models. This makes it tricky to reconstruct the model
         # during deserialization. So, besides storing the labels, we also
         # store the number of inputs.
-        span_predictor = self.model.get_ref("span_predictor")
-        self.cfg["nI"] = span_predictor.get_dim("nI")
+        span_resolver = self.model.get_ref("span_resolver")
+        self.cfg["nI"] = span_resolver.get_dim("nI")
 
     def from_bytes(self, bytes_data, *, exclude=tuple()):
         deserializers = {
@@ -396,7 +396,7 @@ class SpanPredictor(TrainablePipe):
     def _initialize_from_disk(self):
         # The PyTorch model is constructed lazily, so we need to
         # explicitly initialize the model before deserialization.
-        model = self.model.get_ref("span_predictor")
+        model = self.model.get_ref("span_resolver")
         if model.has_dim("nI") is None:
             model.set_dim("nI", self.cfg["nI"])
         self.model.initialize()
