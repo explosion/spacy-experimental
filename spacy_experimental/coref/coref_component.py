@@ -15,7 +15,7 @@ from spacy.errors import Errors
 from spacy.scorer import Scorer
 from spacy.tokens import Doc
 from spacy.vocab import Vocab
-from spacy.util import registry, from_disk, from_bytes
+from spacy.util import from_disk, from_bytes
 
 from .coref_util import (
     create_gold_scores,
@@ -62,7 +62,6 @@ def coref_scorer(examples: Iterable[Example], **kwargs) -> Dict[str, Any]:
     return Scorer.score_coref_clusters(examples, **kwargs)
 
 
-@registry.scorers("spacy.coref_scorer.v1")
 def make_coref_scorer():
     return coref_scorer
 

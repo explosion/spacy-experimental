@@ -14,7 +14,7 @@ from spacy.errors import Errors
 from spacy.scorer import Scorer, doc2clusters
 from spacy.tokens import Doc
 from spacy.vocab import Vocab
-from spacy.util import registry, from_bytes, from_disk
+from spacy.util import from_bytes, from_disk
 
 from .coref_util import (
     MentionClusters,
@@ -55,7 +55,6 @@ def span_predictor_scorer(examples: Iterable[Example], **kwargs) -> Dict[str, An
     return Scorer.score_span_predictions(examples, **kwargs)
 
 
-@registry.scorers("spacy.span_predictor_scorer.v1")
 def make_span_predictor_scorer():
     return span_predictor_scorer
 

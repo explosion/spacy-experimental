@@ -6,11 +6,9 @@ from thinc.types import Floats2d, Ints1d
 from thinc.util import torch, xp2torch, torch2xp
 
 from spacy.tokens import Doc
-from spacy.util import registry
 from .coref_util import get_sentence_ids
 
 
-@registry.architectures("spacy.SpanPredictor.v1")
 def build_span_predictor(
     tok2vec: Model[List[Doc], List[Floats2d]],
     hidden_size: int = 1024,

@@ -6,14 +6,12 @@ from thinc.types import Floats2d, Ints2d
 from thinc.util import torch, xp2torch, torch2xp
 
 from spacy.tokens import Doc
-from spacy.util import registry
 
 
 EPSILON = 1e-7
 
 
-@registry.architectures("spacy.Coref.v1")
-def build_wl_coref_model(
+def build_coref_model(
     tok2vec: Model[List[Doc], List[Floats2d]],
     distance_embedding_size: int = 20,
     hidden_size: int = 1024,
