@@ -17,8 +17,7 @@ def build_span_predictor(
     window_size: int = 1,
     max_distance: int = 128,
     prefix: str = "coref_head_clusters",
-):
-    # TODO add model return types
+) -> Model[List[Doc], List[MentionClusters]]:
 
     nI = None
 
@@ -83,7 +82,6 @@ def convert_span_predictor_inputs(
 ):
     tok2vec, (sent_ids, head_ids) = X
     # Normally we should use the input is_train, but for these two it's not relevant
-    # TODO fix the type here, or remove it
     def backprop(args: ArgsKwargs) -> Tuple[List[Floats2d], None]:
         gradients = cast(Floats2d, torch2xp(args.args[1]))
         # The sent_ids and head_ids are None because no gradients
