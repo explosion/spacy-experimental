@@ -12,7 +12,6 @@ from spacy.pipeline.trainable_pipe import TrainablePipe
 from spacy.language import Language
 from spacy.training import Example, validate_examples, validate_get_examples
 from spacy.errors import Errors
-from spacy.scorer import Scorer
 from spacy.tokens import Doc
 from spacy.vocab import Vocab
 from spacy.util import from_disk, from_bytes
@@ -25,6 +24,8 @@ from .coref_util import (
     get_predicted_clusters,
     DEFAULT_CLUSTER_PREFIX,
 )
+
+from .coref_scorer import score_coref_clusters
 
 
 
@@ -59,7 +60,7 @@ DEFAULT_COREF_MODEL = Config().from_str(default_config)["model"]
 
 
 def coref_scorer(examples: Iterable[Example], **kwargs) -> Dict[str, Any]:
-    return Scorer.score_coref_clusters(examples, **kwargs)
+    return score_coref_clusters(examples, **kwargs)
 
 
 def make_coref_scorer():
@@ -67,13 +68,13 @@ def make_coref_scorer():
 
 
 @Language.factory(
-    "coref",
+    "experimental_coref",
     assigns=["doc.spans"],
     requires=["doc.spans"],
     default_config={
         "model": DEFAULT_COREF_MODEL,
         "span_cluster_prefix": DEFAULT_CLUSTER_PREFIX,
-        "scorer": {"@scorers": "spacy.coref_scorer.v1"},
+        "scorer": {"@scorers": "spacy-experimental.coref_scorer.v1"},
     },
     default_score_weights={"coref_f": 1.0, "coref_p": None, "coref_r": None},
 )

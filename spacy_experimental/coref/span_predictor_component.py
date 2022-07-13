@@ -11,7 +11,6 @@ from spacy.pipeline.trainable_pipe import TrainablePipe
 from spacy.language import Language
 from spacy.training import Example, validate_examples, validate_get_examples
 from spacy.errors import Errors
-from spacy.scorer import Scorer, doc2clusters
 from spacy.tokens import Doc
 from spacy.vocab import Vocab
 from spacy.util import from_bytes, from_disk
@@ -20,6 +19,8 @@ from .coref_util import (
     MentionClusters,
     DEFAULT_CLUSTER_PREFIX,
 )
+
+from .coref_scorer import doc2clusters, score_span_predictions
 
 default_span_predictor_config = """
 [model]
@@ -52,7 +53,7 @@ DEFAULT_SPAN_PREDICTOR_MODEL = Config().from_str(default_span_predictor_config)[
 
 
 def span_predictor_scorer(examples: Iterable[Example], **kwargs) -> Dict[str, Any]:
-    return Scorer.score_span_predictions(examples, **kwargs)
+    return score_span_predictions(examples, **kwargs)
 
 
 def make_span_predictor_scorer():
@@ -67,7 +68,7 @@ def make_span_predictor_scorer():
         "model": DEFAULT_SPAN_PREDICTOR_MODEL,
         "input_prefix": "coref_head_clusters",
         "output_prefix": "coref_clusters",
-        "scorer": {"@scorers": "spacy.span_predictor_scorer.v1"},
+        "scorer": {"@scorers": "spacy-experimental.span_predictor_scorer.v1"},
     },
     default_score_weights={"span_accuracy": 1.0},
 )
