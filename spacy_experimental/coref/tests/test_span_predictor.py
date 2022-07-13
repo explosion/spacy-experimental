@@ -5,7 +5,7 @@ from spacy import util
 from spacy.training import Example
 from spacy.lang.en import English
 from spacy.tests.util import make_tempdir
-from spacy.ml.models.coref_util import (
+from spacy_experimental.coref.coref_util import (
     DEFAULT_CLUSTER_PREFIX,
     select_non_crossing_spans,
     get_sentence_ids,
