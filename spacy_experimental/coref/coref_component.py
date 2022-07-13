@@ -289,7 +289,7 @@ class CoreferenceResolver(TrainablePipe):
                 span = example.predicted.char_span(start_char, end_char)
                 if span is None:
                     # TODO log more details
-                    raise IndexError(Errors.E1044)
+                    raise IndexError("Misalignment in Coref. Head token has no match in training doc.")
                 cc.append((span.start, span.end))
             clusters.append(cc)
 
