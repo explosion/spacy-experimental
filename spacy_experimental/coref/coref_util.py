@@ -8,20 +8,6 @@ MentionClusters = List[List[Tuple[int, int]]]
 DEFAULT_CLUSTER_PREFIX = "coref_clusters"
 
 
-class GraphNode:
-    def __init__(self, node_id: int):
-        self.id = node_id
-        self.links: Set[GraphNode] = set()
-        self.visited = False
-
-    def link(self, another: "GraphNode"):
-        self.links.add(another)
-        another.links.add(self)
-
-    def __repr__(self) -> str:
-        return str(self.id)
-
-
 def get_sentence_ids(doc):
     out = []
     sent_id = -1
