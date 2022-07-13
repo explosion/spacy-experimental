@@ -61,7 +61,7 @@ def make_span_predictor_scorer():
 
 
 @Language.factory(
-    "span_predictor",
+    "experimental_span_predictor",
     assigns=["doc.spans"],
     requires=["doc.spans"],
     default_config={

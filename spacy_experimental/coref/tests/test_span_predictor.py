@@ -59,13 +59,13 @@ def snlp():
 
 @pytest.mark.skipif(not has_torch, reason="Torch not available")
 def test_add_pipe(nlp):
-    nlp.add_pipe("span_predictor")
-    assert nlp.pipe_names == ["span_predictor"]
+    nlp.add_pipe("experimental_span_predictor")
+    assert nlp.pipe_names == ["experimental_span_predictor"]
 
 
 @pytest.mark.skipif(not has_torch, reason="Torch not available")
 def test_not_initialized(nlp):
-    nlp.add_pipe("span_predictor")
+    nlp.add_pipe("experimental_span_predictor")
     text = "She gave me her pen."
     with pytest.raises(ValueError, match="E109"):
         nlp(text)
@@ -74,16 +74,16 @@ def test_not_initialized(nlp):
 @pytest.mark.skipif(not has_torch, reason="Torch not available")
 def test_span_predictor_serialization(nlp):
     # Test that the span predictor component can be serialized
-    nlp.add_pipe("span_predictor", last=True)
+    nlp.add_pipe("experimental_span_predictor", last=True)
     nlp.initialize()
-    assert nlp.pipe_names == ["span_predictor"]
+    assert nlp.pipe_names == ["experimental_span_predictor"]
     text = "She gave me her pen."
     doc = nlp(text)
 
     with make_tempdir() as tmp_dir:
         nlp.to_disk(tmp_dir)
         nlp2 = spacy.load(tmp_dir)
-        assert nlp2.pipe_names == ["span_predictor"]
+        assert nlp2.pipe_names == ["experimental_span_predictor"]
         doc2 = nlp2(text)
 
         assert get_clusters_from_doc(doc) == get_clusters_from_doc(doc2)
@@ -107,7 +107,7 @@ def test_overfitting_IO(nlp):
                 pred.spans[key] = [pred[span.start : span.end] for span in spans]
 
         train_examples.append(eg)
-    nlp.add_pipe("span_predictor")
+    nlp.add_pipe("experimental_span_predictor")
     optimizer = nlp.initialize()
     test_text = TRAIN_DATA[0][0]
     doc = nlp(test_text)
@@ -171,7 +171,7 @@ def test_tokenization_mismatch(nlp):
 
         train_examples.append(eg)
 
-    nlp.add_pipe("span_predictor")
+    nlp.add_pipe("experimental_span_predictor")
     optimizer = nlp.initialize()
     test_text = TRAIN_DATA[0][0]
     doc = nlp(test_text)
@@ -216,7 +216,7 @@ def test_whitespace_mismatch(nlp):
         eg.predicted = nlp.make_doc("  " + text)
         train_examples.append(eg)
 
-    nlp.add_pipe("span_predictor")
+    nlp.add_pipe("experimental_span_predictor")
     optimizer = nlp.initialize()
     test_text = TRAIN_DATA[0][0]
     doc = nlp(test_text)
