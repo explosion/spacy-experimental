@@ -6,7 +6,7 @@ from thinc.types import Floats2d, Ints1d
 from thinc.util import torch, xp2torch, torch2xp
 
 from spacy.tokens import Doc
-from .coref_util import get_sentence_ids
+from .coref_util import get_sentence_ids, MentionClusters
 
 
 def build_span_predictor(
