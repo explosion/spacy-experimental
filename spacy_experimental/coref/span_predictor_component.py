@@ -7,16 +7,16 @@ from thinc.api import set_dropout_rate, to_categorical
 from itertools import islice
 import srsly
 
-from .trainable_pipe import TrainablePipe
-from ..language import Language
-from ..training import Example, validate_examples, validate_get_examples
-from ..errors import Errors
-from ..scorer import Scorer, doc2clusters
-from ..tokens import Doc
-from ..vocab import Vocab
-from ..util import registry, from_bytes, from_disk
+from spacy.pipeline.trainable_pipe import TrainablePipe
+from spacy.language import Language
+from spacy.training import Example, validate_examples, validate_get_examples
+from spacy.errors import Errors
+from spacy.scorer import Scorer, doc2clusters
+from spacy.tokens import Doc
+from spacy.vocab import Vocab
+from spacy.util import registry, from_bytes, from_disk
 
-from ..ml.models.coref_util import (
+from .coref_util import (
     MentionClusters,
     DEFAULT_CLUSTER_PREFIX,
 )

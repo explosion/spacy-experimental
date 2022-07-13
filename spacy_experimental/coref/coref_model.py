@@ -5,8 +5,8 @@ from thinc.api import PyTorchWrapper, ArgsKwargs
 from thinc.types import Floats2d, Ints2d
 from thinc.util import torch, xp2torch, torch2xp
 
-from ...tokens import Doc
-from ...util import registry
+from spacy.tokens import Doc
+from spacy.util import registry
 
 
 EPSILON = 1e-7

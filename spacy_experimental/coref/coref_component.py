@@ -8,15 +8,16 @@ from itertools import islice
 from statistics import mean
 import srsly
 
-from .trainable_pipe import TrainablePipe
-from ..language import Language
-from ..training import Example, validate_examples, validate_get_examples
-from ..errors import Errors
-from ..tokens import Doc
-from ..vocab import Vocab
-from ..util import registry, from_disk, from_bytes
+from spacy.pipeline.trainable_pipe import TrainablePipe
+from spacy.language import Language
+from spacy.training import Example, validate_examples, validate_get_examples
+from spacy.errors import Errors
+from spacy.scorer import Scorer
+from spacy.tokens import Doc
+from spacy.vocab import Vocab
+from spacy.util import registry, from_disk, from_bytes
 
-from ..ml.models.coref_util import (
+from .coref_util import (
     create_gold_scores,
     MentionClusters,
     create_head_span_idxs,
@@ -25,7 +26,6 @@ from ..ml.models.coref_util import (
     DEFAULT_CLUSTER_PREFIX,
 )
 
-from ..scorer import Scorer
 
 
 default_config = """
