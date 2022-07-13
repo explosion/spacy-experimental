@@ -1,4 +1,5 @@
 from typing import Iterable, List, Tuple
+from statistics import mean
 
 from spacy.tokens import Doc
 from spacy.training import Example
