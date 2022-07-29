@@ -261,7 +261,7 @@ class CoreferenceResolver(TrainablePipe):
         their predicted scores.
 
         examples (Iterable[Examples]): The batch of examples.
-        scores: Scores representing the model's predictions.
+        score_matrix: Scores representing the model's predictions.
         RETURNS (Tuple[float, float]): The loss and the gradient.
 
         DOCS: https://spacy.io/api/coref#get_loss
@@ -269,9 +269,11 @@ class CoreferenceResolver(TrainablePipe):
         ops = self.model.ops
         xp = ops.xp
 
-        # TODO if there is more than one example, give an error
-        # (or actually rework this to take multiple things)
-        example = list(examples)[0]
+        examples = list(examples)
+        if len(examples) > 1:
+            # TODO handle more than one document
+            raise ValueError("Got more than one example, but only fake batching is supported.")
+        example = examples[0]
         cidx = mention_idx
 
         clusters_by_char = get_clusters_from_doc(example.reference)
