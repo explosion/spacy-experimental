@@ -261,7 +261,8 @@ class CoreferenceResolver(TrainablePipe):
         their predicted scores.
 
         examples (Iterable[Examples]): The batch of examples.
-        score_matrix: Scores representing the model's predictions.
+        score_matrix (Floats2d): Scores representing the model's predictions.
+        mention_idx (Ints2d): Mention indices.
         RETURNS (Tuple[float, float]): The loss and the gradient.
 
         DOCS: https://spacy.io/api/coref#get_loss
