@@ -11,12 +11,12 @@ from .coref_util import get_sentence_ids, MentionClusters
 
 def build_span_resolver(
     tok2vec: Model[List[Doc], List[Floats2d]],
-    hidden_size: int = 1024,
-    distance_embedding_size: int = 64,
-    conv_channels: int = 4,
-    window_size: int = 1,
-    max_distance: int = 128,
-    prefix: str = "coref_head_clusters",
+    hidden_size: int,
+    distance_embedding_size: int,
+    conv_channels: int,
+    window_size: int,
+    max_distance: int,
+    prefix: str,
 ) -> Model[List[Doc], List[MentionClusters]]:
 
     nI = None

@@ -13,13 +13,13 @@ EPSILON = 1e-7
 
 def build_coref_model(
     tok2vec: Model[List[Doc], List[Floats2d]],
-    distance_embedding_size: int = 20,
-    hidden_size: int = 1024,
-    depth: int = 1,
-    dropout: float = 0.3,
+    distance_embedding_size: int,
+    hidden_size: int,
+    depth: int,
+    dropout: float,
     # pairs to keep per mention after rough scoring
-    antecedent_limit: int = 50,
-    antecedent_batch_size: int = 512,
+    antecedent_limit: int,
+    antecedent_batch_size: int,
     nI=None,
 ) -> Model[List[Doc], Tuple[Floats2d, Ints2d]]:
 
