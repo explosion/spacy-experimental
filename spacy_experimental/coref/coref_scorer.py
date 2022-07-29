@@ -4,6 +4,7 @@ from statistics import mean
 from spacy.tokens import Doc
 from spacy.training import Example
 
+
 def score_coref_clusters(examples: Iterable[Example], **cfg):
     """Score a batch of examples using LEA.
 
@@ -30,9 +31,9 @@ def score_coref_clusters(examples: Iterable[Example], **cfg):
     }
     return score
 
+
 def score_span_predictions(examples: Iterable[Example], **cfg):
-    """Evaluate reconstruction of the correct spans from gold heads.
-    """
+    """Evaluate reconstruction of the correct spans from gold heads."""
     scores = []
     output_prefix = cfg["output_prefix"]
     for eg in examples:
@@ -43,7 +44,7 @@ def score_span_predictions(examples: Iterable[Example], **cfg):
         ref = eg.reference
         pred = eg.predicted
         for key, gold_sg in ref.spans.items():
-            #TODO it might be better to do something like pred.spans.get(key, [])
+            # TODO it might be better to do something like pred.spans.get(key, [])
             if len(gold_sg) == 0:
                 # if there are no spans there's nothing to predict
                 continue
@@ -74,6 +75,7 @@ def score_span_predictions(examples: Iterable[Example], **cfg):
         final = mean(scores)
 
     return {out_key: final}
+
 
 # The following implementations of get_cluster_info(), get_markable_assignments,
 # and ClusterEvaluator are adapted from coval, which is distributed under the

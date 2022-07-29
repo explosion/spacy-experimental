@@ -284,7 +284,9 @@ class SpanResolver(TrainablePipe):
                         span = eg.predicted.char_span(sch, ech)
                         # TODO add to errors.py
                         if span is None:
-                            warnings.warn("Could not align gold span in span resolver, skipping")
+                            warnings.warn(
+                                "Could not align gold span in span resolver, skipping"
+                            )
                             continue
                         starts.append(span.start)
                         ends.append(span.end)
@@ -294,7 +296,6 @@ class SpanResolver(TrainablePipe):
             ends = self.model.ops.xp.asarray(ends)
             start_scores = span_scores[:, :, 0][keeps]
             end_scores = span_scores[:, :, 1][keeps]
-
 
             n_classes = start_scores.shape[1]
             start_probs = ops.softmax(start_scores, axis=1)

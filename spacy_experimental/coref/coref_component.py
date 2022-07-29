@@ -16,17 +16,11 @@ from spacy.tokens import Doc
 from spacy.vocab import Vocab
 from spacy.util import from_disk, from_bytes
 
-from .coref_util import (
-    create_gold_scores,
-    MentionClusters,
-    create_head_span_idxs,
-    get_clusters_from_doc,
-    get_predicted_clusters,
-    DEFAULT_CLUSTER_PREFIX,
-)
+from .coref_util import create_gold_scores, MentionClusters, create_head_span_idxs
+from .coref_util import get_clusters_from_doc, get_predicted_clusters
+from .coref_util import DEFAULT_CLUSTER_PREFIX
 
 from .coref_scorer import score_coref_clusters
-
 
 
 default_config = """
@@ -118,7 +112,7 @@ class CoreferenceResolver(TrainablePipe):
             are stored in.
         span_cluster_prefix (str): Prefix for the key in doc.spans to store the
             coref clusters in.
-        scorer (Optional[Callable]): The scoring method. Defaults to 
+        scorer (Optional[Callable]): The scoring method. Defaults to
             Scorer.score_coref_clusters.
 
         DOCS: https://spacy.io/api/coref#init
@@ -289,7 +283,9 @@ class CoreferenceResolver(TrainablePipe):
                 span = example.predicted.char_span(start_char, end_char)
                 if span is None:
                     # TODO log more details
-                    raise IndexError("Misalignment in Coref. Head token has no match in training doc.")
+                    raise IndexError(
+                        "Misalignment in Coref. Head token has no match in training doc."
+                    )
                 cc.append((span.start, span.end))
             clusters.append(cc)
 
