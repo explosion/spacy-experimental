@@ -9,6 +9,7 @@ from thinc.types import ArgsKwargs, Floats2d, Floats3d, Floats4d, Ints1d
 
 # Ensure that the spacy-experimental package can register entry points without
 # Torch installed.
+PyTorchPairwiseBilinearModel: Optional[type]
 try:
     from .pytorch_pairwise_bilinear import (
         PairwiseBilinearModel as PyTorchPairwiseBilinearModel,
@@ -50,7 +51,7 @@ def build_pairwise_bilinear(
         },
     )
 
-    model = chain(
+    model: Model[Tuple[List[Doc], Ints1d], Floats2d] = chain(
         cast(
             Model[Tuple[List[Doc], Ints1d], Tuple[Floats2d, Ints1d]],
             with_getitem(
@@ -65,6 +66,11 @@ def build_pairwise_bilinear(
 
 
 def pairwise_bilinear_init(model: Model, X=None, Y=None):
+    if PyTorchPairwiseBilinearModel is None:
+        raise ImportError(
+            "PairwiseBiLinear layer requires PyTorch: pip install thinc[torch]"
+        )
+
     if model.layers:
         return
 
