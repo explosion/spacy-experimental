@@ -201,9 +201,6 @@ class ArcPredicter(TrainablePipe):
                 # we can evaluate UAS.
                 doc.c[token.i].dep = self.vocab.strings['dep']
 
-            # FIXME: we should enable this, but clears sentence boundaries
-            # set_children_from_heads(doc.c, 0, doc.length)
-
     def update(
         self,
         examples: Iterable[Example],
@@ -338,6 +335,7 @@ def split_recursive(scores, ops, max_length, lengths):
         # recursion, so we can't just use argmax.
 
         # Get best two scores unsorted.
+        # FIXME: maybe just exclude the last score is clear.
         best_indices = ops.xp.argpartition(scores, -2)[-2:]
 
         # Sort best two scores.

@@ -108,6 +108,7 @@ def convert_inputs(
 
     X, L = X_lenghts
 
+    # FIXME: Does with_padded work now?
     Xt = xp2torch(pad(unflatten(X, L)), requires_grad=is_train)
     Lt = xp2torch(L)
 
