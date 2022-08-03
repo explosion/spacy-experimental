@@ -8,7 +8,7 @@ from itertools import islice
 from statistics import mean
 import srsly
 
-from spacy.pipeline.trainable_pipe import TrainablePipe
+from spacy.pipeline import TrainablePipe
 from spacy.language import Language
 from spacy.training import Example, validate_examples, validate_get_examples
 from spacy.errors import Errors
@@ -39,8 +39,8 @@ antecedent_batch_size = 512
 [model.tok2vec.embed]
 @architectures = "spacy.MultiHashEmbed.v1"
 width = 64
-rows = [2000, 2000, 1000, 1000, 1000, 1000]
-attrs = ["ORTH", "LOWER", "PREFIX", "SUFFIX", "SHAPE", "ID"]
+attrs = ["NORM", "LOWER", "PREFIX", "SUFFIX", "SHAPE"]
+rows = [5000, 2500, 1000, 2500, 2500]
 include_static_vectors = false
 
 [model.tok2vec.encode]
