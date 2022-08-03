@@ -1,4 +1,5 @@
 from typing import Iterable, Tuple, Optional, Dict, Callable, Any, List
+from functools import partial
 import warnings
 
 from thinc.types import Floats2d, Floats3d, Ints2d
@@ -58,7 +59,7 @@ def coref_scorer(examples: Iterable[Example], **kwargs) -> Dict[str, Any]:
 
 
 def make_coref_scorer(span_cluster_prefix: str = DEFAULT_CLUSTER_PREFIX):
-    return coref_scorer
+    return partial(coref_scorer, span_cluster_prefix=span_cluster_prefix)
 
 
 @Language.factory(

@@ -1,4 +1,5 @@
 from typing import Iterable, Tuple, Optional, Dict, Callable, Any, List
+from functools import partial
 import warnings
 
 from thinc.types import Floats2d, Floats3d, Ints2d
@@ -55,7 +56,7 @@ def span_resolver_scorer(examples: Iterable[Example], **kwargs) -> Dict[str, Any
 
 
 def make_span_resolver_scorer(output_prefix: str = DEFAULT_CLUSTER_PREFIX):
-    return span_resolver_scorer
+    return partial(span_resolver_scorer, output_prefix=output_prefix)
 
 
 @Language.factory(
