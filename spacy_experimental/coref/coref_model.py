@@ -80,11 +80,11 @@ def coref_forward(model: Model, X, is_train: bool):
     return model.layers[0](X, is_train)
 
 
-def convert_coref_clusterer_inputs(model: Model, X: List[Floats2d], is_train: bool):
+def convert_coref_clusterer_inputs(model: Model, X_: List[Floats2d], is_train: bool):
     # The input here is List[Floats2d], one for each doc
     # just use the first
     # TODO real batching
-    X = X[0]
+    X = X_[0]
     word_features = xp2torch(X, requires_grad=is_train)
 
     def backprop(args: ArgsKwargs) -> List[Floats2d]:

@@ -21,7 +21,7 @@ def score_coref_clusters(
     https://api.semanticscholar.org/CorpusID:17606580
     """
 
-    span_cluster_prefix = cfg["span_cluster_prefix"]
+    span_cluster_prefix = kwargs["span_cluster_prefix"]
 
     evaluator = ClusterEvaluator(lea)
 
@@ -47,7 +47,7 @@ def score_span_predictions(
 ):
     """Evaluate reconstruction of the correct spans from gold heads."""
     scores = []
-    output_prefix = cfg["output_prefix"]
+    output_prefix = kwargs["output_prefix"]
     for eg in examples:
         starts = []
         ends = []

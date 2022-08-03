@@ -78,7 +78,7 @@ def make_coref_scorer(span_cluster_prefix: str = DEFAULT_CLUSTER_PREFIX):
 def make_coref(
     nlp: Language,
     name: str,
-    model,
+    model: Model[List[Doc], Floats2d],
     scorer: Optional[Callable],
     span_cluster_prefix: str,
 ) -> "CoreferenceResolver":
