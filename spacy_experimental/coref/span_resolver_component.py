@@ -7,7 +7,7 @@ from thinc.api import set_dropout_rate, to_categorical
 from itertools import islice
 import srsly
 
-from spacy.pipeline.trainable_pipe import TrainablePipe
+from spacy.pipeline import TrainablePipe
 from spacy.language import Language
 from spacy.training import Example, validate_examples, validate_get_examples
 from spacy.errors import Errors
