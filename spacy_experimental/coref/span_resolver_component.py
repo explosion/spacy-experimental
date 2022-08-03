@@ -107,8 +107,8 @@ class SpanResolver(TrainablePipe):
         model: Model,
         name: str = "span_resolver",
         *,
-        input_prefix: str = "coref_head_clusters",
-        output_prefix: str = "coref_clusters",
+        input_prefix: str = DEFAULT_CLUSTER_HEAD_PREFIX,
+        output_prefix: str = DEFAULT_CLUSTER_PREFIX,
         scorer: Optional[Callable] = span_resolver_scorer,
     ) -> None:
         self.vocab = vocab
