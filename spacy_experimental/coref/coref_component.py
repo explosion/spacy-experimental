@@ -180,9 +180,9 @@ class CoreferenceResolver(TrainablePipe):
                 key = self.span_cluster_prefix + "_" + str(ii)
                 if key in doc.spans:
                     raise ValueError(
-                        "Found coref clusters incompatible with the "
-                        "documents provided to the 'coref' component. "
-                        "This is likely a bug in spaCy."
+                        """Existing spans found, not overwriting. If you run
+                        more than one instance of coref you should use different
+                        target span prefixes."""
                     )
 
                 doc.spans[key] = []
