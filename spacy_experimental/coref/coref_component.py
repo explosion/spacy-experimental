@@ -154,7 +154,7 @@ class CoreferenceResolver(TrainablePipe):
 
         return out
 
-    def set_annotations(self, docs: Iterable[Doc], clusters_by_doc) -> None:
+    def set_annotations(self, docs: Iterable[Doc], clusters_by_doc: List[MentionClusters]) -> None:
         """Modify a batch of Doc objects, using pre-computed scores.
 
         docs (Iterable[Doc]): The documents to modify.

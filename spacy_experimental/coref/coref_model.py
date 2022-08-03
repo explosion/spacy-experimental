@@ -118,8 +118,8 @@ class CorefClusterer(torch.nn.Module):
     Combines all coref modules together to find coreferent token pairs.
     Submodules (in the order of their usage in the pipeline):
         - rough_scorer (RoughScorer) that prunes candidate pairs
-        - pw (DistancePairwiseEncoder) that computes pairwise features
-        - a_scorer (AnaphoricityScorer) produces the final scores
+        - pairwise (DistancePairwiseEncoder) that computes pairwise features
+        - ana_scorer (AnaphoricityScorer) produces the final scores
     """
 
     def __init__(
@@ -129,7 +129,7 @@ class CorefClusterer(torch.nn.Module):
         hidden_size: int,
         n_layers: int,
         dropout: float,
-        roughk: int,
+        rough_k: int,
         batch_size: int,
     ):
         super().__init__()
@@ -139,22 +139,22 @@ class CorefClusterer(torch.nn.Module):
         hidden_size: Size of the coreference candidate embeddings.
         n_layers: Numbers of layers in the AnaphoricityScorer.
         dropout: Dropout probability to apply across all modules.
-        roughk: Number of candidates the RoughScorer returns.
+        rough_k: Number of candidates the RoughScorer returns.
         batch_size: Internal batch-size for the more expensive scorer.
         """
         self.dropout = torch.nn.Dropout(dropout)
         self.batch_size = batch_size
-        self.pw = DistancePairwiseEncoder(dist_emb_size, dropout)
+        self.pairwise = DistancePairwiseEncoder(dist_emb_size, dropout)
 
-        pair_emb = dim * 3 + self.pw.shape
-        self.a_scorer = AnaphoricityScorer(pair_emb, hidden_size, n_layers, dropout)
+        pair_emb = dim * 3 + self.pairwise.shape
+        self.ana_scorer = AnaphoricityScorer(pair_emb, hidden_size, n_layers, dropout)
         self.lstm = torch.nn.LSTM(
             input_size=dim,
             hidden_size=dim,
             batch_first=True,
         )
 
-        self.rough_scorer = RoughScorer(dim, dropout, roughk)
+        self.rough_scorer = RoughScorer(dim, dropout, rough_k)
 
     def forward(self, word_features: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
@@ -166,8 +166,8 @@ class CorefClusterer(torch.nn.Module):
         word_features: torch.Tensor containing word encodings
 
         returns:
-            coref_scores: n_words x roughk floats.
-            top_indices: n_words x roughk integers.
+            coref_scores: n_words x rough_k floats.
+            top_indices: n_words x rough_k integers.
         """
         self.lstm.flatten_parameters()  # XXX without this there's a warning
         word_features = torch.unsqueeze(word_features, dim=0)
@@ -176,26 +176,26 @@ class CorefClusterer(torch.nn.Module):
         # words: n_words x dim
         words = self.dropout(words)
         # Obtain bilinear scores and leave only top-k antecedents for each word
-        # top_rough_scores: (n_words x roughk)
-        # top_indices: (n_words x roughk)
+        # top_rough_scores: (n_words x rough_k)
+        # top_indices: (n_words x rough_k)
         top_rough_scores, top_indices = self.rough_scorer(words)
         # Get pairwise features
-        # (n_words x roughk x n_pw_features)
-        pw = self.pw(top_indices)
+        # (n_words x rough_k x n_pairwise_features)
+        pairwise = self.pairwise(top_indices)
         batch_size = self.batch_size
         a_scores_lst: List[torch.Tensor] = []
 
         for i in range(0, len(words), batch_size):
-            pw_batch = pw[i : i + batch_size]
+            pairwise_batch = pairwise[i : i + batch_size]
             words_batch = words[i : i + batch_size]
             top_indices_batch = top_indices[i : i + batch_size]
             top_rough_scores_batch = top_rough_scores[i : i + batch_size]
 
             # a_scores_batch    [batch_size, n_ants]
-            a_scores_batch = self.a_scorer(
+            a_scores_batch = self.ana_scorer(
                 all_mentions=words,
                 mentions_batch=words_batch,
-                pw_batch=pw_batch,
+                pairwise_batch=pairwise_batch,
                 top_indices_batch=top_indices_batch,
                 top_rough_scores_batch=top_rough_scores_batch,
             )
@@ -246,7 +246,7 @@ class AnaphoricityScorer(torch.nn.Module):
         *,  # type: ignore  # pylint: disable=arguments-differ  #35566 in pytorch
         all_mentions: torch.Tensor,
         mentions_batch: torch.Tensor,
-        pw_batch: torch.Tensor,
+        pairwise_batch: torch.Tensor,
         top_indices_batch: torch.Tensor,
         top_rough_scores_batch: torch.Tensor,
     ) -> torch.Tensor:
@@ -255,7 +255,7 @@ class AnaphoricityScorer(torch.nn.Module):
         Args:
             all_mentions (torch.Tensor): [n_mentions, mention_emb]
             mentions_batch (torch.Tensor): [batch_size, mention_emb]
-            pw_batch (torch.Tensor): [batch_size, n_ants, pw_emb]
+            pairwise_batch (torch.Tensor): [batch_size, n_ants, pairwise_emb]
             top_indices_batch (torch.Tensor): [batch_size, n_ants]
             top_rough_scores_batch (torch.Tensor): [batch_size, n_ants]
 
@@ -265,7 +265,7 @@ class AnaphoricityScorer(torch.nn.Module):
         """
         # [batch_size, n_ants, pair_emb]
         pair_matrix = self._get_pair_matrix(
-            all_mentions, mentions_batch, pw_batch, top_indices_batch
+            all_mentions, mentions_batch, pairwise_batch, top_indices_batch
         )
 
         # [batch_size, n_ants]
@@ -276,7 +276,7 @@ class AnaphoricityScorer(torch.nn.Module):
 
     def _ffnn(self, x: torch.Tensor) -> torch.Tensor:
         """
-        x: tensor of shape (batch_size x roughk x n_features
+        x: tensor of shape (batch_size x rough_k x n_features
         returns: tensor of shape (batch_size x antecedent_limit)
         """
         x = self.out(self.hidden(x))
@@ -286,7 +286,7 @@ class AnaphoricityScorer(torch.nn.Module):
     def _get_pair_matrix(
         all_mentions: torch.Tensor,
         mentions_batch: torch.Tensor,
-        pw_batch: torch.Tensor,
+        pairwise_batch: torch.Tensor,
         top_indices_batch: torch.Tensor,
     ) -> torch.Tensor:
         """
@@ -297,7 +297,7 @@ class AnaphoricityScorer(torch.nn.Module):
             can be on a different device
         mentions_batch: (batch_size x mention_emb),
             the mentions of the current batch.
-        pw_batch: (batch_size x roughk x pw_emb),
+        pairwise_batch: (batch_size x rough_k x pairwise_emb),
             pairwise distance features of the current batch.
         top_indices_batch: (batch_size x n_ants),
             indices of antecedents of each mention
@@ -306,13 +306,13 @@ class AnaphoricityScorer(torch.nn.Module):
             out: pairwise features (batch_size x n_ants x pair_emb)
         """
         emb_size = mentions_batch.shape[1]
-        n_ants = pw_batch.shape[1]
+        n_ants = pairwise_batch.shape[1]
 
         a_mentions = mentions_batch.unsqueeze(1).expand(-1, n_ants, emb_size)
         b_mentions = all_mentions[top_indices_batch]
         similarity = a_mentions * b_mentions
 
-        out = torch.cat((a_mentions, b_mentions, similarity, pw_batch), dim=2)
+        out = torch.cat((a_mentions, b_mentions, similarity, pairwise_batch), dim=2)
         return out
 
 
