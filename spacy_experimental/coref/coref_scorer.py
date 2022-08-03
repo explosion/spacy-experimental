@@ -4,8 +4,15 @@ from statistics import mean
 from spacy.tokens import Doc
 from spacy.training import Example
 
+from .coref_util import DEFAULT_CLUSTER_PREFIX, DEFAULT_CLUSTER_HEAD_PREFIX
 
-def score_coref_clusters(examples: Iterable[Example], **cfg):
+
+def score_coref_clusters(
+    examples: Iterable[Example],
+    *,
+    span_cluster_prefix: str = DEFAULT_CLUSTER_PREFIX,
+    **kwargs,
+):
     """Score a batch of examples using LEA.
 
     For details on how LEA works and why to use it see the paper:
@@ -32,7 +39,12 @@ def score_coref_clusters(examples: Iterable[Example], **cfg):
     return score
 
 
-def score_span_predictions(examples: Iterable[Example], **cfg):
+def score_span_predictions(
+    examples: Iterable[Example],
+    *,
+    output_prefix: str = DEFAULT_CLUSTER_PREFIX,
+    **kwargs,
+):
     """Evaluate reconstruction of the correct spans from gold heads."""
     scores = []
     output_prefix = cfg["output_prefix"]

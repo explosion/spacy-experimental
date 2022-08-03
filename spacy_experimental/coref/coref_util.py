@@ -6,6 +6,7 @@ from spacy.tokens import Doc
 MentionClusters = List[List[Tuple[int, int]]]
 
 DEFAULT_CLUSTER_PREFIX = "coref_clusters"
+DEFAULT_CLUSTER_HEAD_PREFIX = "coref_head_clusters"
 
 
 def get_sentence_ids(doc):

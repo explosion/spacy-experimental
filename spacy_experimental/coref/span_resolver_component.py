@@ -15,10 +15,8 @@ from spacy.tokens import Doc
 from spacy.vocab import Vocab
 from spacy.util import from_bytes, from_disk
 
-from .coref_util import (
-    MentionClusters,
-    DEFAULT_CLUSTER_PREFIX,
-)
+from .coref_util import MentionClusters
+from .coref_util import DEFAULT_CLUSTER_PREFIX, DEFAULT_CLUSTER_HEAD_PREFIX
 
 from .coref_scorer import doc2clusters, score_span_predictions
 
@@ -66,8 +64,8 @@ def make_span_resolver_scorer():
     requires=["doc.spans"],
     default_config={
         "model": DEFAULT_SPAN_RESOLVER_MODEL,
-        "input_prefix": "coref_head_clusters",
-        "output_prefix": "coref_clusters",
+        "input_prefix": DEFAULT_CLUSTER_HEAD_PREFIX,
+        "output_prefix": DEFAULT_CLUSTER_PREFIX,
         "scorer": {"@scorers": "spacy-experimental.span_resolver_scorer.v1"},
     },
     default_score_weights={"span_accuracy": 1.0},
@@ -116,9 +114,7 @@ class SpanResolver(TrainablePipe):
         self.output_prefix = output_prefix
 
         self.scorer = scorer
-        self.cfg: Dict[str, Any] = {
-            "output_prefix": output_prefix,
-        }
+        self.cfg: Dict[str, Any] = {}
 
     def predict(self, docs: Iterable[Doc]) -> List[MentionClusters]:
         """Apply the pipeline's model to a batch of docs, without modifying them.

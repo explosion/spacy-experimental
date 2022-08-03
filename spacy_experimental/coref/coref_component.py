@@ -124,7 +124,7 @@ class CoreferenceResolver(TrainablePipe):
         self.span_cluster_prefix = span_cluster_prefix
         self._rehearsal_model = None
 
-        self.cfg: Dict[str, Any] = {"span_cluster_prefix": span_cluster_prefix}
+        self.cfg: Dict[str, Any] = {}
         self.scorer = scorer
 
     def predict(self, docs: Iterable[Doc]) -> List[MentionClusters]:
@@ -154,7 +154,9 @@ class CoreferenceResolver(TrainablePipe):
 
         return out
 
-    def set_annotations(self, docs: Iterable[Doc], clusters_by_doc: List[MentionClusters]) -> None:
+    def set_annotations(
+        self, docs: Iterable[Doc], clusters_by_doc: List[MentionClusters]
+    ) -> None:
         """Modify a batch of Doc objects, using pre-computed scores.
 
         docs (Iterable[Doc]): The documents to modify.
@@ -273,7 +275,9 @@ class CoreferenceResolver(TrainablePipe):
         examples = list(examples)
         if len(examples) > 1:
             # TODO handle more than one document
-            raise ValueError("Got more than one example, but only fake batching is supported.")
+            raise ValueError(
+                "Got more than one example, but only fake batching is supported."
+            )
         example = examples[0]
         cidx = mention_idx
 
