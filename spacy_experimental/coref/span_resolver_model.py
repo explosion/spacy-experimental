@@ -57,7 +57,7 @@ def span_resolver_init(model: Model, X=None, Y=None):
 
     model._layers = [
         PyTorchWrapper(
-            SpanResolver(
+            SpanResolverModel(
                 model.get_dim("nI"),
                 hidden_size,
                 distance_embedding_size,
@@ -130,8 +130,7 @@ def head_data_forward(model, docs, is_train):
     return (sent_ids, head_ids), lambda x: []
 
 
-# TODO this should maybe have a different name from the component
-class SpanResolver(torch.nn.Module):
+class SpanResolverModel(torch.nn.Module):
     def __init__(
         self,
         input_size: int,
