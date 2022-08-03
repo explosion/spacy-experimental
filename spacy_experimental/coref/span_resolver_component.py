@@ -362,7 +362,7 @@ class SpanResolver(TrainablePipe):
         }
         from_bytes(bytes_data, deserializers, exclude)
 
-        self._initialize_from_disk()
+        self._initialize_before_deserializing()
 
         model_deserializers = {
             "model": lambda b: self.model.from_bytes(b),
@@ -385,7 +385,7 @@ class SpanResolver(TrainablePipe):
         }
         from_disk(path, deserializers, exclude)
 
-        self._initialize_from_disk()
+        self._initialize_before_deserializing()
 
         model_deserializers = {
             "model": load_model,
@@ -394,7 +394,7 @@ class SpanResolver(TrainablePipe):
 
         return self
 
-    def _initialize_from_disk(self):
+    def _initialize_before_deserializing(self):
         # The PyTorch model is constructed lazily, so we need to
         # explicitly initialize the model before deserialization.
         model = self.model.get_ref("span_resolver")
