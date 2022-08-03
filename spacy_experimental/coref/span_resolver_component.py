@@ -54,7 +54,7 @@ def span_resolver_scorer(examples: Iterable[Example], **kwargs) -> Dict[str, Any
     return score_span_predictions(examples, **kwargs)
 
 
-def make_span_resolver_scorer():
+def make_span_resolver_scorer(output_prefix: str = DEFAULT_CLUSTER_PREFIX):
     return span_resolver_scorer
 
 
@@ -66,17 +66,20 @@ def make_span_resolver_scorer():
         "model": DEFAULT_SPAN_RESOLVER_MODEL,
         "input_prefix": DEFAULT_CLUSTER_HEAD_PREFIX,
         "output_prefix": DEFAULT_CLUSTER_PREFIX,
-        "scorer": {"@scorers": "spacy-experimental.span_resolver_scorer.v1"},
+        "scorer": {
+            "@scorers": "spacy-experimental.span_resolver_scorer.v1",
+            "output_prefix": DEFAULT_CLUSTER_PREFIX,
+        },
     },
     default_score_weights={"span_accuracy": 1.0},
 )
 def make_span_resolver(
     nlp: Language,
     name: str,
-    model,
-    input_prefix: str = "coref_head_clusters",
-    output_prefix: str = "coref_clusters",
-    scorer: Optional[Callable] = span_resolver_scorer,
+    model: Model[List[Doc], Floats2d],
+    input_prefix: str,
+    output_prefix: str,
+    scorer: Optional[Callable],
 ) -> "SpanResolver":
     """Create a SpanResolver component."""
     return SpanResolver(

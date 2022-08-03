@@ -57,7 +57,7 @@ def coref_scorer(examples: Iterable[Example], **kwargs) -> Dict[str, Any]:
     return score_coref_clusters(examples, **kwargs)
 
 
-def make_coref_scorer():
+def make_coref_scorer(span_cluster_prefix: str = DEFAULT_CLUSTER_PREFIX):
     return coref_scorer
 
 
@@ -68,7 +68,10 @@ def make_coref_scorer():
     default_config={
         "model": DEFAULT_COREF_MODEL,
         "span_cluster_prefix": DEFAULT_CLUSTER_PREFIX,
-        "scorer": {"@scorers": "spacy-experimental.coref_scorer.v1"},
+        "scorer": {
+            "@scorers": "spacy-experimental.coref_scorer.v1",
+            "span_cluster_prefix": DEFAULT_CLUSTER_PREFIX,
+        },
     },
     default_score_weights={"coref_f": 1.0, "coref_p": None, "coref_r": None},
 )
