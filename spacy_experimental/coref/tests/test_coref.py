@@ -15,6 +15,8 @@ from spacy_experimental.coref.coref_util import (
 
 from thinc.util import has_torch
 
+pytestmark = pytest.mark.skipif(not has_torch, reason="Torch not available")
+
 # fmt: off
 TRAIN_DATA = [
     (
@@ -49,13 +51,11 @@ def snlp():
     return en
 
 
-@pytest.mark.skipif(not has_torch, reason="Torch not available")
 def test_add_pipe(nlp):
     nlp.add_pipe("experimental_coref")
     assert nlp.pipe_names == ["experimental_coref"]
 
 
-@pytest.mark.skipif(not has_torch, reason="Torch not available")
 def test_not_initialized(nlp):
     nlp.add_pipe("experimental_coref")
     text = "She gave me her pen."
@@ -63,7 +63,6 @@ def test_not_initialized(nlp):
         nlp(text)
 
 
-@pytest.mark.skipif(not has_torch, reason="Torch not available")
 def test_initialized(nlp):
     nlp.add_pipe("experimental_coref")
     nlp.initialize()
@@ -75,7 +74,6 @@ def test_initialized(nlp):
         assert len(v) <= 15
 
 
-@pytest.mark.skipif(not has_torch, reason="Torch not available")
 def test_initialized_short(nlp):
     nlp.add_pipe("experimental_coref")
     nlp.initialize()
@@ -84,7 +82,6 @@ def test_initialized_short(nlp):
     doc = nlp(text)
 
 
-@pytest.mark.skipif(not has_torch, reason="Torch not available")
 def test_coref_serialization(nlp):
     # Test that the coref component can be serialized
     nlp.add_pipe("experimental_coref", last=True)
@@ -102,7 +99,6 @@ def test_coref_serialization(nlp):
         assert get_clusters_from_doc(doc) == get_clusters_from_doc(doc2)
 
 
-@pytest.mark.skipif(not has_torch, reason="Torch not available")
 def test_overfitting_IO(nlp):
     # Simple test to try and quickly overfit - ensuring the ML models work correctly
     train_examples = []
@@ -142,7 +138,6 @@ def test_overfitting_IO(nlp):
     assert get_clusters_from_doc(docs1[0]) == get_clusters_from_doc(docs3[0])
 
 
-@pytest.mark.skipif(not has_torch, reason="Torch not available")
 def test_tokenization_mismatch(nlp):
     train_examples = []
     for text, annot in TRAIN_DATA:
@@ -198,7 +193,6 @@ def test_tokenization_mismatch(nlp):
     assert get_clusters_from_doc(docs1[0]) == get_clusters_from_doc(docs3[0])
 
 
-@pytest.mark.skipif(not has_torch, reason="Torch not available")
 def test_crossing_spans():
     starts = [6, 10, 0, 1, 0, 1, 0, 1, 2, 2, 2]
     ends = [12, 12, 2, 3, 3, 4, 4, 4, 3, 4, 5]
@@ -211,14 +205,12 @@ def test_crossing_spans():
     assert gold == guess
 
 
-@pytest.mark.skipif(not has_torch, reason="Torch not available")
 def test_sentence_map(snlp):
     doc = snlp("I like text. This is text.")
     sm = get_sentence_ids(doc)
     assert sm == [0, 0, 0, 0, 1, 1, 1, 1]
 
 
-@pytest.mark.skipif(not has_torch, reason="Torch not available")
 def test_whitespace_mismatch(nlp):
     train_examples = []
     for text, annot in TRAIN_DATA:

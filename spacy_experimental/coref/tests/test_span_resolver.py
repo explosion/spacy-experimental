@@ -14,6 +14,8 @@ from spacy_experimental.coref.coref_util import (
 
 from thinc.util import has_torch
 
+pytestmark = pytest.mark.skipif(not has_torch, reason="Torch not available")
+
 # fmt: off
 TRAIN_DATA = [
     (
@@ -57,13 +59,11 @@ def snlp():
     return en
 
 
-@pytest.mark.skipif(not has_torch, reason="Torch not available")
 def test_add_pipe(nlp):
     nlp.add_pipe("experimental_span_resolver")
     assert nlp.pipe_names == ["experimental_span_resolver"]
 
 
-@pytest.mark.skipif(not has_torch, reason="Torch not available")
 def test_not_initialized(nlp):
     nlp.add_pipe("experimental_span_resolver")
     text = "She gave me her pen."
@@ -71,7 +71,6 @@ def test_not_initialized(nlp):
         nlp(text)
 
 
-@pytest.mark.skipif(not has_torch, reason="Torch not available")
 def test_span_resolver_serialization(nlp):
     # Test that the span resolver component can be serialized
     nlp.add_pipe("experimental_span_resolver", last=True)
@@ -89,7 +88,6 @@ def test_span_resolver_serialization(nlp):
         assert get_clusters_from_doc(doc) == get_clusters_from_doc(doc2)
 
 
-@pytest.mark.skipif(not has_torch, reason="Torch not available")
 def test_overfitting_IO(nlp):
     # Simple test to try and quickly overfit - ensuring the ML models work correctly
     train_examples = []
@@ -142,7 +140,6 @@ def test_overfitting_IO(nlp):
     assert get_clusters_from_doc(docs1[0]) == get_clusters_from_doc(docs3[0])
 
 
-@pytest.mark.skipif(not has_torch, reason="Torch not available")
 def test_tokenization_mismatch(nlp):
     train_examples = []
     for text, annot in TRAIN_DATA:
@@ -208,7 +205,6 @@ def test_tokenization_mismatch(nlp):
     assert get_clusters_from_doc(docs1[0]) == get_clusters_from_doc(docs3[0])
 
 
-@pytest.mark.skipif(not has_torch, reason="Torch not available")
 def test_whitespace_mismatch(nlp):
     train_examples = []
     for text, annot in TRAIN_DATA:
