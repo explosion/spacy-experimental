@@ -63,6 +63,15 @@ commands:
   - name: "evaluate"
     help: "Evaluate the parser model on the test corpus."
     script:
-      - "python -m spacy evaluate training/${vars.treebank}/model-best corpus/${vars.treebank}/test.spacy"
+      - "python -m spacy evaluate --gpu-id ${vars.gpu} training/${vars.treebank}/model-best corpus/${vars.treebank}/test.spacy"
     deps:
       - "training/${vars.treebank}/model-best"
+      - "corpus/${vars.treebank}/test.spacy"
+
+  - name: "evaluate-dev"
+    help: "Evaluate the parser model on the test corpus."
+    script:
+      - "python -m spacy evaluate --gpu-id ${vars.gpu} training/${vars.treebank}/model-best corpus/${vars.treebank}/dev.spacy"
+    deps:
+      - "training/${vars.treebank}/model-best"
+      - "corpus/${vars.treebank}/dev.spacy"
