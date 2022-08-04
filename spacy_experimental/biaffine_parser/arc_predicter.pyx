@@ -330,20 +330,9 @@ def split_recursive(scores, ops, max_length, lengths):
     if len(scores) < max_length:
         lengths.append(len(scores))
     else:
-        # We want to back-off to the second-best score when the
-        # best score is the first token to avoid infinite
-        # recursion, so we can't just use argmax.
-
-        # Get best two scores unsorted.
-        # FIXME: maybe just exclude the last score is clear.
-        best_indices = ops.xp.argpartition(scores, -2)[-2:]
-
-        # Sort best two scores.
-        best_indices = best_indices[ops.xp.argsort(scores[best_indices])]
-
-        start = best_indices[1]
-        if start == 0:
-            start = best_indices[0]
+        # Find the best splitting point. Exclude the first token, because it
+        # wouldn't split the current partition (leading to infinite recursion).
+        start = ops.xp.argmax(scores[1:]) + 1
 
         split_recursive(scores[:start], ops, max_length, lengths)
         split_recursive(scores[start:], ops, max_length, lengths)
