@@ -108,12 +108,12 @@ def remap_forward(
 
 
 def MultiEmbed(
+    attrs: List[str],
     width: int,
     unk: int,
     *,
     tables: Optional[Dict[str, Dict[int, int]]] = None,
     include_static_vectors: Optional[bool] = False,
-    attrs: Optional[List[str]] = None,
     dropout: Optional[float] = 0,
 ) -> Model[List[Doc], Floats2d]:
     attrs = {
