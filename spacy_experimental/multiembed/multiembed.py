@@ -1,13 +1,8 @@
-import spacy
 import thinc
-import srsly
-from pathlib import Path
 
 from spacy.tokens import Doc
-from spacy.language import Language
-from spacy.pipeline import TrainablePipe
 from thinc.api import Model, chain, with_array
-from thinc.api import list2ragged, ragged2list, concatenate, noop
+from thinc.api import list2ragged, ragged2list, concatenate
 from thinc.types import Floats2d, DTypes, Ints2d, Array2d
 from typing import Optional, Callable, List, Dict, Any
 from typing import Union, Sequence, Tuple
@@ -21,45 +16,6 @@ Extract = thinc.registry.layers.get("spacy.FeatureExtractor.v1")
 
 InT = Union[Sequence[Any], Array2d]
 OutT = Ints2d
-
-
-@spacy.registry.callbacks("set_attr")
-def create_callback(
-    path: Path,
-    component: str,
-    attr: str,
-    layer: Optional[str],
-) -> Callable[[Language], Language]:
-    """
-    Should be set as a callback of [initialize.before_init].
-    You need to set the right ref in your model when you create it.
-    This is useful when you have some layer that requires a data
-    file from disk. The value will only be loaded during the '
-    initialize' step before training.
-    After training the attribute value will be serialized into the model,
-    and then during deserialization it's loaded
-    back in with the model data.
-    """
-    attr_value = srsly.read_msgpack(path)
-
-    def set_attr(nlp: Language) -> Language:
-        if not nlp.has_pipe(component):
-            raise ValueError(
-                "Trying to set attribute for non-existing component"
-            )
-        pipe: TrainablePipe = nlp.get_pipe(component)
-        model = None
-        for lay in list(pipe.model.walk()):
-            if lay.name == layer:
-                model = lay
-                break
-        if model is None:
-            raise ValueError(
-                f"Haven't found {layer} in component {component}."
-            )
-        model.attrs[attr] = attr_value
-        return nlp
-    return set_attr
 
 
 @thinc.registry.layers("remap_ids.v2")
@@ -127,7 +83,6 @@ def _make_embed(
     return embedder
 
 
-@spacy.registry.architectures("spacy.MultiEmbed.v1")
 def MultiEmbed(
     attrs: List[str],
     width: int,
@@ -136,6 +91,7 @@ def MultiEmbed(
     tables: Optional[Dict[str, Dict[int, int]]] = None,
     include_static_vectors: Optional[bool] = False,
     dropout: Optional[float] = 0,
+    maxout_pieces: Optional[int] = 3
 ) -> Model[List[Doc], Floats2d]:
     model_attrs = {
         "tables": tables,
@@ -167,7 +123,7 @@ def MultiEmbed(
     max_out = chain(
         with_array(
             Maxout(
-                width, full_width, nP=3, dropout=dropout, normalize=True
+                width, full_width, nP=maxout_pieces, dropout=dropout, normalize=True
             )
         ),
         ragged2list()
@@ -224,11 +180,10 @@ def init(
     attrs = model.attrs["attrs"]
     dummy_embedder_stack = model.get_ref("embedder-stack")
     output_layer = model.get_ref("output-layer")
-
-    if set(attrs).union(tables.keys()) != set(tables.keys()):
+    if not set(attrs).issubset(tables.keys()):
         extra = set(attrs) - set(tables.keys())
         raise ValueError(
-            f"Could not find provided attribute(s) {extra} "
+            f"Could not find provided attribute(s) {list(extra)} "
             f"in tables: {list(tables.keys())}"
         )
     dropout = model.attrs["dropout"]
