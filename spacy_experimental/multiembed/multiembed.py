@@ -23,6 +23,7 @@ InT = Union[Sequence[Any], Array2d]
 OutT = Ints2d
 
 
+@spacy.registry.callbacks("set_attr")
 def create_callback(
     path: Path,
     component: str,
@@ -107,6 +108,26 @@ def remap_forward(
     return output, backprop
 
 
+def _make_embed(
+    attr: str,
+    unk: int,
+    width: int,
+    column: int,
+    table: Dict[int, int],
+    dropout: float
+) -> Model[List[Doc], Floats2d]:
+    """
+    Helper function to create an embedding layer.
+    """
+    rows = len(table) + 1
+    embedder = chain(
+        remap_ids(table, default=unk, column=column),
+        Embed(nO=width, nV=rows, column=0, dropout=dropout)
+    )
+    return embedder
+
+
+@spacy.registry.architectures("spacy.MultiEmbed.v1")
 def MultiEmbed(
     attrs: List[str],
     width: int,
@@ -116,24 +137,53 @@ def MultiEmbed(
     include_static_vectors: Optional[bool] = False,
     dropout: Optional[float] = 0,
 ) -> Model[List[Doc], Floats2d]:
-    attrs = {
+    model_attrs = {
         "tables": tables,
         "unk": unk,
         "include_static_vectors": include_static_vectors,
         "attrs": attrs,
         "dropout": dropout
     }
-    # Two layers: embedding and output projection.
-    layers = [noop(), noop()]
+    layers = []
+    # Create dummy embedding layer to be materialized at init
+    embedders = [chain(remap_ids(), Embed(column=0)) for x in attrs]
+    embedder_stack = chain(
+        Extract(attrs),
+        list2ragged(),
+        with_array(concatenate(*embedders)),
+    )
+    if include_static_vectors:
+        embedding_layer = chain(
+            concatenate(
+                embedder_stack, Vectors(width)
+            ),
+            Dropout(rate=dropout)
+        )
+    else:
+        embedding_layer = embedder_stack
+    layers.append(embedding_layer)
+    # Build proper output layer
+    full_width = (len(attrs) + include_static_vectors) * width
+    max_out = chain(
+        with_array(
+            Maxout(
+                width, full_width, nP=3, dropout=dropout, normalize=True
+            )
+        ),
+        ragged2list()
+    )
+    layers.append(max_out)
     model: Model = Model(
         "multiembed",
         forward,
         init=init,
-        attrs=attrs,
+        attrs=model_attrs,
         dims={"width": width},
         layers=layers,
         params={},
     )
+    model.set_ref("embedder-stack", embedder_stack)
+    model.set_ref("output-layer", max_out)
     return model
 
 
@@ -155,25 +205,6 @@ def forward(
     return Y, backprop
 
 
-def _make_embed(
-    attr: str,
-    unk: int,
-    width: int,
-    column: int,
-    table: Dict[int, int],
-    dropout: float
-) -> Model[List[Doc], Floats2d]:
-    """
-    Helper function to create an embedding layer.
-    """
-    rows = len(table) + 1
-    embedder = chain(
-        remap_ids(table, default=unk, column=column),
-        Embed(nO=width, nV=rows, column=0, dropout=dropout)
-    )
-    return embedder
-
-
 def init(
     model: Model[List[Doc], Floats2d],
     X: Optional[List[Doc]] = None,
@@ -183,55 +214,38 @@ def init(
     Build and initialize the embedding and output
     all layers of MultiEmbed and initialize.
     """
+    width = model.get_dim("width")
     tables = model.attrs["tables"]
+    if tables is None:
+        raise ValueError(
+            "tables have to be set before initialization"
+        )
     unk = model.attrs["unk"]
     attrs = model.attrs["attrs"]
+    dummy_embedder_stack = model.get_ref("embedder-stack")
+    output_layer = model.get_ref("output-layer")
 
-    if attrs is not None:
-        if set(attrs).union(tables.keys()) != set(tables.keys()):
-            extra = set(attrs) - set(tables.keys())
-            raise ValueError(
-                f"Could not find provided attribute(s) {extra} "
-                f"in tables: {list(tables.keys())}"
-            )
-    else:
-        attrs = list(tables.keys())
-
-    width = model.get_dim("width")
-    include_static_vectors = model.attrs["include_static_vectors"]
+    if set(attrs).union(tables.keys()) != set(tables.keys()):
+        extra = set(attrs) - set(tables.keys())
+        raise ValueError(
+            f"Could not find provided attribute(s) {extra} "
+            f"in tables: {list(tables.keys())}"
+        )
     dropout = model.attrs["dropout"]
-    embeddings = []
-    old_embeddings = model.layers[0]
-    old_output = model.layers[1]
+    embedders = []
     for i, attr in enumerate(attrs):
         mapper = tables[attr]
         embedding = _make_embed(
             attr, unk, width, i, mapper, dropout
         )
-        embeddings.append(embedding)
-    full_width = (len(embeddings) + include_static_vectors) * width
-    max_out = chain(
-        with_array(
-            Maxout(
-                width, full_width, nP=3, dropout=dropout, normalize=True
-            )
-        ),
-        ragged2list()
-    )
-    embedding_layer = chain(
+        embedders.append(embedding)
+    embedder_stack = chain(
         Extract(attrs),
         list2ragged(),
-        with_array(concatenate(*embeddings)),
+        with_array(concatenate(*embedders)),
     )
-    if include_static_vectors:
-        embedding_layer = chain(
-            concatenate(
-                embedding_layer, Vectors(width)
-            ),
-            Dropout(rate=dropout)
-        )
+    model.replace_node(dummy_embedder_stack, embedder_stack)
+    embedding_layer = model.layers[0]
     embedding_layer.initialize(X)
     embedded, _ = embedding_layer(X, is_train=False)
-    max_out.initialize(embedded)
-    model.replace_node(old_embeddings, embedding_layer)
-    model.replace_node(old_output, max_out)
+    output_layer.initialize(embedded)
