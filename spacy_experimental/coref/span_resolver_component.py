@@ -169,7 +169,7 @@ class SpanResolver(TrainablePipe):
         DOCS: https://spacy.io/api/span_resolver#set_annotations
         """
         for doc, clusters in zip(docs, clusters_by_doc):
-            for ii, cluster in enumerate(clusters):
+            for ii, cluster in enumerate(clusters, 1):
                 spans = [doc[mm[0] : mm[1]] for mm in cluster]
                 doc.spans[f"{self.output_prefix}_{ii}"] = spans
 

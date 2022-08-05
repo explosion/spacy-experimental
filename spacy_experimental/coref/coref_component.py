@@ -176,7 +176,7 @@ class CoreferenceResolver(TrainablePipe):
                 "This is likely a bug in spaCy."
             )
         for doc, clusters in zip(docs, clusters_by_doc):
-            for ii, cluster in enumerate(clusters):
+            for ii, cluster in enumerate(clusters, 1):
                 key = self.span_cluster_prefix + "_" + str(ii)
                 if key in doc.spans:
                     raise ValueError(
