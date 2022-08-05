@@ -102,12 +102,12 @@ def create_tables(docs: List[Doc], unk: int):
 def test_init_and_serialize():
     nlp = spacy.blank("en")
     docs = list(nlp.pipe(TEST_TEXTS))
-    embedder = multiembed(["ORTH", "SHAPE"], width=10, unk=3)
+    embedder = multiembed(["ORTH", "SHAPE"], width=10, unk=0)
     tables = create_tables(docs, unk=3)
     embedder.attrs["tables"] = tables
     embedder.initialize(docs)
     embedder.to_disk("test")
-    embedder = multiembed(["ORTH", "SHAPE"], width=10, unk=3)
+    embedder = multiembed(["ORTH", "SHAPE"], width=10, unk=0)
     embedder.from_disk("test")
     os.remove("test")
 
