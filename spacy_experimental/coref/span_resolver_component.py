@@ -212,13 +212,13 @@ class SpanResolver(TrainablePipe):
                     """
                 )
             span_scores, backprop = self.model.begin_update([eg.predicted])
-            # FIXME, this only happens once in the first 1000 docs of OntoNotes
-            # and I'm not sure yet why.
-            if span_scores.size:
-                loss, d_scores = self.get_loss([eg], span_scores)
-                total_loss += loss
-                # TODO check shape here
-                backprop((d_scores))
+
+            if span_scores.size == 0:
+                # This can happen if there are no input clusters.
+                continue
+            loss, d_scores = self.get_loss([eg], span_scores)
+            total_loss += loss
+            backprop((d_scores))
 
         if sgd is not None:
             self.finish_update(sgd)
