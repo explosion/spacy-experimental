@@ -19,7 +19,7 @@ from spacy.util import from_bytes, from_disk
 from .coref_util import MentionClusters
 from .coref_util import DEFAULT_CLUSTER_PREFIX, DEFAULT_CLUSTER_HEAD_PREFIX
 
-from .coref_scorer import doc2clusters, score_span_predictions
+from .coref_scorer import doc2clusters, score_span_predictions, matches_coref_prefix
 
 default_span_resolver_config = """
 [model]
@@ -276,21 +276,22 @@ class SpanResolver(TrainablePipe):
             keeps = []
             sidx = 0
             for key, sg in eg.reference.spans.items():
-                if key.startswith(self.output_prefix):
-                    for ii, mention in enumerate(sg):
-                        sidx += 1
-                        # convert to span in pred
-                        sch, ech = (mention.start_char, mention.end_char)
-                        span = eg.predicted.char_span(sch, ech)
-                        # TODO add to errors.py
-                        if span is None:
-                            warnings.warn(
-                                "Could not align gold span in span resolver, skipping"
-                            )
-                            continue
-                        starts.append(span.start)
-                        ends.append(span.end)
-                        keeps.append(sidx - 1)
+                if not matches_coref_prefix(self.output_prefix, key):
+                    continue
+                for ii, mention in enumerate(sg):
+                    sidx += 1
+                    # convert to span in pred
+                    sch, ech = (mention.start_char, mention.end_char)
+                    span = eg.predicted.char_span(sch, ech)
+                    # TODO add to errors.py
+                    if span is None:
+                        warnings.warn(
+                            "Could not align gold span in span resolver, skipping"
+                        )
+                        continue
+                    starts.append(span.start)
+                    ends.append(span.end)
+                    keeps.append(sidx - 1)
 
             starts = self.model.ops.xp.asarray(starts)
             ends = self.model.ops.xp.asarray(ends)

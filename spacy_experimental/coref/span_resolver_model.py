@@ -6,7 +6,7 @@ from thinc.types import Floats2d, Ints1d
 from thinc.util import torch, xp2torch, torch2xp
 
 from spacy.tokens import Doc
-from .coref_util import get_sentence_ids, MentionClusters
+from .coref_util import get_sentence_ids, MentionClusters, matches_coref_prefix
 
 
 def build_span_resolver(
@@ -67,7 +67,6 @@ def span_resolver_init(model: Model, X=None, Y=None):
             ),
             convert_inputs=convert_span_resolver_inputs,
         )
-        # TODO maybe we need mixed precision and grad scaling?
     ]
 
 
@@ -117,15 +116,20 @@ def head_data_forward(model, docs, is_train):
         sent_ids.append(sids)
         heads = []
         for key, sg in doc.spans.items():
-            if not key.startswith(prefix):
+            if not matches_coref_prefix(prefix, key):
                 continue
+
             for span in sg:
-                # TODO warn if spans are more than one token
                 heads.append(span[0].i)
+                if len(span) > 1:
+                    # TODO assign number to warning
+                    warnings.warn(
+                        f"Input span has length {len(span)}, but should be 1."
+                    )
         heads = model.ops.asarray2i(heads)
         head_ids.append(heads)
-    # each of these is a list with one entry per doc
-    # backprop is just a placeholder
+    # Each of these is a list with one entry per doc.
+    # Backprop is just a placeholder, since the input is docs.
     # TODO it would probably be better to have a list of tuples than two lists of arrays
     return (sent_ids, head_ids), lambda x: []
 

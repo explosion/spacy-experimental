@@ -19,7 +19,7 @@ from spacy.util import from_disk, from_bytes
 
 from .coref_util import create_gold_scores, MentionClusters, create_head_span_idxs
 from .coref_util import get_clusters_from_doc, get_predicted_clusters
-from .coref_util import DEFAULT_CLUSTER_PREFIX
+from .coref_util import DEFAULT_CLUSTER_PREFIX, matches_coref_prefix
 
 from .coref_scorer import score_coref_clusters
 
@@ -163,20 +163,17 @@ class CoreferenceResolver(TrainablePipe):
         (or could be overwritten) by the current model. Warn if found.
         """
         for doc in docs:
-            prefix = self.span_cluster_prefix + "_"
             for key in doc.spans:
-                if not key.startswith(prefix):
+                if not matches_coref_prefix(self.span_cluster_prefix, key):
                     continue
-                suffix = key.split("_")[-1]
-                if suffix.isascii() and suffix.isdecimal():
-                    warnings.warn(
-                        'SpanGroup "{key}" looks like a coref cluster left '
-                        "by a previous component. If using multiple coref "
-                        "models, they should use different prefixes to avoid "
-                        "overwriting each other. "
-                        "Will not warn of further occurences in this batch."
-                    )
-                    return
+                warnings.warn(
+                    'SpanGroup "{key}" looks like coref cluster left '
+                    "by a previous component. If using multiple coref "
+                    "models, they should use different prefixes to avoid "
+                    "overwriting each other. "
+                    "Will not warn of further occurences in this batch."
+                )
+                return
 
     def set_annotations(
         self, docs: Iterable[Doc], clusters_by_doc: List[MentionClusters]

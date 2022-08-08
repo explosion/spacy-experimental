@@ -5,6 +5,7 @@ from spacy.tokens import Doc
 from spacy.training import Example
 
 from .coref_util import DEFAULT_CLUSTER_PREFIX, DEFAULT_CLUSTER_HEAD_PREFIX
+from .coref_util import matches_coref_prefix
 
 
 def score_coref_clusters(
@@ -53,17 +54,17 @@ def score_span_predictions(
         ref = eg.reference
         pred = eg.predicted
         for key, gold_sg in ref.spans.items():
-            # TODO it might be better to do something like pred.spans.get(key, [])
             if len(gold_sg) == 0:
                 # if there are no spans there's nothing to predict
                 continue
-            if key.startswith(output_prefix):
-                pred_sg = pred.spans[key]
-                for gold_mention, pred_mention in zip(gold_sg, pred_sg):
-                    starts.append(gold_mention.start)
-                    ends.append(gold_mention.end)
-                    pred_starts.append(pred_mention.start)
-                    pred_ends.append(pred_mention.end)
+            if not matches_coref_prefix(output_prefix, key):
+                continue
+            pred_sg = pred.spans[key]
+            for gold_mention, pred_mention in zip(gold_sg, pred_sg):
+                starts.append(gold_mention.start)
+                ends.append(gold_mention.end)
+                pred_starts.append(pred_mention.start)
+                pred_ends.append(pred_mention.end)
 
         # it's possible there are no heads to predict from, in which case, skip
         if len(starts) == 0:
@@ -234,7 +235,7 @@ def doc2clusters(doc: Doc, prefix: str) -> List[List[Tuple[int, int]]]:
     """
     out = []
     for name, val in doc.spans.items():
-        if not name.startswith(prefix):
+        if not matches_coref_prefix(prefix, name):
             continue
 
         cluster = []

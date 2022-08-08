@@ -9,7 +9,32 @@ DEFAULT_CLUSTER_PREFIX = "coref_clusters"
 DEFAULT_CLUSTER_HEAD_PREFIX = "coref_head_clusters"
 
 
-def get_sentence_ids(doc):
+def matches_coref_prefix(prefix: str, key: str) -> bool:
+    """Check if a span key matches a coref prefix.
+
+    Given prefix "xxx", "xxx_1" is a matching span, but "xxx_yyy" and
+    "xxx_yyy_1" are not matching spans. The prefix must only be followed by an
+    underscore and an integer.
+    """
+    if not key.startswith(prefix):
+        return False
+
+    # remove the "prefix_" bit
+    suffix = key[len(prefix) + 1 :]
+    try:
+        int(suffix)
+    except ValueError:
+        return False
+
+    return True
+
+
+def get_sentence_ids(doc: Doc) -> List[int]:
+    """Given a Doc, return a list of the sentence ID of each token,
+    where the sentence ID is the index of the sentence in the Doc.
+
+    Used in coref to make sure mentions don't cross sentence boundaries.
+    """
     out = []
     sent_id = -1
     for tok in doc:
