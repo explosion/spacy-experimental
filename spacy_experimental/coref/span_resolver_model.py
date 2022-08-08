@@ -153,7 +153,6 @@ class SpanResolverModel(torch.nn.Module):
             torch.nn.Linear(input_size * 2 + dist_emb_size, hidden_size),
             torch.nn.ReLU(),
             torch.nn.Dropout(0.3),
-            # TODO seems weird the 256 isn't a parameter???
             torch.nn.Linear(hidden_size, 256),
             torch.nn.ReLU(),
             torch.nn.Dropout(0.3),

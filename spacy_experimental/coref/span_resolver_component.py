@@ -133,7 +133,6 @@ class SpanResolver(TrainablePipe):
 
         out = []
         for doc in docs:
-            # TODO check shape here
             span_scores = self.model.predict([doc])
             if span_scores.size:
                 # the information about clustering has to come from the input docs
@@ -142,8 +141,6 @@ class SpanResolver(TrainablePipe):
                 end_scores = span_scores[:, :, 1]
                 starts = start_scores.argmax(axis=1)
                 ends = end_scores.argmax(axis=1)
-
-                # TODO check start < end
 
                 # get the old clusters (shape will be preserved)
                 clusters = doc2clusters(doc, self.input_prefix)
