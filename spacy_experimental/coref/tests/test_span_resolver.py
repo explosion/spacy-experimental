@@ -5,11 +5,8 @@ from spacy import util
 from spacy.training import Example
 from spacy.lang.en import English
 from spacy.tests.util import make_tempdir
-from spacy_experimental.coref.coref_util import (
-    DEFAULT_CLUSTER_HEAD_PREFIX,
-    DEFAULT_CLUSTER_PREFIX,
-    get_clusters_from_doc,
-)
+from ..coref_util import DEFAULT_CLUSTER_HEAD_PREFIX, DEFAULT_CLUSTER_PREFIX
+from ..coref_util import get_clusters_from_doc
 
 from thinc.util import has_torch
 
