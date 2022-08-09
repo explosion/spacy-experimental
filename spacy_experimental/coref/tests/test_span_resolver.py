@@ -15,35 +15,45 @@ from thinc.util import has_torch
 
 pytestmark = pytest.mark.skipif(not has_torch, reason="Torch not available")
 
-# fmt: off
-TRAIN_DATA = [
-    (
-        "John Smith picked up the red ball and he threw it away.",
-        {
-            "spans": {
-                f"{DEFAULT_CLUSTER_PREFIX}_1": [
-                    (0, 10, "MENTION"),      # John Smith
-                    (38, 40, "MENTION"),     # he
 
-                ],
-                f"{DEFAULT_CLUSTER_PREFIX}_2": [
-                    (25, 33, "MENTION"),     # red ball
-                    (47, 49, "MENTION"),     # it
-                ],
-                f"{DEFAULT_CLUSTER_HEAD_PREFIX}_1": [
-                    (5, 10, "MENTION"),      # Smith
-                    (38, 40, "MENTION"),     # he
+def generate_train_data(
+    input_prefix=DEFAULT_CLUSTER_HEAD_PREFIX, output_prefix=DEFAULT_CLUSTER_PREFIX
+):
+    # fmt: off
+    data = [
+        (
+            "John Smith picked up the red ball and he threw it away.",
+            {
+                "spans": {
+                    f"{output_prefix}_1": [
+                        (0, 10, "MENTION"),      # John Smith
+                        (38, 40, "MENTION"),     # he
 
-                ],
-                f"{DEFAULT_CLUSTER_HEAD_PREFIX}_2": [
-                    (29, 33, "MENTION"),     # red ball
-                    (47, 49, "MENTION"),     # it
-                ]
-            }
-        },
-    ),
-]
-# fmt: on
+                    ],
+                    f"{output_prefix}_2": [
+                        (25, 33, "MENTION"),     # red ball
+                        (47, 49, "MENTION"),     # it
+                    ],
+                    f"{input_prefix}_1": [
+                        (5, 10, "MENTION"),      # Smith
+                        (38, 40, "MENTION"),     # he
+
+                    ],
+                    f"{input_prefix}_2": [
+                        (29, 33, "MENTION"),     # red ball
+                        (47, 49, "MENTION"),     # it
+                    ]
+                }
+            },
+        ),
+    ]
+    # fmt: on
+    return data
+
+
+@pytest.fixture
+def train_data():
+    return generate_train_data()
 
 
 @pytest.fixture
@@ -87,10 +97,10 @@ def test_span_resolver_serialization(nlp):
         assert get_clusters_from_doc(doc) == get_clusters_from_doc(doc2)
 
 
-def test_overfitting_IO(nlp):
+def test_overfitting_IO(nlp, train_data):
     # Simple test to try and quickly overfit - ensuring the ML models work correctly
     train_examples = []
-    for text, annot in TRAIN_DATA:
+    for text, annot in train_data:
         eg = Example.from_dict(nlp.make_doc(text), annot)
         ref = eg.reference
         # Finally, copy over the head spans to the pred
@@ -102,7 +112,7 @@ def test_overfitting_IO(nlp):
         train_examples.append(eg)
     nlp.add_pipe("experimental_span_resolver")
     optimizer = nlp.initialize()
-    test_text = TRAIN_DATA[0][0]
+    test_text = train_data[0][0]
     doc = nlp(test_text)
 
     for i in range(15):
@@ -137,9 +147,9 @@ def test_overfitting_IO(nlp):
     assert get_clusters_from_doc(docs1[0]) == get_clusters_from_doc(docs3[0])
 
 
-def test_tokenization_mismatch(nlp):
+def test_tokenization_mismatch(nlp, train_data):
     train_examples = []
-    for text, annot in TRAIN_DATA:
+    for text, annot in train_data:
         eg = Example.from_dict(nlp.make_doc(text), annot)
         ref = eg.reference
         char_spans = {}
@@ -167,7 +177,7 @@ def test_tokenization_mismatch(nlp):
 
     nlp.add_pipe("experimental_span_resolver")
     optimizer = nlp.initialize()
-    test_text = TRAIN_DATA[0][0]
+    test_text = train_data[0][0]
     doc = nlp(test_text)
 
     for i in range(15):
@@ -204,46 +214,42 @@ def test_tokenization_mismatch(nlp):
     assert get_clusters_from_doc(docs1[0]) == get_clusters_from_doc(docs3[0])
 
 
-def test_whitespace_mismatch(nlp):
+def test_whitespace_mismatch(nlp, train_data):
     train_examples = []
-    for text, annot in TRAIN_DATA:
+    for text, annot in train_data:
         eg = Example.from_dict(nlp.make_doc(text), annot)
         eg.predicted = nlp.make_doc("  " + text)
         train_examples.append(eg)
 
     nlp.add_pipe("experimental_span_resolver")
     optimizer = nlp.initialize()
-    test_text = TRAIN_DATA[0][0]
+    test_text = train_data[0][0]
     doc = nlp(test_text)
 
     with pytest.raises(ValueError, match="whitespace"):
         nlp.update(train_examples, sgd=optimizer)
 
 
-def test_custom_labels(nlp):
+@pytest.mark.parametrize(
+    "train_data", [generate_train_data("custom_input", "custom_output")]
+)
+def test_custom_labels(nlp, train_data):
     """Check that custom span labels are used by the component and scorer."""
+    input_prefix = "custom_input"
+    output_prefix = "custom_output"
     train_examples = []
-    for text, annot in TRAIN_DATA:
+    for text, annot in train_data:
         eg = Example.from_dict(nlp.make_doc(text), annot)
         ref = eg.reference
         pred = eg.predicted
 
         # prep input spans
         for key, spans in ref.spans.items():
-            if key.startswith(DEFAULT_CLUSTER_HEAD_PREFIX):
+            if key.startswith(input_prefix):
                 pred.spans[key] = [pred[span.start : span.end] for span in spans]
-
-        # move spans to ("x" + key) to test scorer
-        for doc in (eg.predicted, eg.reference):
-            base_keys = [key for key in doc.spans]
-            for key in base_keys:
-                doc.spans["x" + key] = doc.spans[key]
-                del doc.spans[key]
 
         train_examples.append(eg)
 
-    input_prefix = "x" + DEFAULT_CLUSTER_HEAD_PREFIX
-    output_prefix = "x" + DEFAULT_CLUSTER_PREFIX
     config = {
         "input_prefix": input_prefix,
         "output_prefix": output_prefix,
