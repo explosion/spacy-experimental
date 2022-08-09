@@ -241,8 +241,6 @@ def test_custom_labels(nlp):
                 del doc.spans[key]
 
         train_examples.append(eg)
-        print("reference", eg.reference.spans)
-        print("predicted", eg.predicted.spans)
 
     input_prefix = "x" + DEFAULT_CLUSTER_HEAD_PREFIX
     output_prefix = "x" + DEFAULT_CLUSTER_PREFIX
