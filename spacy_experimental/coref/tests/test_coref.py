@@ -17,9 +17,9 @@ from thinc.util import has_torch
 pytestmark = pytest.mark.skipif(not has_torch, reason="Torch not available")
 
 
-def prep_train_data(prefix):
+def generate_train_data(prefix=DEFAULT_CLUSTER_PREFIX):
     # fmt: off
-    TRAIN_DATA = [
+    data = [
         (
             "Yes, I noticed that many friends around me received it. It seems that almost everyone received this SMS.",
             {
@@ -38,7 +38,12 @@ def prep_train_data(prefix):
         ),
     ]
     # fmt: on
-    return TRAIN_DATA
+    return data
+
+
+@pytest.fixture
+def train_data():
+    return generate_train_data()
 
 
 @pytest.fixture
@@ -101,16 +106,15 @@ def test_coref_serialization(nlp):
         assert get_clusters_from_doc(doc) == get_clusters_from_doc(doc2)
 
 
-def test_overfitting_IO(nlp):
+def test_overfitting_IO(nlp, train_data):
     # Simple test to try and quickly overfit - ensuring the ML models work correctly
-    TRAIN_DATA = prep_train_data(DEFAULT_CLUSTER_PREFIX)
     train_examples = []
-    for text, annot in TRAIN_DATA:
+    for text, annot in train_data:
         train_examples.append(Example.from_dict(nlp.make_doc(text), annot))
 
     nlp.add_pipe("experimental_coref")
     optimizer = nlp.initialize()
-    test_text = TRAIN_DATA[0][0]
+    test_text = train_data[0][0]
     doc = nlp(test_text)
 
     # Needs ~12 epochs to converge
@@ -141,10 +145,9 @@ def test_overfitting_IO(nlp):
     assert get_clusters_from_doc(docs1[0]) == get_clusters_from_doc(docs3[0])
 
 
-def test_tokenization_mismatch(nlp):
-    TRAIN_DATA = prep_train_data(DEFAULT_CLUSTER_PREFIX)
+def test_tokenization_mismatch(nlp, train_data):
     train_examples = []
-    for text, annot in TRAIN_DATA:
+    for text, annot in train_data:
         eg = Example.from_dict(nlp.make_doc(text), annot)
         ref = eg.reference
         char_spans = {}
@@ -165,7 +168,7 @@ def test_tokenization_mismatch(nlp):
 
     nlp.add_pipe("experimental_coref")
     optimizer = nlp.initialize()
-    test_text = TRAIN_DATA[0][0]
+    test_text = train_data[0][0]
     doc = nlp(test_text)
 
     for i in range(15):
@@ -215,29 +218,28 @@ def test_sentence_map(snlp):
     assert sm == [0, 0, 0, 0, 1, 1, 1, 1]
 
 
-def test_whitespace_mismatch(nlp):
-    TRAIN_DATA = prep_train_data(DEFAULT_CLUSTER_PREFIX)
+def test_whitespace_mismatch(nlp, train_data):
     train_examples = []
-    for text, annot in TRAIN_DATA:
+    for text, annot in train_data:
         eg = Example.from_dict(nlp.make_doc(text), annot)
         eg.predicted = nlp.make_doc("  " + text)
         train_examples.append(eg)
 
     nlp.add_pipe("experimental_coref")
     optimizer = nlp.initialize()
-    test_text = TRAIN_DATA[0][0]
+    test_text = train_data[0][0]
     doc = nlp(test_text)
 
     with pytest.raises(ValueError, match="whitespace"):
         nlp.update(train_examples, sgd=optimizer)
 
 
-def test_custom_labels(nlp):
+@pytest.mark.parametrize("train_data", [generate_train_data("custom_prefix")])
+def test_custom_labels(nlp, train_data):
     """Check that custom span labels are used by the component and scorer."""
     prefix = "custom_prefix"
-    TRAIN_DATA = prep_train_data(prefix)
     train_examples = []
-    for text, annot in TRAIN_DATA:
+    for text, annot in train_data:
         eg = Example.from_dict(nlp.make_doc(text), annot)
         train_examples.append(eg)
 
@@ -250,7 +252,7 @@ def test_custom_labels(nlp):
         losses = {}
         nlp.update(train_examples, sgd=optimizer, losses=losses)
 
-    test_text = TRAIN_DATA[0][0]
+    test_text = train_data[0][0]
     doc = nlp(test_text)
     assert (prefix + "_1") in doc.spans
     ex = Example(train_examples[0].reference, doc)
