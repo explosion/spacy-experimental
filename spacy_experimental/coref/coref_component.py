@@ -54,8 +54,12 @@ depth = 2
 DEFAULT_COREF_MODEL = Config().from_str(default_config)["model"]
 
 
-def coref_scorer(examples: Iterable[Example], **kwargs) -> Dict[str, Any]:
-    return score_coref_clusters(examples, **kwargs)
+def coref_scorer(
+    examples: Iterable[Example], span_cluster_prefix: str, **kwargs
+) -> Dict[str, Any]:
+    return score_coref_clusters(
+        examples, span_cluster_prefix=span_cluster_prefix, **kwargs
+    )
 
 
 def make_coref_scorer(span_cluster_prefix: str = DEFAULT_CLUSTER_PREFIX):

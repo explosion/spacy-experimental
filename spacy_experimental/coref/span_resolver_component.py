@@ -51,12 +51,21 @@ depth = 2
 DEFAULT_SPAN_RESOLVER_MODEL = Config().from_str(default_span_resolver_config)["model"]
 
 
-def span_resolver_scorer(examples: Iterable[Example], **kwargs) -> Dict[str, Any]:
-    return score_span_predictions(examples, **kwargs)
+def span_resolver_scorer(
+    examples: Iterable[Example], input_prefix: str, output_prefix: str, **kwargs
+) -> Dict[str, Any]:
+    return score_span_predictions(
+        examples, input_prefix=input_prefix, output_prefix=output_prefix, **kwargs
+    )
 
 
-def make_span_resolver_scorer(output_prefix: str = DEFAULT_CLUSTER_PREFIX):
-    return partial(span_resolver_scorer, output_prefix=output_prefix)
+def make_span_resolver_scorer(
+    input_prefix: str = DEFAULT_CLUSTER_HEAD_PREFIX,
+    output_prefix: str = DEFAULT_CLUSTER_PREFIX,
+):
+    return partial(
+        span_resolver_scorer, input_prefix=input_prefix, output_prefix=output_prefix
+    )
 
 
 @Language.factory(
