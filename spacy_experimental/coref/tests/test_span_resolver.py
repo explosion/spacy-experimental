@@ -6,6 +6,7 @@ from spacy.training import Example
 from spacy.lang.en import English
 from spacy.tests.util import make_tempdir
 from spacy_experimental.coref.coref_util import (
+    DEFAULT_CLUSTER_HEAD_PREFIX,
     DEFAULT_CLUSTER_PREFIX,
     select_non_crossing_spans,
     get_sentence_ids,
@@ -31,12 +32,12 @@ TRAIN_DATA = [
                     (25, 33, "MENTION"),     # red ball
                     (47, 49, "MENTION"),     # it
                 ],
-                f"coref_head_clusters_1": [
+                f"{DEFAULT_CLUSTER_HEAD_PREFIX}_1": [
                     (5, 10, "MENTION"),      # Smith
                     (38, 40, "MENTION"),     # he
 
                 ],
-                f"coref_head_clusters_2": [
+                f"{DEFAULT_CLUSTER_HEAD_PREFIX}_2": [
                     (29, 33, "MENTION"),     # red ball
                     (47, 49, "MENTION"),     # it
                 ]
@@ -92,16 +93,12 @@ def test_overfitting_IO(nlp):
     # Simple test to try and quickly overfit - ensuring the ML models work correctly
     train_examples = []
     for text, annot in TRAIN_DATA:
-        train_examples.append(Example.from_dict(nlp.make_doc(text), annot))
-
-    train_examples = []
-    for text, annot in TRAIN_DATA:
         eg = Example.from_dict(nlp.make_doc(text), annot)
         ref = eg.reference
         # Finally, copy over the head spans to the pred
         pred = eg.predicted
         for key, spans in ref.spans.items():
-            if key.startswith("coref_head_clusters"):
+            if key.startswith(DEFAULT_CLUSTER_HEAD_PREFIX):
                 pred.spans[key] = [pred[span.start : span.end] for span in spans]
 
         train_examples.append(eg)
@@ -118,7 +115,9 @@ def test_overfitting_IO(nlp):
     # test the trained model, using the pred since it has heads
     doc = nlp(train_examples[0].predicted)
     # XXX This actually tests that it can overfit
-    assert get_clusters_from_doc(doc) == get_clusters_from_doc(train_examples[0].reference)
+    assert get_clusters_from_doc(doc) == get_clusters_from_doc(
+        train_examples[0].reference
+    )
 
     # Also test the results are still the same after IO
     with make_tempdir() as tmp_dir:
@@ -182,7 +181,9 @@ def test_tokenization_mismatch(nlp):
     test_doc = train_examples[0].predicted
     doc = nlp(test_doc)
     # XXX This actually tests that it can overfit
-    assert get_clusters_from_doc(doc) == get_clusters_from_doc(train_examples[0].reference)
+    assert get_clusters_from_doc(doc) == get_clusters_from_doc(
+        train_examples[0].reference
+    )
 
     # Also test the results are still the same after IO
     with make_tempdir() as tmp_dir:
@@ -219,3 +220,54 @@ def test_whitespace_mismatch(nlp):
 
     with pytest.raises(ValueError, match="whitespace"):
         nlp.update(train_examples, sgd=optimizer)
+
+
+def test_custom_labels(nlp):
+    """Check that custom span labels are used by the component and scorer."""
+    train_examples = []
+    for text, annot in TRAIN_DATA:
+        eg = Example.from_dict(nlp.make_doc(text), annot)
+        ref = eg.reference
+        pred = eg.predicted
+
+        # prep input spans
+        for key, spans in ref.spans.items():
+            if key.startswith(DEFAULT_CLUSTER_HEAD_PREFIX):
+                pred.spans[key] = [pred[span.start : span.end] for span in spans]
+
+        # move spans to ("x" + key) to test scorer
+        for doc in (eg.predicted, eg.reference):
+            base_keys = [key for key in doc.spans]
+            for key in base_keys:
+                doc.spans["x" + key] = doc.spans[key]
+                del doc.spans[key]
+
+        train_examples.append(eg)
+        print("reference", eg.reference.spans)
+        print("predicted", eg.predicted.spans)
+
+    input_prefix = "x" + DEFAULT_CLUSTER_HEAD_PREFIX
+    output_prefix = "x" + DEFAULT_CLUSTER_PREFIX
+    config = {
+        "input_prefix": input_prefix,
+        "output_prefix": output_prefix,
+        "scorer": {"input_prefix": input_prefix, "output_prefix": output_prefix},
+        "model": {"prefix": input_prefix},
+    }
+    spanres = nlp.add_pipe("experimental_span_resolver", config=config)
+    optimizer = nlp.initialize()
+    test_text = TRAIN_DATA[0][0]
+    doc = nlp(test_text)
+
+    # Needs ~12 epochs to converge
+    for i in range(50):
+        losses = {}
+        nlp.update(train_examples, sgd=optimizer, losses=losses)
+        doc = nlp(test_text)
+
+    doc = nlp(train_examples[0].predicted)
+    assert (output_prefix + "_1") in doc.spans
+    ex = Example(train_examples[0].reference, doc)
+    scores = spanres.scorer([ex])
+    # If the scorer config didn't work, this would be a flat 0
+    assert scores[f"span_{output_prefix}_accuracy"] > 0.4

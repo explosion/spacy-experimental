@@ -7,6 +7,7 @@ from spacy.lang.en import English
 from spacy.tests.util import make_tempdir
 import spacy_experimental.coref
 from spacy_experimental.coref.coref_util import (
+    DEFAULT_CLUSTER_HEAD_PREFIX,
     DEFAULT_CLUSTER_PREFIX,
     select_non_crossing_spans,
     get_sentence_ids,
@@ -225,3 +226,37 @@ def test_whitespace_mismatch(nlp):
 
     with pytest.raises(ValueError, match="whitespace"):
         nlp.update(train_examples, sgd=optimizer)
+
+
+def test_custom_labels(nlp):
+    """Check that custom span labels are used by the component and scorer."""
+    train_examples = []
+    for text, annot in TRAIN_DATA:
+        eg = Example.from_dict(nlp.make_doc(text), annot)
+        # move spans to ("x" + key) to test scorer
+        base_keys = [key for key in eg.reference.spans]
+        for key in base_keys:
+            eg.reference.spans["x" + key] = eg.reference.spans[key]
+            del eg.reference.spans[key]
+
+        train_examples.append(eg)
+
+    prefix = "x" + DEFAULT_CLUSTER_PREFIX
+    config = {"span_cluster_prefix": prefix, "scorer": {"span_cluster_prefix": prefix}}
+    coref = nlp.add_pipe("experimental_coref", config=config)
+    optimizer = nlp.initialize()
+    test_text = TRAIN_DATA[0][0]
+    doc = nlp(test_text)
+
+    # Needs ~12 epochs to converge
+    for i in range(15):
+        losses = {}
+        nlp.update(train_examples, sgd=optimizer, losses=losses)
+        doc = nlp(test_text)
+
+    doc = nlp(test_text)
+    assert (prefix + "_1") in doc.spans
+    ex = Example(train_examples[0].reference, doc)
+    scores = coref.scorer([ex])
+    # If the scorer config didn't work, this would be a flat 0
+    assert scores["coref_f"] > 0.4
