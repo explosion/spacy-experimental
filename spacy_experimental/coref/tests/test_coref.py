@@ -249,6 +249,7 @@ def test_custom_labels(nlp):
         losses = {}
         nlp.update(train_examples, sgd=optimizer, losses=losses)
 
+    test_text = TRAIN_DATA[0][0]
     doc = nlp(test_text)
     assert (prefix + "_1") in doc.spans
     ex = Example(train_examples[0].reference, doc)
