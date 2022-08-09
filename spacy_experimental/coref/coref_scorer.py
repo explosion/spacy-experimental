@@ -4,7 +4,7 @@ from statistics import mean
 from spacy.tokens import Doc
 from spacy.training import Example
 
-from .coref_util import DEFAULT_CLUSTER_PREFIX, DEFAULT_CLUSTER_HEAD_PREFIX
+from .coref_util import DEFAULT_CLUSTER_PREFIX
 from .coref_util import matches_coref_prefix
 
 

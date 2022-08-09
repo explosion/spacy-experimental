@@ -5,9 +5,7 @@ from spacy import util
 from spacy.training import Example
 from spacy.lang.en import English
 from spacy.tests.util import make_tempdir
-import spacy_experimental.coref
 from spacy_experimental.coref.coref_util import (
-    DEFAULT_CLUSTER_HEAD_PREFIX,
     DEFAULT_CLUSTER_PREFIX,
     select_non_crossing_spans,
     get_sentence_ids,
@@ -245,14 +243,11 @@ def test_custom_labels(nlp):
     config = {"span_cluster_prefix": prefix, "scorer": {"span_cluster_prefix": prefix}}
     coref = nlp.add_pipe("experimental_coref", config=config)
     optimizer = nlp.initialize()
-    test_text = TRAIN_DATA[0][0]
-    doc = nlp(test_text)
 
     # Needs ~12 epochs to converge
     for i in range(15):
         losses = {}
         nlp.update(train_examples, sgd=optimizer, losses=losses)
-        doc = nlp(test_text)
 
     doc = nlp(test_text)
     assert (prefix + "_1") in doc.spans

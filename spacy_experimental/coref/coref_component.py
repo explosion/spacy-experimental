@@ -1,12 +1,11 @@
-from typing import Iterable, Tuple, Optional, Dict, Callable, Any, List
+from typing import Iterable, Optional, Dict, Callable, Any, List
 from functools import partial
 import warnings
 
-from thinc.types import Floats2d, Floats3d, Ints2d
+from thinc.types import Floats2d, Ints2d
 from thinc.api import Model, Config, Optimizer
-from thinc.api import set_dropout_rate, to_categorical
+from thinc.api import set_dropout_rate
 from itertools import islice
-from statistics import mean
 import srsly
 
 from spacy.pipeline import TrainablePipe
@@ -308,7 +307,6 @@ class CoreferenceResolver(TrainablePipe):
                 "Got more than one example, but only fake batching is supported."
             )
         example = examples[0]
-        cidx = mention_idx
 
         clusters_by_char = get_clusters_from_doc(example.reference)
         # convert to token clusters, and give up if necessary

@@ -8,8 +8,6 @@ from spacy.tests.util import make_tempdir
 from spacy_experimental.coref.coref_util import (
     DEFAULT_CLUSTER_HEAD_PREFIX,
     DEFAULT_CLUSTER_PREFIX,
-    select_non_crossing_spans,
-    get_sentence_ids,
     get_clusters_from_doc,
 )
 
@@ -256,14 +254,11 @@ def test_custom_labels(nlp):
     }
     spanres = nlp.add_pipe("experimental_span_resolver", config=config)
     optimizer = nlp.initialize()
-    test_text = TRAIN_DATA[0][0]
-    doc = nlp(test_text)
 
     # Needs ~12 epochs to converge
-    for i in range(50):
+    for i in range(15):
         losses = {}
         nlp.update(train_examples, sgd=optimizer, losses=losses)
-        doc = nlp(test_text)
 
     doc = nlp(train_examples[0].predicted)
     assert (output_prefix + "_1") in doc.spans

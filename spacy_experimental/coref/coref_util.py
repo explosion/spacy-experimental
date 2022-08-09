@@ -1,4 +1,4 @@
-from typing import List, Tuple, Set, Dict, cast
+from typing import List, Tuple, Dict, cast
 from thinc.types import Ints2d
 from spacy.tokens import Doc
 

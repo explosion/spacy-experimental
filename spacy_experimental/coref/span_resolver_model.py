@@ -1,4 +1,5 @@
 from typing import List, Tuple, cast
+import warnings
 
 from thinc.api import Model, chain, tuplify, get_width
 from thinc.api import PyTorchWrapper, ArgsKwargs
@@ -80,6 +81,7 @@ def convert_span_resolver_inputs(
     is_train: bool,
 ):
     tok2vec, (sent_ids, head_ids) = X
+
     # Normally we should use the input is_train, but for these two it's not relevant
     def backprop(args: ArgsKwargs) -> Tuple[List[Floats2d], None]:
         gradients = cast(Floats2d, torch2xp(args.args[1]))

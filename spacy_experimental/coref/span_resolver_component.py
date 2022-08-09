@@ -1,9 +1,9 @@
-from typing import Iterable, Tuple, Optional, Dict, Callable, Any, List
+from typing import Iterable, Optional, Dict, Callable, Any, List
 from functools import partial
 import warnings
 
-from thinc.types import Floats2d, Floats3d, Ints2d
-from thinc.api import Model, Config, Optimizer, CategoricalCrossentropy
+from thinc.types import Floats2d, Floats3d
+from thinc.api import Model, Config, Optimizer
 from thinc.api import set_dropout_rate, to_categorical
 from itertools import islice
 import srsly
@@ -299,16 +299,16 @@ class SpanResolver(TrainablePipe):
                     ends.append(span.end)
                     keeps.append(sidx - 1)
 
-            starts = self.model.ops.xp.asarray(starts)
-            ends = self.model.ops.xp.asarray(ends)
+            starts_xp = self.model.ops.xp.asarray(starts)
+            ends_xp = self.model.ops.xp.asarray(ends)
             start_scores = span_scores[:, :, 0][keeps]
             end_scores = span_scores[:, :, 1][keeps]
 
             n_classes = start_scores.shape[1]
             start_probs = ops.softmax(start_scores, axis=1)
             end_probs = ops.softmax(end_scores, axis=1)
-            start_targets = to_categorical(starts, n_classes)
-            end_targets = to_categorical(ends, n_classes)
+            start_targets = to_categorical(starts_xp, n_classes)
+            end_targets = to_categorical(ends_xp, n_classes)
             start_grads = start_probs - start_targets
             end_grads = end_probs - end_targets
             # now return to original shape, with 0s
