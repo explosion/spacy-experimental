@@ -16,26 +16,29 @@ from thinc.util import has_torch
 
 pytestmark = pytest.mark.skipif(not has_torch, reason="Torch not available")
 
-# fmt: off
-TRAIN_DATA = [
-    (
-        "Yes, I noticed that many friends around me received it. It seems that almost everyone received this SMS.",
-        {
-            "spans": {
-                f"{DEFAULT_CLUSTER_PREFIX}_1": [
-                    (5, 6, "MENTION"),      # I
-                    (40, 42, "MENTION"),    # me
 
-                ],
-                f"{DEFAULT_CLUSTER_PREFIX}_2": [
-                    (52, 54, "MENTION"),     # it
-                    (95, 103, "MENTION"),    # this SMS
-                ]
-            }
-        },
-    ),
-]
-# fmt: on
+def prep_train_data(prefix):
+    # fmt: off
+    TRAIN_DATA = [
+        (
+            "Yes, I noticed that many friends around me received it. It seems that almost everyone received this SMS.",
+            {
+                "spans": {
+                    f"{prefix}_1": [
+                        (5, 6, "MENTION"),      # I
+                        (40, 42, "MENTION"),    # me
+
+                    ],
+                    f"{prefix}_2": [
+                        (52, 54, "MENTION"),     # it
+                        (95, 103, "MENTION"),    # this SMS
+                    ]
+                }
+            },
+        ),
+    ]
+    # fmt: on
+    return TRAIN_DATA
 
 
 @pytest.fixture
@@ -100,6 +103,7 @@ def test_coref_serialization(nlp):
 
 def test_overfitting_IO(nlp):
     # Simple test to try and quickly overfit - ensuring the ML models work correctly
+    TRAIN_DATA = prep_train_data(DEFAULT_CLUSTER_PREFIX)
     train_examples = []
     for text, annot in TRAIN_DATA:
         train_examples.append(Example.from_dict(nlp.make_doc(text), annot))
@@ -138,6 +142,7 @@ def test_overfitting_IO(nlp):
 
 
 def test_tokenization_mismatch(nlp):
+    TRAIN_DATA = prep_train_data(DEFAULT_CLUSTER_PREFIX)
     train_examples = []
     for text, annot in TRAIN_DATA:
         eg = Example.from_dict(nlp.make_doc(text), annot)
@@ -211,6 +216,7 @@ def test_sentence_map(snlp):
 
 
 def test_whitespace_mismatch(nlp):
+    TRAIN_DATA = prep_train_data(DEFAULT_CLUSTER_PREFIX)
     train_examples = []
     for text, annot in TRAIN_DATA:
         eg = Example.from_dict(nlp.make_doc(text), annot)
@@ -228,18 +234,13 @@ def test_whitespace_mismatch(nlp):
 
 def test_custom_labels(nlp):
     """Check that custom span labels are used by the component and scorer."""
+    prefix = "custom_prefix"
+    TRAIN_DATA = prep_train_data(prefix)
     train_examples = []
     for text, annot in TRAIN_DATA:
         eg = Example.from_dict(nlp.make_doc(text), annot)
-        # move spans to ("x" + key) to test scorer
-        base_keys = [key for key in eg.reference.spans]
-        for key in base_keys:
-            eg.reference.spans["x" + key] = eg.reference.spans[key]
-            del eg.reference.spans[key]
-
         train_examples.append(eg)
 
-    prefix = "x" + DEFAULT_CLUSTER_PREFIX
     config = {"span_cluster_prefix": prefix, "scorer": {"span_cluster_prefix": prefix}}
     coref = nlp.add_pipe("experimental_coref", config=config)
     optimizer = nlp.initialize()
