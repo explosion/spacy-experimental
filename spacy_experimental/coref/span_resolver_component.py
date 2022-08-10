@@ -342,13 +342,6 @@ class SpanResolver(TrainablePipe):
         X = []
         Y = []
         for ex in islice(get_examples(), 2):
-
-            if not ex.predicted.spans:
-                # set placeholder for shape inference
-                doc = ex.predicted
-                # TODO should be able to check if there are some valid docs in the batch
-                assert len(doc) > 2, "Coreference requires at least two tokens"
-                doc.spans[f"{self.input_prefix}_0"] = [doc[0:1], doc[1:2]]
             X.append(ex.predicted)
             Y.append(ex.reference)
 
