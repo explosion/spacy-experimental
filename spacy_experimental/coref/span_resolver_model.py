@@ -132,7 +132,6 @@ def head_data_forward(model, docs, is_train):
         head_ids.append(heads)
     # Each of these is a list with one entry per doc.
     # Backprop is just a placeholder, since the input is docs.
-    # TODO it would probably be better to have a list of tuples than two lists of arrays
     return (sent_ids, head_ids), lambda x: []
 
 
