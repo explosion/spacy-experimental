@@ -20,8 +20,9 @@ def build_coref_model(
     # pairs to keep per mention after rough scoring
     antecedent_limit: int,
     antecedent_batch_size: int,
-    nI=None,
 ) -> Model[List[Doc], Tuple[Floats2d, Ints2d]]:
+
+    nI = None
 
     with Model.define_operators({">>": chain}):
         coref_clusterer: Model[List[Floats2d], Tuple[Floats2d, Ints2d]] = Model(
