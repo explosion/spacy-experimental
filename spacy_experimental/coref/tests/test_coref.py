@@ -5,8 +5,12 @@ from spacy import util
 from spacy.training import Example
 from spacy.lang.en import English
 from spacy.tests.util import make_tempdir
-from ..coref_util import DEFAULT_CLUSTER_PREFIX, select_non_crossing_spans
-from ..coref_util import get_sentence_ids, get_clusters_from_doc
+from spacy_experimental.coref.coref_util import (
+    DEFAULT_CLUSTER_PREFIX,
+    select_non_crossing_spans,
+    get_sentence_ids,
+    get_clusters_from_doc,
+)
 
 from thinc.util import has_torch
 
