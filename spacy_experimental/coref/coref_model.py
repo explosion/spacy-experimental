@@ -72,7 +72,6 @@ def coref_init(model: Model, X=None, Y=None):
             convert_inputs=convert_coref_clusterer_inputs,
             convert_outputs=convert_coref_clusterer_outputs,
         )
-        # TODO maybe we need mixed precision and grad scaling?
     ]
 
 
