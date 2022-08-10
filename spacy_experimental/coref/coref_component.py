@@ -170,10 +170,10 @@ class CoreferenceResolver(TrainablePipe):
                 if not matches_coref_prefix(self.span_cluster_prefix, key):
                     continue
                 warnings.warn(
-                    'SpanGroup "{key}" looks like coref cluster left '
+                    f'SpanGroup "{key}" looks like coref cluster left '
                     "by a previous component. If using multiple coref "
                     "models, they should use different prefixes to avoid "
-                    "overwriting each other. "
+                    "overwriting each other.\n\n "
                     "Will not warn of further occurences in this batch."
                 )
                 return
@@ -204,9 +204,9 @@ class CoreferenceResolver(TrainablePipe):
                 key = f"{self.span_cluster_prefix}_{ii}"
                 if key in doc.spans:
                     raise ValueError(
-                        """Existing spans found, not overwriting. If you run
-                        more than one instance of coref you should use different
-                        target span prefixes."""
+                        f'Existing spans with prefix "{key}" found, not '
+                        "overwriting. If you run more than one instance of coref "
+                        "you should use different target span prefixes."
                     )
 
                 doc.spans[key] = []
