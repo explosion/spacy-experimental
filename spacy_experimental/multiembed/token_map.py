@@ -1,87 +1,137 @@
-import os
-import glob
+import logging
 
-import spacy
 import srsly
 import typer
-import tqdm
+import wasabi
 
+from typing import Optional, List, Dict
 from collections import Counter
 from pathlib import Path
-from typing import Dict, Optional
-from typing import List
 
+from thinc.api import ConfigValidationError
 from spacy.attrs import intify_attr
-from spacy.tokens import DocBin
-
+from spacy.tokens import Doc
+from spacy import util
+from spacy.schemas import ConfigSchemaTraining
+from spacy.cli._util import Arg, Opt, show_validation_error
+from spacy.cli._util import parse_config_overrides, import_code
+from spacy.errors import Errors
 
 app = typer.Typer()
 
 
-@app.command()
-def make_mapper(
-        path: Path,
-        out_path: Path,
-        *,
-        attrs: Optional[List[str]] = ["NORM", "PREFIX", "SUFFIX", "SHAPE"],
-        model: Optional[str] = None,
-        language: Optional[str] = None,
-        unk: int = 0,
-        limit: Optional[int] = 0,
-        min_freqs: Optional[List[int]] = [10, 10, 10, 10],
-        max_symbols: Optional[List[int]] = [],
+@app.command(
+    context_settings={
+        "allow_extra_args": True, "ignore_unknown_options": True
+    },
+)
+def init_tables_cli(
+    ctx: typer.Context,
+    config_path: Path = Arg(..., help="Path to config file", exists=True, allow_dash=True),
+    output_path: Path = Arg(..., help="Output directory for the mappers"),
+    code_path: Optional[Path] = Opt(None, "--code", "-c", help="Path to Python file with additional code (registered functions) to be imported"),
+    unk: int = Opt(0, help="id of the 'unknown symbol' for all tables"),
+    limit: int = Opt(0, help="Number of documents to run through."),
+    min_freq: int = Opt(
+        0, help="Minimum number of times a symbol has to occur to include"
+        )
 ) -> None:
-    error_msg = "One of 'model' or 'langauge' has to be provided"
-    if min_freqs and len(min_freqs) != len(attrs):
-        raise ValueError(
-            "Have to provide same number of attrs and min_freqs."
+    if not output_path.exists():
+        output_path.mkdir(parents=True)
+    overrides = parse_config_overrides(ctx.args)
+    with show_validation_error(config_path):
+        config = util.load_config(
+            config_path, overrides=overrides, interpolate=True
         )
-    if max_symbols and len(max_symbols) != len(attrs):
+    embedder = config["components"]["tok2vec"]["model"]["embed"]
+    if embedder["@architectures"] != "spacy-experimental.MultiEmbed.v1":
         raise ValueError(
-            "Have to provide same number of attrs and max_symbols"
+            "Can only run init tables command for pipeline with "
+            "a spacy-experimental.MultiEmbed.v1 component."
         )
-    if model is None and language is None:
-        raise ValueError(error_msg)
-    elif model is not None and language is not None:
-        raise ValueError(error_msg)
-    else:
-        if model:
-            nlp = spacy.load(model)
-        else:
-            nlp = spacy.blank(language)
+    import_code(code_path)
+    nlp = util.load_model_from_config(config, auto_fill=True)
+    wasabi.msg.good("Succesfully loaded pipeline.")
+    training = util.registry.resolve(
+        config["training"], schema=ConfigSchemaTraining
+    )
+    train_corpus = training["train_corpus"]
+    if not isinstance(train_corpus, str):
+        raise ConfigValidationError(
+            desc=Errors.E897.format(
+                field="training.train_corpus",
+                type=type(training["train_corpus"])
+            )
+        )
+    train_corpus = util.resolve_dot_names(config, [train_corpus])[0]
+    attrs = embedder["attrs"]
+    unk = embedder["unk"]
+    if not isinstance(attrs, list):
+        raise ValueError(
+            "The 'attrs' field in `MultiEmbed` has to be provided "
+            "as a List[str]."
+        )
+    elif not all([isinstance(x, str) for x in attrs]):
+        raise ValueError(
+            "The 'attrs' field in 'MultiEmbed' has to be provided "
+            "as a List[str]"
+        )
+    elif not isinstance(unk, int):
+        raise ValueError(
+            "'unk' has to be an integer, but found ({type(unk)}"
+        )
+    wasabi.msg.text("Loading training documents.")
+    train_docs = []
+    if limit == 0:
+        limit = float("inf")
+    for i, doc in enumerate(train_corpus(nlp)):
+        if i < limit:
+            train_docs.append(doc.predicted)
+    wasabi.msg.good(f"Loaded {len(train_docs)} documents.")
+    attrs_counts, mappers = _init_tables(attrs, train_docs, unk, min_freq)
+    output_stem = str(output_path / train_corpus.path.stem)
+    tables_path = output_stem + ".tables"
+    counts_path = output_stem + ".counts"
+    srsly.write_msgpack(tables_path, mappers)
+    wasabi.msg.good(f"Tables saved to {tables_path}.")
+    srsly.write_msgpack(output_stem + ".counts", attrs_counts)
+    wasabi.msg.good(f"Attribute counts saved to {counts_path}.")
+
+
+def _init_tables(
+        attrs: List[str],
+        train_docs: List[Doc],
+        unk: int,
+        min_freq: Optional[int] = 0
+):
     attrs_counts = {}
-    docbin = DocBin().from_disk(path)
+    wasabi.msg.text("Counting attributes.")
     for attr in attrs:
         attr_id = intify_attr(attr)
         counts = Counter()
-        for doc in tqdm.tqdm(
-            docbin.get_docs(nlp.vocab), total=len(docbin)
-        ):
+        for doc in train_docs:
             counts.update(doc.count_by(attr_id))
         attrs_counts[attr] = counts
-    debug_path = os.path.join("debug", os.path.basename(path) + ".counts")
-    srsly.write_msgpack(debug_path, attrs_counts)
     # Create mappers
     mappers: Dict[str, Dict[int, int]] = {}
+    wasabi.msg.text("Creating mappers.")
     for i, attr in enumerate(attrs):
         sorted_counts = attrs_counts[attr].most_common()
         mappers[attr] = {}
         new_id = 0
-        for j, (symbol, count) in enumerate(sorted_counts):
-            if j == limit and limit != 0:
-                break
-            if min_freqs:
-                if count < min_freqs[i]:
-                    break
-            if max_symbols:
-                if len(mappers[attr]) > max_symbols[i]:
+        for symbol, count in sorted_counts:
+            if min_freq:
+                if count < min_freq:
                     break
             # Leave the id for the unknown symbol out of the mapper.
             if new_id == unk:
                 new_id += 1
             mappers[attr][symbol] = new_id
             new_id += 1
-    srsly.write_msgpack(out_path, mappers)
+        wasabi.msg.info(
+            f"Storing {len(mappers[attr])} entries for {attr}."
+        )
+    return attrs_counts, mappers
 
 
 if __name__ == "__main__":
