@@ -337,7 +337,13 @@ class CoreferenceResolver(TrainablePipe):
         top_gscores = ops.asarray2f(top_gscores)
 
         with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=RuntimeWarning)
+            # This builds a mask by building a matrix of 0/1 values and taking
+            # the log. log(0) gives a warning in numpy, but we're doing it on
+            # purpose to get infinite values, so it's safe to ignore.
+            # Note cupy gives no warning.
+            warnings.filterwarnings(
+                "ignore", message="divide by zero", category=RuntimeWarning
+            )
             log_marg = ops.softmax(score_matrix + ops.xp.log(top_gscores), axis=1)
         log_norm = ops.softmax(score_matrix, axis=1)
         grad = log_norm - log_marg
