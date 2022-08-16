@@ -318,6 +318,12 @@ predicted_key = ${components.span_finder.predicted_key}
 
 This package includes a [spaCy project](./projects/span_finder) which shows how to train and use the `SpanFinder` together with `SpanCategorizer`.
 
+### Coreference Components
+
+The [CoreferenceResolver](https://spacy.io/api/coref) and [SpanResolver](https://spacy.io/api/span-resolver) are designed to be used together to build a corerefence pipeline, which allows you to identify which spans in a document refer to the same thing. Each component also includes an architecture and scorer. For more details, see their pages in the main spaCy docs.
+
+For an example of how to build a pipeline with the components, see the [example coref project](https://github.com/explosion/projects/tree/v3/experimental/coref).
+
 ## Architectures
 
 None currently.
