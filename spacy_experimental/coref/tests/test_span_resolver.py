@@ -230,13 +230,11 @@ def test_whitespace_mismatch(nlp, train_data):
         nlp.update(train_examples, sgd=optimizer)
 
 
-@pytest.mark.parametrize(
-    "train_data", [generate_train_data("custom_input", "custom_output")]
-)
-def test_custom_labels(nlp, train_data):
+def test_custom_labels(nlp):
     """Check that custom span labels are used by the component and scorer."""
     input_prefix = "custom_input"
     output_prefix = "custom_output"
+    train_data = generate_train_data(input_prefix, output_prefix)
     train_examples = []
     for text, annot in train_data:
         eg = Example.from_dict(nlp.make_doc(text), annot)
