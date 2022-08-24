@@ -1,13 +1,42 @@
 from typing import List, Tuple, Dict
 from thinc.types import Ints2d, Floats2d
 from thinc.api import NumpyOps
+import srsly
+from spacy.language import Language
 from spacy.tokens import Doc
+import spacy.util as util
 
 # type alias to make writing this less tedious
 MentionClusters = List[List[Tuple[int, int]]]
 
 DEFAULT_CLUSTER_PREFIX = "coref_clusters"
 DEFAULT_CLUSTER_HEAD_PREFIX = "coref_head_clusters"
+
+
+@Language.factory(
+    "experimental_span_cleaner",
+    assigns=["doc.spans"],
+    default_config={"prefix": DEFAULT_CLUSTER_HEAD_PREFIX},
+)
+def make_span_cleaner(nlp: Language, name: str, *, prefix: str) -> "SpanCleaner":
+    """Create a span cleaner component.
+
+    Given a prefix, a span cleaner removes any spans on the Doc where the key
+    matches the prefix.
+    """
+
+    return SpanCleaner(prefix)
+
+
+class SpanCleaner:
+    def __init__(self, prefix: str):
+        self.prefix = prefix
+
+    def __call__(self, doc: Doc) -> Doc:
+        for key in list(doc.spans.keys()):
+            if key.startswith(self.prefix):
+                del doc.spans[key]
+        return doc
 
 
 def matches_coref_prefix(prefix: str, key: str) -> bool:
