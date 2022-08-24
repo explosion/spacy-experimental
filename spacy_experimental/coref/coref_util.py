@@ -1,5 +1,6 @@
-from typing import List, Tuple, Dict, cast
-from thinc.types import Ints2d
+from typing import List, Tuple, Dict
+from thinc.types import Ints2d, Floats2d
+from thinc.api import NumpyOps
 from spacy.tokens import Doc
 
 # type alias to make writing this less tedious
@@ -178,12 +179,12 @@ def get_clusters_from_doc(doc) -> List[List[Tuple[int, int]]]:
 
 def create_gold_scores(
     ments: Ints2d, clusters: List[List[Tuple[int, int]]]
-) -> List[List[bool]]:
+) -> Floats2d:
     """Given mentions considered for antecedents and gold clusters,
     construct a gold score matrix. This does not include the placeholder.
 
     In the gold matrix, the value of a true antecedent is True, and otherwise
-    it is False. These will be converted to 1/0 values later.
+    it is False. These will represented as 1/0 values.
     """
     # make a mapping of mentions to cluster id
     # id is not important but equality will be
@@ -193,27 +194,22 @@ def create_gold_scores(
             ment2cid[ment] = cid
 
     ll = len(ments)
-    out = []
-    # The .tolist() call is necessary with cupy but not numpy
-    mentuples = [cast(Tuple[int, int], tuple(mm.tolist())) for mm in ments]
-    for ii, ment in enumerate(mentuples):
-        if ment not in ment2cid:
+    ops = NumpyOps()
+    cpu_ments = ops.asarray(ments)
+
+    out = ops.alloc2f(ll, ll)
+    for ii, ment in enumerate(cpu_ments):
+        cid = ment2cid.get((int(ment[0]), int(ment[1])))
+        if cid is None:
             # this is not in a cluster so it has no antecedent
-            out.append([False] * ll)
             continue
 
         # this might change if no real antecedent is a candidate
-        row = []
-        cid = ment2cid[ment]
-        for jj, ante in enumerate(mentuples):
+        for jj, ante in enumerate(cpu_ments):
             # antecedents must come first
             if jj >= ii:
-                row.append(False)
-                continue
+                break
+            if cid == ment2cid.get((int(ante[0]), int(ante[1])), -1):
+                out[ii, jj] = 1.0
 
-            row.append(cid == ment2cid.get(ante, -1))
-
-        out.append(row)
-
-    # caller needs to convert to array, and add placeholder
     return out
