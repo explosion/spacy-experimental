@@ -1,12 +1,69 @@
 from typing import List, Tuple, Dict, cast
 from thinc.types import Ints2d
+import srsly
+from spacy.language import Language
 from spacy.tokens import Doc
+import spacy.util as util
 
 # type alias to make writing this less tedious
 MentionClusters = List[List[Tuple[int, int]]]
 
 DEFAULT_CLUSTER_PREFIX = "coref_clusters"
 DEFAULT_CLUSTER_HEAD_PREFIX = "coref_head_clusters"
+
+
+@Language.factory(
+    "experimental_span_cleaner",
+    assigns=["doc.spans"],
+    default_config={"prefix": DEFAULT_CLUSTER_HEAD_PREFIX},
+)
+def make_span_cleaner(nlp: Language, name: str, *, prefix: str) -> "SpanCleaner":
+    """Create a span cleaner component.
+
+    Given a prefix, a span cleaner removes any spans on the Doc where the key
+    matches the prefix.
+    """
+
+    return SpanCleaner(prefix)
+
+
+class SpanCleaner:
+    def __init__(self, prefix: str):
+        self.cfg: Dict[str, Any] = {"prefix": prefix}
+
+    def __call__(self, doc: Doc) -> Doc:
+        prefix = self.cfg["prefix"]
+        for key in list(doc.spans.keys()):
+            if key.startswith(prefix):
+                del doc.spans[key]
+        return doc
+
+    def to_bytes(self, **kwargs):
+        serializers = {
+            "cfg": lambda: srsly.json_dumps(self.cfg),
+        }
+        return util.to_bytes(serializers, [])
+
+    def from_bytes(self, data, **kwargs):
+        deserializers = {
+            "cfg": lambda b: self.cfg.update(srsly.json_loads(b)),
+        }
+        util.from_bytes(data, deserializers, [])
+        return self
+
+    def to_disk(self, path, **kwargs):
+        path = util.ensure_path(path)
+        serializers = {
+            "cfg": lambda p: srsly.write_json(p, self.cfg),
+        }
+        return util.to_disk(path, serializers, [])
+
+    def from_disk(self, path, **kwargs):
+        path = util.ensure_path(path)
+        serializers = {
+            "cfg": lambda p: self.cfg.update(srsly.read_json(p)),
+        }
+        util.from_disk(path, serializers, [])
 
 
 def matches_coref_prefix(prefix: str, key: str) -> bool:
