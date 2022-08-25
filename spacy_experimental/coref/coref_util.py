@@ -1,5 +1,5 @@
 from typing import List, Tuple, Dict, cast
-from thinc.types import Ints2d
+from thinc.types import Ints1d, Ints2d, Floats2d
 import srsly
 from spacy.language import Language
 from spacy.tokens import Doc
@@ -87,7 +87,11 @@ def get_predicted_antecedents(xp, antecedent_idx: Ints2d, antecedent_scores: Flo
 
 # from model.py, refactored to be non-member
 def get_predicted_clusters(
-    xp, span_starts: Ints1d, span_ends: Ints1d, antecedent_idx: Ints2d, antecedent_scores: Floats2d
+    xp,
+    span_starts: Ints1d,
+    span_ends: Ints1d,
+    antecedent_idx: Ints2d,
+    antecedent_scores: Floats2d,
 ):
     """Convert predictions to usable cluster data.
 
