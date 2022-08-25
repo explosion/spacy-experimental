@@ -268,3 +268,28 @@ def test_custom_labels(nlp):
     scores = spanres.scorer([ex])
     # If the scorer config didn't work, this would be a flat 0
     assert scores[f"span_{output_prefix}_accuracy"] > 0.4
+
+
+@pytest.mark.parametrize(
+    "input_prefix,output_prefix",
+    [
+        (DEFAULT_CLUSTER_HEAD_PREFIX, DEFAULT_CLUSTER_PREFIX),
+        ("custom_input", "custom_output"),
+    ],
+)
+def test_span_cleaner(nlp, input_prefix, output_prefix):
+    config = {"prefix": input_prefix}
+    cleaner = nlp.add_pipe("experimental_span_cleaner", config=config)
+    train_data = generate_train_data(input_prefix, output_prefix)
+
+    for text, annot in train_data:
+        eg = Example.from_dict(nlp.make_doc(text), annot)
+        ref = eg.reference
+
+        # input spans should be there at first...
+        matching_spans = [skey for skey in ref.spans if skey.startswith(input_prefix)]
+        assert len(matching_spans) > 0
+        # but span cleaner should remove spans
+        doc = nlp(ref)
+        matching_spans = [skey for skey in doc.spans if skey.startswith(input_prefix)]
+        assert len(matching_spans) == 0
