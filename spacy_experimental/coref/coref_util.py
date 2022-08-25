@@ -74,7 +74,7 @@ def get_sentence_ids(doc: Doc) -> List[int]:
 
 
 # from model.py, refactored to be non-member
-def get_predicted_antecedents(xp, antecedent_idx, antecedent_scores):
+def get_predicted_antecedents(xp, antecedent_idx: Ints2d, antecedent_scores: Floats2d):
     """Get the ID of the antecedent for each span. -1 if no antecedent."""
     predicted_antecedents = []
     for i, idx in enumerate(xp.argmax(antecedent_scores, axis=1) - 1):
@@ -87,7 +87,7 @@ def get_predicted_antecedents(xp, antecedent_idx, antecedent_scores):
 
 # from model.py, refactored to be non-member
 def get_predicted_clusters(
-    xp, span_starts, span_ends, antecedent_idx, antecedent_scores
+    xp, span_starts: Ints1d, span_ends: Ints1d, antecedent_idx: Ints2d, antecedent_scores: Floats2d
 ):
     """Convert predictions to usable cluster data.
 
