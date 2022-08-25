@@ -138,20 +138,33 @@ def create_head_span_idxs(ops, doclen: int):
     return ops.asarray2i([aa, bb]).T
 
 
-def get_clusters_from_doc(doc) -> List[List[Tuple[int, int]]]:
+def get_clusters_from_doc(
+    doc: Doc, *, use_heads: bool = False, prefix: str = None
+) -> List[List[Tuple[int, int]]]:
     """Convert the span clusters in a Doc to simple integer tuple lists. The
     ints are char spans, to be tokenization independent.
+
+    If `use_heads` is True, then the heads (roots) of the spans will be used.
+
+    If a `prefix` is provided, then only spans matching the prefix will be used.
     """
     out = []
     keys = sorted(list(doc.spans.keys()))
     for key in keys:
+        if prefix is not None and not matches_coref_prefix(prefix, key):
+            continue
+
         val = doc.spans[key]
         cluster = []
-        for span in val:
 
-            head_i = span.root.i
-            head = doc[head_i]
-            char_span = (head.idx, head.idx + len(head))
+        for span in val:
+            if use_heads:
+                head_i = span.root.i
+                head = doc[head_i]
+                char_span = (head.idx, head.idx + len(head))
+            else:
+                char_span = (span[0].idx, span[-1].idx + len(span[-1]))
+
             cluster.append(char_span)
 
         # don't want duplicates

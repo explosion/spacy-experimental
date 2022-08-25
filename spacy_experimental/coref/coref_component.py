@@ -288,7 +288,9 @@ class CoreferenceResolver(TrainablePipe):
             )
         example = examples[0]
 
-        clusters_by_char = get_clusters_from_doc(example.reference)
+        clusters_by_char = get_clusters_from_doc(
+            example.reference, use_heads=True, prefix=self.span_cluster_prefix
+        )
         # convert to token clusters, and give up if necessary
         clusters = []
         for cluster in clusters_by_char:
