@@ -305,16 +305,13 @@ class CoreferenceResolver(TrainablePipe):
 
         span_idxs = create_head_span_idxs(ops, len(example.predicted))
         gscores = create_gold_scores(span_idxs, clusters)
-        # Note on type here. This is bools but asarray2f wants ints.
+        # Ensure that the returned array has the same backend as the model.
         gscores = ops.asarray2f(gscores)  # type: ignore
         top_gscores = xp.take_along_axis(gscores, mention_idx, axis=1)
         # now add the placeholder
         gold_placeholder = ~top_gscores.any(axis=1).T
         gold_placeholder = xp.expand_dims(gold_placeholder, 1)
         top_gscores = xp.concatenate((gold_placeholder, top_gscores), 1)
-
-        # boolean to float
-        top_gscores = ops.asarray2f(top_gscores)
 
         with warnings.catch_warnings():
             # This builds a mask by building a matrix of 0/1 values and taking
