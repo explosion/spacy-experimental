@@ -1,5 +1,5 @@
 from typing import List, Tuple, Dict
-from thinc.types import Ints2d, Floats2d
+from thinc.types import Ints1d, Ints2d, Floats2d
 from thinc.api import NumpyOps
 import srsly
 from spacy.language import Language
@@ -75,7 +75,7 @@ def get_sentence_ids(doc: Doc) -> List[int]:
 
 
 # from model.py, refactored to be non-member
-def get_predicted_antecedents(xp, antecedent_idx, antecedent_scores):
+def get_predicted_antecedents(xp, antecedent_idx: Ints2d, antecedent_scores: Floats2d):
     """Get the ID of the antecedent for each span. -1 if no antecedent."""
     predicted_antecedents = []
     for i, idx in enumerate(xp.argmax(antecedent_scores, axis=1) - 1):
@@ -88,7 +88,11 @@ def get_predicted_antecedents(xp, antecedent_idx, antecedent_scores):
 
 # from model.py, refactored to be non-member
 def get_predicted_clusters(
-    xp, span_starts, span_ends, antecedent_idx, antecedent_scores
+    xp,
+    span_starts: Ints1d,
+    span_ends: Ints1d,
+    antecedent_idx: Ints2d,
+    antecedent_scores: Floats2d,
 ):
     """Convert predictions to usable cluster data.
 
@@ -125,56 +129,6 @@ def get_predicted_clusters(
 
     predicted_clusters = [tuple(c) for c in predicted_clusters]
     return predicted_clusters
-
-
-def select_non_crossing_spans(
-    idxs: List[int], starts: List[int], ends: List[int], limit: int
-) -> List[int]:
-    """Given a list of spans sorted in descending order, return the indexes of
-    spans to keep, discarding spans that cross.
-
-    Nested spans are allowed.
-    """
-    # ported from Model._extract_top_spans
-    selected: List[int] = []
-    start_to_max_end: Dict[int, int] = {}
-    end_to_min_start: Dict[int, int] = {}
-
-    for idx in idxs:
-        if len(selected) >= limit or idx > len(starts):
-            break
-
-        start, end = starts[idx], ends[idx]
-        cross = False
-
-        for ti in range(start, end):
-            max_end = start_to_max_end.get(ti, -1)
-            if ti > start and max_end > end:
-                cross = True
-                break
-
-            min_start = end_to_min_start.get(ti, -1)
-            if ti < end and 0 <= min_start < start:
-                cross = True
-                break
-
-        if not cross:
-            # this index will be kept
-            # record it so we can exclude anything that crosses it
-            selected.append(idx)
-            max_end = start_to_max_end.get(start, -1)
-            if end > max_end:
-                start_to_max_end[start] = end
-            min_start = end_to_min_start.get(end, -1)
-            if min_start == -1 or start < min_start:
-                end_to_min_start[end] = start
-
-    # sort idxs by order in doc
-    selected = sorted(selected, key=lambda idx: (starts[idx], ends[idx]))
-    # This was causing many repetitive entities in the output - removed for now
-    # while len(selected) < limit:
-    #     selected.append(selected[0])  # this seems a bit weird?
-    return selected
 
 
 def create_head_span_idxs(ops, doclen: int):

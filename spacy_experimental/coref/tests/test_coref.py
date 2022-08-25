@@ -7,7 +7,6 @@ from spacy.lang.en import English
 from spacy.tests.util import make_tempdir
 from spacy_experimental.coref.coref_util import (
     DEFAULT_CLUSTER_PREFIX,
-    select_non_crossing_spans,
     get_sentence_ids,
     get_clusters_from_doc,
 )
@@ -198,18 +197,6 @@ def test_tokenization_mismatch(nlp, train_data):
     docs3 = [nlp(text) for text in texts]
     assert get_clusters_from_doc(docs1[0]) == get_clusters_from_doc(docs2[0])
     assert get_clusters_from_doc(docs1[0]) == get_clusters_from_doc(docs3[0])
-
-
-def test_crossing_spans():
-    starts = [6, 10, 0, 1, 0, 1, 0, 1, 2, 2, 2]
-    ends = [12, 12, 2, 3, 3, 4, 4, 4, 3, 4, 5]
-    idxs = list(range(len(starts)))
-    limit = 5
-
-    gold = sorted([0, 1, 2, 4, 6])
-    guess = select_non_crossing_spans(idxs, starts, ends, limit)
-    guess = sorted(guess)
-    assert gold == guess
 
 
 def test_sentence_map(snlp):
