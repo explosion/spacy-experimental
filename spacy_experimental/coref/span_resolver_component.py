@@ -176,7 +176,7 @@ class SpanResolver(TrainablePipe):
         """
         for doc, clusters in zip(docs, clusters_by_doc):
             for ii, cluster in enumerate(clusters, 1):
-                spans = [doc[mm[0] : mm[1]] for mm in cluster]
+                spans = [doc[int(mm[0]) : int(mm[1])] for mm in cluster]
                 doc.spans[f"{self.output_prefix}_{ii}"] = spans
 
     def update(
