@@ -9,9 +9,11 @@ from spacy_experimental.coref.coref_util import (
     DEFAULT_CLUSTER_PREFIX,
     get_sentence_ids,
     get_clusters_from_doc,
+    get_predicted_antecedents,
 )
 
 from thinc.util import has_torch
+from thinc.api import NumpyOps
 
 pytestmark = pytest.mark.skipif(not has_torch, reason="Torch not available")
 
@@ -246,3 +248,11 @@ def test_custom_labels(nlp):
     scores = coref.scorer([ex])
     # If the scorer config didn't work, this would be a flat 0
     assert scores["coref_f"] > 0.4
+
+
+def test_predicted_antecedents():
+    ops = NumpyOps()
+    ant_idx = ops.asarray2i([[0, 1], [0, 1]])
+    neg_inf = float("-inf")
+    ant_scores = ops.asarray2f([[-0.1, neg_inf], [-0.1, -0.1]])
+    get_predicted_antecedents(ops.xp, ant_idx, ant_scores)
