@@ -77,13 +77,20 @@ def get_sentence_ids(doc: Doc) -> List[int]:
 # from model.py, refactored to be non-member
 def get_predicted_antecedents(xp, antecedent_idx: Ints2d, antecedent_scores: Floats2d):
     """Get the ID of the antecedent for each span. -1 if no antecedent."""
-    predicted_antecedents = []
-    for i, idx in enumerate(xp.argmax(antecedent_scores, axis=1) - 1):
-        if idx < 0:
-            predicted_antecedents.append(-1)
-        else:
-            predicted_antecedents.append(antecedent_idx[i][idx])
-    return predicted_antecedents
+    predicted_antecedents = xp.argmax(antecedent_scores, axis=1) - 1
+    out = xp.full(antecedent_idx.shape[0], -1)
+    if predicted_antecedents.max() == -1:
+        return out
+    valid_indices = predicted_antecedents != -1
+    valid_preds = antecedent_idx[
+        xp.arange(antecedent_idx.shape[0]), predicted_antecedents
+    ][valid_indices]
+    xp.place(
+        out,
+        valid_indices,
+        valid_preds,
+    )
+    return out
 
 
 # from model.py, refactored to be non-member
@@ -104,9 +111,10 @@ def get_predicted_clusters(
     antecedent or referrent are omitted from clusters and mention2cluster.
     """
     # Get predicted antecedents
-    predicted_antecedents = get_predicted_antecedents(
-        xp, antecedent_idx, antecedent_scores
-    )
+    ops = NumpyOps()
+    predicted_antecedents = ops.asarray(
+        get_predicted_antecedents(xp, antecedent_idx, antecedent_scores)
+    ).tolist()
 
     # Get predicted clusters
     mention_to_cluster_id = {}
