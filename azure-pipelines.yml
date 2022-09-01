@@ -17,6 +17,9 @@ jobs:
       Python38Linux:
         imageName: 'ubuntu-18.04'
         python.version: '3.8'
+      Python38Windows:
+        imageName: "windows-latest"
+        python.version: "3.8"
     maxParallel: 4
   pool:
     vmImage: $(imageName)
