@@ -125,6 +125,8 @@ def head_data_forward(model, docs, is_train):
                 heads.append(span[0].i)
                 if len(span) > 1:
                     # TODO assign number to warning
+                    # Besides simple errors, this can be caused by tokenization
+                    # mismatches.
                     warnings.warn(
                         f"Input span has length {len(span)}, but should be 1."
                     )
