@@ -78,7 +78,7 @@ def get_sentence_ids(doc: Doc) -> List[int]:
 def get_predicted_antecedents(xp, antecedent_idx: Ints2d, antecedent_scores: Floats2d):
     """Get the ID of the antecedent for each span. -1 if no antecedent."""
     predicted_antecedents = xp.argmax(antecedent_scores, axis=1) - 1
-    out = xp.full(antecedent_idx.shape[0], -1)
+    out = xp.full(antecedent_idx.shape[0], -1, dtype=antecedent_idx.dtype)
     if predicted_antecedents.max() == -1:
         return out
     valid_indices = predicted_antecedents != -1
