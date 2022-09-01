@@ -43,7 +43,7 @@ jobs:
       pip uninstall -y -r installed.txt
     displayName: "Uninstall all packages"
 
-  - script: pip install dist/*.tar.gz
+  - bash: pip install dist/*.tar.gz
     displayName: 'Install from sdist'
 
   - task: DeleteFiles@1
