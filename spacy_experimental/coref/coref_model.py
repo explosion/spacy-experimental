@@ -10,6 +10,8 @@ from spacy.tokens import Doc
 
 EPSILON = 1e-7
 
+# In envs without PyTorch, these still need to be available for class
+# definitions so that entry points can be defined.
 try:
     Module = torch.nn.Module
     Tensor = torch.Tensor
