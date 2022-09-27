@@ -53,6 +53,10 @@ jobs:
 
   - script: |
       pip install -r requirements.txt
+      python -m pytest --pyargs spacy_experimental
+    displayName: 'Run tests without PyTorch'
+
+  - script: |
       pip install "torch==1.10.0+cpu" -f https://download.pytorch.org/whl/torch_stable.html
       python -m pytest --pyargs spacy_experimental
-    displayName: 'Run tests'
+    displayName: 'Run tests with PyTorch'
