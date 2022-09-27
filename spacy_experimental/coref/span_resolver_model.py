@@ -9,6 +9,13 @@ from thinc.util import torch, xp2torch, torch2xp
 from spacy.tokens import Doc
 from .coref_util import get_sentence_ids, MentionClusters, matches_coref_prefix
 
+try:
+    Module = torch.nn.Module
+    Tensor = torch.Tensor
+except AttributeError:
+    Module = object
+    Tensor = object
+
 
 def build_span_resolver(
     tok2vec: Model[List[Doc], List[Floats2d]],
@@ -137,7 +144,7 @@ def head_data_forward(model, docs, is_train):
     return (sent_ids, head_ids), lambda x: []
 
 
-class SpanResolverModel(torch.nn.Module):
+class SpanResolverModel(Module):
     def __init__(
         self,
         input_size: int,
@@ -174,9 +181,9 @@ class SpanResolverModel(torch.nn.Module):
     def forward(
         self,
         sent_id,
-        words: torch.Tensor,
-        heads_ids: torch.Tensor,
-    ) -> torch.Tensor:
+        words: Tensor,
+        heads_ids: Tensor,
+    ) -> Tensor:
         """
         Calculates span start/end scores of words for each span
         for each head.
