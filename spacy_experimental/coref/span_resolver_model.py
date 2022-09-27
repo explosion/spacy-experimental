@@ -4,17 +4,17 @@ import warnings
 from thinc.api import Model, chain, tuplify, get_width
 from thinc.api import PyTorchWrapper, ArgsKwargs
 from thinc.types import Floats2d, Ints1d
-from thinc.util import torch, xp2torch, torch2xp
+from thinc.util import has_torch, torch, xp2torch, torch2xp
 
 from spacy.tokens import Doc
 from .coref_util import get_sentence_ids, MentionClusters, matches_coref_prefix
 
 # In envs without PyTorch, these still need to be available for class
 # definitions so that entry points can be defined.
-try:
+if has_torch:
     Module = torch.nn.Module
     Tensor = torch.Tensor
-except AttributeError:
+else:
     Module = object
     Tensor = object
 
