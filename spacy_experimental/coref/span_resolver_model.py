@@ -12,7 +12,7 @@ from .coref_util import get_sentence_ids, MentionClusters, matches_coref_prefix
 try:
     from .pytorch_span_resolver_model import SpanResolverModel
 except ImportError:
-    SpanResolver = None
+    SpanResolverModel = None
 
 
 def build_span_resolver(
