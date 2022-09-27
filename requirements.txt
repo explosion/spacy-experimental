@@ -1,4 +1,4 @@
-spacy>=3.3.0,<3.4.0
+spacy>=3.3.0,<3.5.0
 
 # Development dependencies
 cython>=0.25,<3.0
