@@ -28,6 +28,8 @@ def build_span_resolver(
     max_distance: int,
     prefix: str,
 ) -> Model[List[Doc], List[MentionClusters]]:
+    if not has_torch:
+        raise ImportError("SpanResolver requires PyTorch: pip install thinc[torch]")
 
     nI = None
 

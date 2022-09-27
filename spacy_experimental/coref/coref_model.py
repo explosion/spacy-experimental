@@ -31,6 +31,9 @@ def build_coref_model(
     antecedent_batch_size: int,
 ) -> Model[List[Doc], Tuple[Floats2d, Ints2d]]:
 
+    if not has_torch:
+        raise ImportError("Coref requires PyTorch: pip install thinc[torch]")
+
     nI = None
 
     with Model.define_operators({">>": chain}):
