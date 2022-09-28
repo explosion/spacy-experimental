@@ -1,10 +1,8 @@
 from typing import List, Tuple, Dict
 from thinc.types import Ints1d, Ints2d, Floats2d
 from thinc.api import NumpyOps
-import srsly
 from spacy.language import Language
 from spacy.tokens import Doc
-import spacy.util as util
 
 # type alias to make writing this less tedious
 MentionClusters = List[List[Tuple[int, int]]]

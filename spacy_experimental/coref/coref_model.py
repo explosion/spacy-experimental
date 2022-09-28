@@ -3,7 +3,7 @@ from typing import List, Tuple, Callable, cast
 from thinc.api import Model, chain, get_width
 from thinc.api import PyTorchWrapper, ArgsKwargs
 from thinc.types import Floats2d, Ints2d
-from thinc.util import has_torch, torch, xp2torch, torch2xp
+from thinc.util import xp2torch, torch2xp
 
 from spacy.tokens import Doc
 
