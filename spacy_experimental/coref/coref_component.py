@@ -18,7 +18,7 @@ from spacy.util import from_disk, from_bytes
 
 from .coref_util import create_gold_scores, MentionClusters, create_head_span_idxs
 from .coref_util import get_clusters_from_doc, get_predicted_clusters
-from .coref_util import DEFAULT_CLUSTER_PREFIX, matches_coref_prefix
+from .coref_util import DEFAULT_CLUSTER_PREFIX
 
 from .coref_scorer import score_coref_clusters
 
