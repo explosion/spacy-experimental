@@ -16,7 +16,7 @@ class VariationalDropout(nn.Module):
 
         batch_size, _, repr_size = x.shape
         dropout_mask = F.dropout(
-            torch.ones((batch_size, 1, repr_size)), self.p, self.training
+            torch.ones((batch_size, 1, repr_size), device=x.device), self.p, self.training
         )
 
         return x * dropout_mask
@@ -51,7 +51,7 @@ class PairwiseBilinear(nn.Module):
 
         batch_size, seq_len, _ = u.shape
 
-        ones = torch.ones((batch_size, seq_len, 1), dtype=u.dtype)
+        ones = torch.ones((batch_size, seq_len, 1), dtype=u.dtype, device=u.device)
 
         if self.bias_u:
             u = torch.cat([u, ones], -1)
@@ -100,7 +100,7 @@ class PairwiseBilinearModel(nn.Module):
     def forward(self, x: torch.Tensor, seq_lens: torch.Tensor):
         max_seq_len = x.shape[1]
 
-        token_mask = torch.arange(max_seq_len).unsqueeze(0) < seq_lens.unsqueeze(1)
+        token_mask = torch.arange(max_seq_len, device=x.device).unsqueeze(0) < seq_lens.unsqueeze(1)
         logits_mask = (token_mask.float() - 1.0) * 10000.0
         logits_mask = logits_mask.unsqueeze(1).unsqueeze(-1)
 
