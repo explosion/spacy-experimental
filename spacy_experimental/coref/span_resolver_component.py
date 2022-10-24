@@ -176,6 +176,7 @@ class SpanResolver(TrainablePipe):
         """
         for doc, clusters in zip(docs, clusters_by_doc):
             for ii, cluster in enumerate(clusters, 1):
+                # Note the +1, since model end indices are inclusive
                 spans = [doc[int(mm[0]) : int(mm[1]) + 1] for mm in cluster]
                 doc.spans[f"{self.output_prefix}_{ii}"] = spans
 
@@ -274,9 +275,12 @@ class SpanResolver(TrainablePipe):
 
         # NOTE This is doing fake batching, and should always get a list of one example
         assert len(list(examples)) == 1, "Only fake batching is supported."
-        # starts and ends are gold starts and ends (Ints1d)
-        # span_scores is a Floats3d. What are the axes? mention x token x start/end
+
+        # NOTE Within this component, end token indices are *inclusive*. This
+        # is different than normal Python/spaCy representations, but has the
+        # advantage that the set of possible start and end indices is the same.
         for eg in examples:
+            # starts and ends are gold starts and ends (Ints1d)
             starts = []
             ends = []
             keeps = []
@@ -301,6 +305,7 @@ class SpanResolver(TrainablePipe):
 
             starts_xp = self.model.ops.xp.asarray(starts)
             ends_xp = self.model.ops.xp.asarray(ends)
+            # span_scores is a Floats3d. Axes: mention x token x start/end
             start_scores = span_scores[:, :, 0][keeps]
             end_scores = span_scores[:, :, 1][keeps]
 
