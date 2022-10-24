@@ -22,7 +22,7 @@ def generate_train_data(
     # fmt: off
     data = [
         (
-            "John Smith picked up the red ball and he threw it away.",
+            "John Smith picked up the red ball and he threw it",
             {
                 "spans": {
                     f"{output_prefix}_1": [
