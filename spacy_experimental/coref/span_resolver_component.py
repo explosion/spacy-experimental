@@ -176,7 +176,7 @@ class SpanResolver(TrainablePipe):
         """
         for doc, clusters in zip(docs, clusters_by_doc):
             for ii, cluster in enumerate(clusters, 1):
-                spans = [doc[int(mm[0]) : int(mm[1])] for mm in cluster]
+                spans = [doc[int(mm[0]) : int(mm[1]) + 1] for mm in cluster]
                 doc.spans[f"{self.output_prefix}_{ii}"] = spans
 
     def update(
@@ -296,7 +296,7 @@ class SpanResolver(TrainablePipe):
                         )
                         continue
                     starts.append(span.start)
-                    ends.append(span.end)
+                    ends.append(span.end - 1)
                     keeps.append(sidx - 1)
 
             starts_xp = self.model.ops.xp.asarray(starts)
