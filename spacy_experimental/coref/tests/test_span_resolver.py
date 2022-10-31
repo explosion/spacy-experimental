@@ -79,6 +79,13 @@ def test_not_initialized(nlp):
     with pytest.raises(ValueError, match="E109"):
         nlp(text)
 
+def test_initialized_short(nlp):
+    # docs with one or no tokens should not fail
+    nlp.add_pipe("experimental_span_resolver")
+    nlp.initialize()
+    assert nlp.pipe_names == ["experimental_span_resolver"]
+    nlp("hi")
+    nlp("")
 
 def test_span_resolver_serialization(nlp):
     # Test that the span resolver component can be serialized

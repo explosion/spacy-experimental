@@ -83,11 +83,12 @@ def test_initialized(nlp):
 
 
 def test_initialized_short(nlp):
+    # test that short or empty docs don't fail
     nlp.add_pipe("experimental_coref")
     nlp.initialize()
     assert nlp.pipe_names == ["experimental_coref"]
-    text = "Hi there"
-    doc = nlp(text)
+    doc = nlp("Hi")
+    doc = nlp("")
 
 
 def test_coref_serialization(nlp):
