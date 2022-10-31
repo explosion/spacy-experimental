@@ -154,7 +154,8 @@ def test_overfitting_IO(nlp, train_data):
 
 def test_tokenization_mismatch(nlp, train_data):
     train_examples = []
-    for text, annot in train_data:
+    # this is testing a specific test example, so just get the first doc
+    for text, annot in train_data[0:1]:
         eg = Example.from_dict(nlp.make_doc(text), annot)
         ref = eg.reference
         char_spans = {}
