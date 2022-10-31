@@ -37,6 +37,11 @@ def generate_train_data(prefix=DEFAULT_CLUSTER_PREFIX):
                 }
             },
         ),
+        (
+            # example short doc
+            "ok",
+            {"spans": {}}
+        )
     ]
     # fmt: on
     return data
