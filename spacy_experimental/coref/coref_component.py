@@ -145,6 +145,11 @@ class CoreferenceResolver(TrainablePipe):
         """
         out = []
         for doc in docs:
+            if len(doc) < 2:
+                # no coref in docs with 0 or 1 token
+                out.append([])
+                continue
+
             scores, idxs = self.model.predict([doc])
             # idxs is a list of mentions (start / end idxs)
             # each item in scores includes scores and a mapping from scores to mentions
@@ -232,6 +237,9 @@ class CoreferenceResolver(TrainablePipe):
                     predicted docs in coref training.
                     """
                 )
+            if len(eg.predicted) < 2:
+                # no prediction possible for docs of length 0 or 1
+                continue
             preds, backprop = self.model.begin_update([eg.predicted])
             score_matrix, mention_idx = preds
             loss, d_scores = self.get_loss([eg], score_matrix, mention_idx)
