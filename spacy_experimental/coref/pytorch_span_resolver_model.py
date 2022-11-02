@@ -53,6 +53,7 @@ class SpanResolverModel(nn.Module):
         Returns:
             torch.Tensor: span start/end scores, (n_heads x n_words x 2)
         """
+
         # If we don't receive heads, return empty
         device = heads_ids.device
         if heads_ids.nelement() == 0:
