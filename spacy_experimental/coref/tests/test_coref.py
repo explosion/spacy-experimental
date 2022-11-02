@@ -37,6 +37,11 @@ def generate_train_data(prefix=DEFAULT_CLUSTER_PREFIX):
                 }
             },
         ),
+        (
+            # example short doc
+            "ok",
+            {"spans": {}}
+        )
     ]
     # fmt: on
     return data
@@ -83,11 +88,12 @@ def test_initialized(nlp):
 
 
 def test_initialized_short(nlp):
+    # test that short or empty docs don't fail
     nlp.add_pipe("experimental_coref")
     nlp.initialize()
     assert nlp.pipe_names == ["experimental_coref"]
-    text = "Hi there"
-    doc = nlp(text)
+    doc = nlp("Hi")
+    doc = nlp("")
 
 
 def test_coref_serialization(nlp):
@@ -148,7 +154,8 @@ def test_overfitting_IO(nlp, train_data):
 
 def test_tokenization_mismatch(nlp, train_data):
     train_examples = []
-    for text, annot in train_data:
+    # this is testing a specific test example, so just get the first doc
+    for text, annot in train_data[0:1]:
         eg = Example.from_dict(nlp.make_doc(text), annot)
         ref = eg.reference
         char_spans = {}
