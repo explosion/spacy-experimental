@@ -1,5 +1,5 @@
+from typing import Iterable, Optional
 from pathlib import Path
-from typing import Iterable
 from spacy import Language, util
 from spacy.cli import app
 from spacy.tokens import Doc
@@ -17,16 +17,19 @@ def benchmark_cli(
     data_path: Path = Arg(
         ..., help="Location of binary evaluation data in .spacy format", exists=True
     ),
-    use_gpu: int = Option(-1, "--gpu-id", "-g", help="GPU ID or -1 for CPU"),
-    warmup_epochs: int = Option(
-        3, "--warmup", "-w", min=0, help="Number of iterations over the data for warmup"
+    batch_size: Optional[int] = Option(
+        None, "--batch-size", "-b", min=1, help="Override the pipeline batch size"
     ),
+    use_gpu: int = Option(-1, "--gpu-id", "-g", help="GPU ID or -1 for CPU"),
     bench_epochs: int = Option(
         3,
         "--iter",
         "-i",
         min=1,
         help="Number of iterations over the data for benchmarking",
+    ),
+    warmup_epochs: int = Option(
+        3, "--warmup", "-w", min=0, help="Number of iterations over the data for warmup"
     ),
 ):
     """
@@ -40,25 +43,27 @@ def benchmark_cli(
     docs = [eg.predicted for eg in corpus(nlp)]
     n_tokens = count_tokens(docs)
 
-    warmup(nlp, docs, warmup_epochs)
+    warmup(nlp, docs, warmup_epochs, batch_size)
 
-    best = benchmark(nlp, docs, bench_epochs)
+    best = benchmark(nlp, docs, bench_epochs, batch_size)
 
     print(
         "Best of %d runs: %.3fs %.0f, words/s" % (bench_epochs, best, n_tokens / best)
     )
 
 
-def annotate(nlp: Language, docs: Iterable[Doc]):
-    for _ in nlp.pipe(docs, batch_size=256):
+def annotate(nlp: Language, docs: Iterable[Doc], batch_size: Optional[int]) -> None:
+    for _ in nlp.pipe(docs, batch_size=batch_size):
         pass
 
 
-def benchmark(nlp: Language, docs: Iterable[Doc], bench_epochs: int):
+def benchmark(
+    nlp: Language, docs: Iterable[Doc], bench_epochs: int, batch_size: Optional[int]
+) -> None:
     best = float("inf")
     for _ in range(bench_epochs):
         start = time.time()
-        annotate(nlp, docs)
+        annotate(nlp, docs, batch_size)
         end = time.time()
         run = end - start
         if run < best:
@@ -66,7 +71,7 @@ def benchmark(nlp: Language, docs: Iterable[Doc], bench_epochs: int):
     return best
 
 
-def count_tokens(docs: Iterable[Doc]):
+def count_tokens(docs: Iterable[Doc]) -> int:
     count = 0
     for doc in docs:
         for _ in doc:
@@ -74,9 +79,11 @@ def count_tokens(docs: Iterable[Doc]):
     return count
 
 
-def warmup(nlp: Language, docs: Iterable[Doc], warmup_epochs: int):
+def warmup(
+    nlp: Language, docs: Iterable[Doc], warmup_epochs: int, batch_size: Optional[int]
+) -> None:
     for _ in range(warmup_epochs):
-        annotate(nlp, docs)
+        annotate(nlp, docs, batch_size)
 
 
 def setup_gpu(use_gpu: int, silent=None) -> None:
