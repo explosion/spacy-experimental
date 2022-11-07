@@ -86,6 +86,8 @@ def warmup(
         annotate(nlp, docs, batch_size)
 
 
+# Verbatim copy from spacy.cli._util. Remove after possible
+# spaCy integration.
 def setup_gpu(use_gpu: int, silent=None) -> None:
     """Configure the GPU and log info."""
     if silent is None:
