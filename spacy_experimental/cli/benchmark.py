@@ -47,9 +47,7 @@ def benchmark_cli(
 
     best = benchmark(nlp, docs, bench_epochs, batch_size)
 
-    print(
-        "Best of %d runs: %.3fs %.0f, words/s" % (bench_epochs, best, n_tokens / best)
-    )
+    print(f"Best of {bench_epochs} runs: {best:.3f}s {n_tokens / best:.0f} words/s")
 
 
 def annotate(nlp: Language, docs: Iterable[Doc], batch_size: Optional[int]) -> None:
