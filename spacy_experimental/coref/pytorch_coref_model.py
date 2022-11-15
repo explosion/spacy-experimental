@@ -265,7 +265,7 @@ class DistancePairwiseEncoder(nn.Module):
         self.shape = emb_size
 
     def forward(self, top_indices: torch.Tensor) -> torch.Tensor:
-        word_ids = torch.arange(0, top_indices.size(0))
+        word_ids = torch.arange(0, top_indices.size(0), device=top_indices.device)
         distance = (word_ids.unsqueeze(1) - word_ids[top_indices]).clamp_min_(min=1)
         log_distance = distance.to(torch.float).log2().floor_()
         log_distance = log_distance.clamp_max_(max=6).to(torch.long)
