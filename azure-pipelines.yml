@@ -60,6 +60,15 @@ jobs:
     displayName: 'Run tests without PyTorch'
 
   - script: |
+      pip install torch
+    displayName: 'Install PyTorch for windows/macos'
+    condition: not(startsWith(variables['imageName'], 'ubuntu'))
+
+  - script: |
       pip install "torch==1.13.1+cpu" --extra-index-url https://download.pytorch.org/whl/cpu
+    displayName: 'Install PyTorch for linux'
+    condition: startsWith(variables['imageName'], 'ubuntu')
+
+  - script: |
       python -m pytest --pyargs spacy_experimental
     displayName: 'Run tests with PyTorch'
