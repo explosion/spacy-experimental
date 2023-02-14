@@ -60,6 +60,6 @@ jobs:
     displayName: 'Run tests without PyTorch'
 
   - script: |
-      pip install "torch==1.10.0+cpu" -f https://download.pytorch.org/whl/torch_stable.html
+      pip install "torch==1.13.1+cpu" --extra-index-url https://download.pytorch.org/whl/cpu
       python -m pytest --pyargs spacy_experimental
     displayName: 'Run tests with PyTorch'
