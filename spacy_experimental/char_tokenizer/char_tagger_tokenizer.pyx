@@ -6,7 +6,7 @@ from thinc.api import Model, SequenceCategoricalCrossentropy, Config
 
 from spacy.tokens.doc cimport Doc
 
-from spacy.pipeline.tagger import Tagger
+from spacy.pipeline.tagger import ActivationsT, Tagger
 from spacy.language import Language
 from spacy.errors import Errors
 from spacy.scorer import Scorer
@@ -65,7 +65,8 @@ class CharTaggerTokenizer(Tagger):
         super().__init__(vocab, model, name, overwrite=True, scorer=scorer)
         self.cfg["annotate_sents"] = annotate_sents
 
-    def set_annotations(self, docs, batch_tag_ids):
+    def set_annotations(self, docs, activations: ActivationsT):
+        batch_tag_ids = activations["label_ids"]
         if isinstance(docs, Doc):
             docs = [docs]
         cdef Doc doc
