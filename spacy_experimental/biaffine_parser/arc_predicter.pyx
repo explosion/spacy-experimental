@@ -318,7 +318,8 @@ def split_lazily(docs: List[Doc], *, ops: Ops, max_length: int, senter: Sentence
     for doc in docs:
         activations = doc.activations.get(senter.name, None)
         if activations is None:
-            raise ValueError("Greedy splitting requires senter with `store_activations` enabled.")
+            raise ValueError("Greedy splitting requires `senter` with `save_activations` enabled.\n"
+                             "During training, `senter` must be in the list of annotating components")
         scores = activations['probabilities']
         split_recursive(scores[:,1], ops, max_length, lens)
 
