@@ -7,6 +7,7 @@ import spacy
 from spacy import Language, Vocab
 from spacy.errors import Errors
 from spacy.pipeline.trainable_pipe cimport TrainablePipe
+from spacy.pipeline.senter import SentenceRecognizer
 from spacy.tokens.token cimport Token
 from spacy.tokens.doc cimport Doc
 from spacy.training import Example, validate_get_examples, validate_examples
@@ -43,7 +44,9 @@ DEFAULT_ARC_PREDICTER_MODEL = Config().from_str(default_model_config)["model"]
     assigns=["token.head"],
     default_config={
         "model": DEFAULT_ARC_PREDICTER_MODEL,
-        "scorer": {"@scorers": "spacy-experimental.biaffine_parser_scorer.v1"}
+        "scorer": {"@scorers": "spacy-experimental.biaffine_parser_scorer.v1"},
+        "senter": None,
+        "max_length": 100,
     },
 )
 def make_arc_predicter(
@@ -51,29 +54,37 @@ def make_arc_predicter(
     name: str,
     model: Model,
     scorer: Optional[Callable],
+    senter: Optional[str],
+    max_length: int,
 ):
-    return ArcPredicter(nlp.vocab, model, name, scorer=scorer)
+    return ArcPredicter(nlp, model, name, max_length=max_length, scorer=scorer, senter=senter)
 
 
 class ArcPredicter(TrainablePipe):
     def __init__(
         self,
-        vocab: Vocab,
+        nlp: Language,
         model: Model,
         name: str = "arc_predicter",
         *,
+        max_length=100,
         overwrite=False,
-        scorer=parser_score
+        scorer=parser_score,
+        senter=None,
     ):
         self.name = name
         self.model = model
-        self.vocab = vocab
+        self.max_length = max_length
+        self.senter = nlp.get_pipe(senter) if senter is not None else None
+        self.vocab = nlp.vocab
         cfg = {"labels": [], "overwrite": overwrite}
         self.cfg = dict(sorted(cfg.items()))
         self.scorer = scorer
 
-    def get_loss(self, examples: Iterable[Example], scores) -> Tuple[float, Floats2d]:
+    def get_loss(self, examples: Iterable[Example], scores, lengths) -> Tuple[float, Floats2d]:
         validate_examples(examples, "ArcPredicter.get_loss")
+
+        lengths = to_numpy(lengths)
 
         def loss_func(guesses, target, mask):
             d_scores = guesses - target
@@ -87,19 +98,21 @@ class ArcPredicter(TrainablePipe):
         offset = 0
         for eg in examples:
             aligned_heads, _ = eg.get_aligned_parse(projectivize=False)
-            # TODO: what if eg.predicted doesn't contain sents? (raise error?)
-            for sent in eg.predicted.sents:
-                for token in sent:
-                    gold_head = aligned_heads[token.i]
+            sent_start = 0
+            while sent_start != len(eg):
+                for i in range(lengths[0]):
+                    gold_head = aligned_heads[sent_start + i]
                     if gold_head is not None:
                         # We only use the loss for token for which the correct head
                         # lies within the sentence boundaries.
-                        if sent.start <= gold_head < sent.end:
-                            gold_head_idx = gold_head - sent.start
+                        if sent_start <= gold_head < sent_start + lengths[0]:
+                            gold_head_idx = gold_head - sent_start
                             target[offset, gold_head_idx] = 1.0
                             mask[offset] = 1
-
                     offset += 1
+
+                sent_start += lengths[0]
+                lengths = lengths[1:]
 
         assert offset == target.shape[0]
 
@@ -147,27 +160,33 @@ class ArcPredicter(TrainablePipe):
 
     def predict(self, docs: Iterable[Doc]):
         docs = list(docs)
-        lens = sents2lens(docs, ops=self.model.ops)
-        scores = self.model.predict((docs, lens))
 
-        lens = to_numpy(lens)
+        if self.senter:
+            lengths = split_lazily(docs, ops=self.model.ops, max_length=self.max_length, senter=self.senter, is_train=False)
+        else:
+            lengths = sents2lens(docs, ops=self.model.ops)
+        scores = self.model.predict((docs, lengths))
+
+        lengths = to_numpy(lengths)
         scores = to_numpy(scores)
 
         heads = []
-        sent_offset = 0
         for doc in docs:
+            sent_offset = 0
             doc_heads = []
-            for sent in doc.sents:
-                sent_heads = mst_decode(scores[sent_offset:sent_offset + lens[0], :lens[0]])
-                doc_heads.append(sent_heads)
+            while sent_offset != len(doc):
+                sent_heads = mst_decode(scores[:lengths[0], :lengths[0]])
+                sent_heads = [head - i for (i, head) in enumerate(sent_heads)]
+                doc_heads.extend(sent_heads)
 
-                sent_offset += lens[0]
-                lens = lens[1:]
+                sent_offset += lengths[0]
+                scores = scores[lengths[0]:]
+                lengths = lengths[1:]
 
             heads.append(doc_heads)
 
-        assert len(lens) == 0
-        assert sent_offset == scores.shape[0]
+        assert len(lengths) == 0
+        assert len(scores) == 0
 
         return heads
 
@@ -176,21 +195,11 @@ class ArcPredicter(TrainablePipe):
         cdef Token token
 
         for (doc, doc_heads) in zip(docs, heads):
-            for (sent, sent_heads) in zip(doc.sents, doc_heads):
-                for i, head in enumerate(sent_heads):
-                    dep_i = sent.start + i
-                    head_i = sent.start + head
-                    doc.c[dep_i].head = head_i - dep_i
-                    # FIXME: Set the dependency relation to a stub, so that
-                    # we can evaluate UAS.
-                    doc.c[dep_i].dep = self.vocab.strings['dep']
-
-            for i in range(doc.length):
-                if doc.c[i].head == 0:
-                    doc.c[i].dep = self.vocab.strings['ROOT']
-
-            # FIXME: we should enable this, but clears sentence boundaries
-            # set_children_from_heads(doc.c, 0, doc.length)
+            for token, head in zip(doc, doc_heads):
+                doc.c[token.i].head = head
+                # FIXME: Set the dependency relation to a stub, so that
+                # we can evaluate UAS.
+                doc.c[token.i].dep = self.vocab.strings['dep']
 
     def update(
         self,
@@ -211,12 +220,15 @@ class ArcPredicter(TrainablePipe):
 
         docs = [eg.predicted for eg in examples]
 
-        lens = sents2lens(docs, ops=self.model.ops)
+        if self.senter:
+            lens = split_lazily(docs, ops=self.model.ops, max_length=self.max_length, senter=self.senter, is_train=True)
+        else:
+            lens = sents2lens(docs, ops=self.model.ops)
         if lens.sum() == 0:
             return losses
 
         scores, backprop_scores = self.model.begin_update((docs, lens))
-        loss, d_scores = self.get_loss(examples, scores)
+        loss, d_scores = self.get_loss(examples, scores, lens)
         backprop_scores(d_scores)
 
         if sgd is not None:
@@ -300,3 +312,28 @@ def sents2lens(docs: List[Doc], *, ops: Ops) -> Ints1d:
             lens.append(sent.end - sent.start)
 
     return ops.asarray1i(lens)
+
+def split_lazily(docs: List[Doc], *, ops: Ops, max_length: int, senter: SentenceRecognizer, is_train: bool) -> Ints1d:
+    lens = []
+    for doc in docs:
+        activations = doc.activations.get(senter.name, None)
+        if activations is None:
+            raise ValueError("Lazy splitting requires `senter` with `save_activations` enabled.\n"
+                             "During training, `senter` must be in the list of annotating components")
+        scores = activations['probabilities']
+        split_recursive(scores[:,1], ops, max_length, lens)
+
+    assert sum(lens) == sum([len(doc) for doc in docs])
+
+    return ops.asarray1i(lens)
+
+def split_recursive(scores, ops, max_length, lengths):
+    if len(scores) < max_length:
+        lengths.append(len(scores))
+    else:
+        # Find the best splitting point. Exclude the first token, because it
+        # wouldn't split the current partition (leading to infinite recursion).
+        start = ops.xp.argmax(scores[1:]) + 1
+
+        split_recursive(scores[:start], ops, max_length, lengths)
+        split_recursive(scores[start:], ops, max_length, lengths)
