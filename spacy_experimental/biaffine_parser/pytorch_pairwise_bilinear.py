@@ -85,7 +85,7 @@ class PairwiseBilinearModel(nn.Module):
 
         self.head = nn.Linear(nI, hidden_width)
         self.dependent = nn.Linear(nI, hidden_width)
-        self.bilinear = PairwiseBilinear(hidden_width, nO)
+        self.pairwise_bilinear = PairwiseBilinear(hidden_width, nO)
         self.activation = activation
         self._dropout = VariationalDropout(dropout)
 
@@ -111,7 +111,7 @@ class PairwiseBilinearModel(nn.Module):
         # Compute biaffine attention matrix. This computes from the hidden
         # representations of the shape [batch_size, seq_len, hidden_width] the
         # attention matrices [batch_size, seq_len, seq_len, n_O].
-        logits = self.bilinear(head, dependent)
+        logits = self.pairwise_bilinear(head, dependent)
 
         # Mask out head candidates that are padding time steps. The logits mask
         # has shape [batch_size, seq_len], we reshape it to [batch_size, 1,
