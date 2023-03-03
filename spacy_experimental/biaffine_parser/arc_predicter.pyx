@@ -46,7 +46,7 @@ DEFAULT_ARC_PREDICTER_MODEL = Config().from_str(default_model_config)["model"]
         "model": DEFAULT_ARC_PREDICTER_MODEL,
         "scorer": {"@scorers": "spacy-experimental.biaffine_parser_scorer.v1"},
         "senter": None,
-        "max_length": 100,
+        "max_tokens": 100,
     },
 )
 def make_arc_predicter(
@@ -55,9 +55,9 @@ def make_arc_predicter(
     model: Model,
     scorer: Optional[Callable],
     senter: Optional[str],
-    max_length: int,
+    max_tokens: int,
 ):
-    return ArcPredicter(nlp, model, name, max_length=max_length, scorer=scorer, senter=senter)
+    return ArcPredicter(nlp, model, name, max_tokens=max_tokens, scorer=scorer, senter=senter)
 
 
 class ArcPredicter(TrainablePipe):
@@ -67,14 +67,14 @@ class ArcPredicter(TrainablePipe):
         model: Model,
         name: str = "arc_predicter",
         *,
-        max_length=100,
+        max_tokens: int,
         overwrite=False,
         scorer=parser_score,
         senter=None,
     ):
         self.name = name
         self.model = model
-        self.max_length = max_length
+        self.max_tokens = max_tokens
         self.senter = nlp.get_pipe(senter) if senter is not None else None
         self.vocab = nlp.vocab
         cfg = {"labels": [], "overwrite": overwrite}
@@ -162,7 +162,7 @@ class ArcPredicter(TrainablePipe):
         docs = list(docs)
 
         if self.senter:
-            lengths = split_lazily(docs, ops=self.model.ops, max_length=self.max_length, senter=self.senter, is_train=False)
+            lengths = split_lazily(docs, ops=self.model.ops, max_tokens=self.max_tokens, senter=self.senter, is_train=False)
         else:
             lengths = sents2lens(docs, ops=self.model.ops)
         scores = self.model.predict((docs, lengths))
@@ -221,7 +221,7 @@ class ArcPredicter(TrainablePipe):
         docs = [eg.predicted for eg in examples]
 
         if self.senter:
-            lens = split_lazily(docs, ops=self.model.ops, max_length=self.max_length, senter=self.senter, is_train=True)
+            lens = split_lazily(docs, ops=self.model.ops, max_tokens=self.max_tokens, senter=self.senter, is_train=True)
         else:
             lens = sents2lens(docs, ops=self.model.ops)
         if lens.sum() == 0:
@@ -313,7 +313,7 @@ def sents2lens(docs: List[Doc], *, ops: Ops) -> Ints1d:
 
     return ops.asarray1i(lens)
 
-def split_lazily(docs: List[Doc], *, ops: Ops, max_length: int, senter: SentenceRecognizer, is_train: bool) -> Ints1d:
+def split_lazily(docs: List[Doc], *, ops: Ops, max_tokens: int, senter: SentenceRecognizer, is_train: bool) -> Ints1d:
     lens = []
     for doc in docs:
         activations = doc.activations.get(senter.name, None)
@@ -321,19 +321,19 @@ def split_lazily(docs: List[Doc], *, ops: Ops, max_length: int, senter: Sentence
             raise ValueError("Lazy splitting requires `senter` with `save_activations` enabled.\n"
                              "During training, `senter` must be in the list of annotating components")
         scores = activations['probabilities']
-        split_recursive(scores[:,1], ops, max_length, lens)
+        split_recursive(scores[:,1], ops, max_tokens, lens)
 
     assert sum(lens) == sum([len(doc) for doc in docs])
 
     return ops.asarray1i(lens)
 
-def split_recursive(scores, ops, max_length, lengths):
-    if len(scores) < max_length:
+def split_recursive(scores, ops, max_tokens, lengths):
+    if len(scores) < max_tokens:
         lengths.append(len(scores))
     else:
         # Find the best splitting point. Exclude the first token, because it
         # wouldn't split the current partition (leading to infinite recursion).
         start = ops.xp.argmax(scores[1:]) + 1
 
-        split_recursive(scores[:start], ops, max_length, lengths)
-        split_recursive(scores[start:], ops, max_length, lengths)
+        split_recursive(scores[:start], ops, max_tokens, lengths)
+        split_recursive(scores[start:], ops, max_tokens, lengths)
