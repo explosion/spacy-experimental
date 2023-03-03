@@ -1,4 +1,4 @@
-from typing import List, Tuple, cast
+from typing import List, Optional, Tuple, cast
 import warnings
 
 from thinc.api import Model, chain, tuplify, get_width
@@ -9,6 +9,7 @@ from thinc.util import torch, xp2torch, torch2xp
 from spacy.tokens import Doc
 from .coref_util import get_sentence_ids, MentionClusters, matches_coref_prefix
 
+SpanResolverModel: Optional[type]
 try:
     from .pytorch_span_resolver_model import SpanResolverModel
 except ImportError:
@@ -25,7 +26,9 @@ def build_span_resolver(
     prefix: str,
 ) -> Model[List[Doc], List[MentionClusters]]:
     if SpanResolverModel is None:
-        raise ImportError("SpanResolver requires PyTorch: pip install thinc[torch]")
+        raise ImportError(
+            "SpanResolverModel requires PyTorch: pip install thinc[torch]"
+        )
 
     nI = None
 
@@ -51,6 +54,11 @@ def build_span_resolver(
 
 
 def span_resolver_init(model: Model, X=None, Y=None):
+    if SpanResolverModel is None:
+        raise ImportError(
+            "SpanResolverModel requires PyTorch: pip install thinc[torch]"
+        )
+
     if model.layers:
         return
 

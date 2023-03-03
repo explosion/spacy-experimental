@@ -42,6 +42,11 @@ jobs:
     displayName: 'Build sdist'
 
   - script: |
+      python -m mypy spacy_experimental
+    displayName: 'Run mypy'
+    condition: ne(variables['python.version'], '3.6')
+
+  - script: |
       pip freeze > installed.txt
       pip uninstall -y -r installed.txt
     displayName: "Uninstall all packages"

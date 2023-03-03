@@ -3,4 +3,5 @@ spacy>=3.3.0,<3.6.0
 # Development dependencies
 cython>=0.25,<3.0
 hypothesis>=3.27.0,<7.0.0
+mypy>=1.0.0,<1.1.0; python_version >= "3.7"
 pytest

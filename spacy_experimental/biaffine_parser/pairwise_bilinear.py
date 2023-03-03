@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple, cast
+from typing import List, Optional, Tuple, Union, cast
 
 from spacy import registry
 from spacy.tokens.doc import Doc
@@ -134,7 +134,7 @@ def convert_outputs(model, inputs_outputs, is_train):
 
     (_, lengths), Y_t = inputs_outputs
 
-    def convert_for_torch_backward(dY: Tuple[Floats2d, Floats3d]) -> ArgsKwargs:
+    def convert_for_torch_backward(dY: Union[Floats3d, Floats4d]) -> ArgsKwargs:
         dY_t = xp2torch(pad(unflatten(dY, lengths)))
         return ArgsKwargs(
             args=([Y_t],),
