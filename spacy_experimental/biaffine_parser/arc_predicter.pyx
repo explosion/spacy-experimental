@@ -43,6 +43,7 @@ DEFAULT_ARC_PREDICTER_MODEL = Config().from_str(default_model_config)["model"]
     assigns=["token.head"],
     default_config={
         "model": DEFAULT_ARC_PREDICTER_MODEL,
+        "overwrite": False,
         "scorer": {"@scorers": "spacy.parser_scorer.v1"},
     },
 )
@@ -50,9 +51,10 @@ def make_arc_predicter(
     nlp: Language,
     name: str,
     model: Model,
+    overwrite: bool,
     scorer: Optional[Callable],
 ):
-    return ArcPredicter(nlp.vocab, model, name, scorer=scorer)
+    return ArcPredicter(nlp.vocab, model, name, overwrite=overwrite, scorer=scorer)
 
 
 class ArcPredicter(TrainablePipe):
@@ -62,8 +64,8 @@ class ArcPredicter(TrainablePipe):
         model: Model,
         name: str = "arc_predicter",
         *,
-        overwrite=False,
-        scorer=parser_score,
+        overwrite: bool,
+        scorer: Callable,
     ):
         self.name = name
         self.model = model
