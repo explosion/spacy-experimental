@@ -6,6 +6,7 @@ from typing import Callable, Dict, Iterable, List, Optional
 import spacy
 from spacy import Language, Vocab
 from spacy.errors import Errors
+from spacy.pipeline.dep_parser import parser_score
 from spacy.pipeline.trainable_pipe cimport TrainablePipe
 from spacy.pipeline.senter import SentenceRecognizer
 from spacy.tokens.token cimport Token
@@ -17,7 +18,6 @@ from thinc.api import Config, Model, Ops, Optimizer
 from thinc.api import to_numpy
 from thinc.types import Floats2d, Ints1d, Tuple
 
-from .eval import parser_score
 from .mst import mst_decode
 
 
@@ -44,7 +44,7 @@ DEFAULT_ARC_PREDICTER_MODEL = Config().from_str(default_model_config)["model"]
     assigns=["token.head"],
     default_config={
         "model": DEFAULT_ARC_PREDICTER_MODEL,
-        "scorer": {"@scorers": "spacy-experimental.biaffine_parser_scorer.v1"},
+        "scorer": {"@scorers": "spacy.parser_scorer.v1"},
         "senter": None,
         "max_tokens": 100,
     },

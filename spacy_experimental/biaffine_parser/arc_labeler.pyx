@@ -6,6 +6,7 @@ from typing import Callable, Dict, Iterable, Optional
 import spacy
 from spacy import Language, Vocab
 from spacy.errors import Errors
+from spacy.pipeline.dep_parser import parser_score
 from spacy.pipeline.trainable_pipe cimport TrainablePipe
 from spacy.tokens.token cimport Token
 from spacy.tokens.doc cimport Doc
@@ -16,7 +17,6 @@ from thinc.api import Config, Model, Ops, Optimizer
 from thinc.api import to_numpy
 from thinc.types import Floats2d, Ints1d, Tuple
 
-from .eval import parser_score
 
 default_model_config = """
 [model]
@@ -40,7 +40,7 @@ DEFAULT_ARC_LABELER_MODEL = Config().from_str(default_model_config)["model"]
     assigns=["token.dep"],
     default_config={
         "model": DEFAULT_ARC_LABELER_MODEL,
-        "scorer": {"@scorers": "spacy-experimental.biaffine_parser_scorer.v1"}
+        "scorer": {"@scorers": "spacy.parser_scorer.v1"}
     },
 )
 def make_arc_labeler(
@@ -60,7 +60,7 @@ class ArcLabeler(TrainablePipe):
         name: str = "arc_labeler",
         *,
         overwrite=False,
-        scorer=parser_score
+        scorer=parser_score,
     ):
         self.name = name
         self.model = model
