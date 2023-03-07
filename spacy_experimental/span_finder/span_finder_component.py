@@ -267,7 +267,7 @@ class SpanFinder(TrainablePipe):
         RETURNS (Tuple[float, float]): The loss and the gradient.
         """
         reference_truths = self._get_aligned_truth_scores(examples)
-        d_scores = scores - self.model.ops.asarray(reference_truths, dtype=float32)
+        d_scores = scores - self.model.ops.asarray2f(reference_truths)
         loss = float((d_scores**2).sum())
         return loss, d_scores
 
@@ -298,7 +298,7 @@ class SpanFinder(TrainablePipe):
 
         return reference_truths
 
-    def _get_reference(self, docs) -> Floats2d:
+    def _get_reference(self, docs) -> List[Tuple[int, int]]:
         """Create a reference list of token probabilities"""
         reference_probabilities = []
         for doc in docs:
@@ -340,7 +340,7 @@ class SpanFinder(TrainablePipe):
 
         if subbatch:
             docs = [eg.reference for eg in subbatch]
-            Y = self.model.ops.asarray(self._get_reference(docs), dtype=float32)
+            Y = self.model.ops.asarray2f(self._get_reference(docs))
             self.model.initialize(X=docs, Y=Y)
         else:
             self.model.initialize()
