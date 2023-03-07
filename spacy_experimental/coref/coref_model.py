@@ -1,4 +1,4 @@
-from typing import List, Tuple, Callable, cast
+from typing import Callable, List, Optional, Tuple, cast
 
 from thinc.api import Model, chain, get_width
 from thinc.api import PyTorchWrapper, ArgsKwargs
@@ -7,6 +7,7 @@ from thinc.util import xp2torch, torch2xp
 
 from spacy.tokens import Doc
 
+CorefClusterer: Optional[type]
 try:
     from .pytorch_coref_model import CorefClusterer
 except ImportError:
@@ -51,6 +52,11 @@ def build_coref_model(
 
 
 def coref_init(model: Model, X=None, Y=None):
+    if CorefClusterer is None:
+        raise ImportError(
+            "CorefClusterer layer requires PyTorch: pip install thinc[torch]"
+        )
+
     if model.layers:
         return
 
