@@ -40,6 +40,7 @@ DEFAULT_ARC_LABELER_MODEL = Config().from_str(default_model_config)["model"]
     assigns=["token.dep"],
     default_config={
         "model": DEFAULT_ARC_LABELER_MODEL,
+        "overwrite": False,
         "scorer": {"@scorers": "spacy.parser_scorer.v1"}
     },
 )
@@ -47,9 +48,10 @@ def make_arc_labeler(
     nlp: Language,
     name: str,
     model: Model,
+    overwrite: bool,
     scorer: Optional[Callable],
 ):
-    return ArcLabeler(nlp.vocab, model, name, scorer=scorer)
+    return ArcLabeler(nlp.vocab, model, name, overwrite=overwrite, scorer=scorer)
 
 
 class ArcLabeler(TrainablePipe):
@@ -59,8 +61,8 @@ class ArcLabeler(TrainablePipe):
         model: Model,
         name: str = "arc_labeler",
         *,
-        overwrite=False,
-        scorer=parser_score,
+        overwrite: bool,
+        scorer: Optional[Callable],
     ):
         self.name = name
         self.model = model
