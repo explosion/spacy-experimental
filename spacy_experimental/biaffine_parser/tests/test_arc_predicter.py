@@ -150,8 +150,16 @@ def test_overfitting_IO(lazy_splitting):
 
 def test_senter_check():
     nlp = English.from_config()
-    with pytest.raises(KeyError):
-        nlp.add_pipe("experimental_arc_predicter", config={"senter": "senter"})
-
-    nlp.add_pipe("senter")
     nlp.add_pipe("experimental_arc_predicter", config={"senter": "senter"})
+    nlp.initialize()
+
+    nlp = English.from_config()
+    senter = nlp.add_pipe("senter")
+    nlp.add_pipe("experimental_arc_predicter", config={"senter": "senter"})
+    nlp.initialize()
+
+    with pytest.raises(ValueError):
+        list(nlp.pipe([nlp.make_doc("Test")]))
+
+    senter.save_activations = True
+    list(nlp.pipe([nlp.make_doc("Test")]))

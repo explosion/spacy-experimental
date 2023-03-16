@@ -8,7 +8,6 @@ from spacy import Language, Vocab
 from spacy.errors import Errors
 from spacy.pipeline.dep_parser import parser_score
 from spacy.pipeline.trainable_pipe cimport TrainablePipe
-from spacy.pipeline.senter import SentenceRecognizer
 from spacy.tokens.token cimport Token
 from spacy.tokens.doc cimport Doc
 from spacy.training import Example, validate_get_examples, validate_examples
@@ -72,12 +71,12 @@ class ArcPredicter(TrainablePipe):
         max_tokens: int,
         overwrite: bool,
         scorer: Callable,
-        senter=None,
+        senter: Optional[str]=None,
     ):
         self.name = name
         self.model = model
         self.max_tokens = max_tokens
-        self.senter = nlp.get_pipe(senter) if senter is not None else None
+        self.senter_name = senter
         self.vocab = nlp.vocab
         cfg = {"labels": [], "overwrite": overwrite}
         self.cfg = dict(sorted(cfg.items()))
@@ -163,8 +162,8 @@ class ArcPredicter(TrainablePipe):
     def predict(self, docs: Iterable[Doc]):
         docs = list(docs)
 
-        if self.senter:
-            lengths = split_lazily(docs, ops=self.model.ops, max_tokens=self.max_tokens, senter=self.senter)
+        if self.senter_name:
+            lengths = split_lazily(docs, ops=self.model.ops, max_tokens=self.max_tokens, senter_name=self.senter_name)
         else:
             lengths = sents2lens(docs, ops=self.model.ops)
         scores = self.model.predict((docs, lengths))
@@ -222,8 +221,8 @@ class ArcPredicter(TrainablePipe):
 
         docs = [eg.predicted for eg in examples]
 
-        if self.senter:
-            lens = split_lazily(docs, ops=self.model.ops, max_tokens=self.max_tokens, senter=self.senter)
+        if self.senter_name:
+            lens = split_lazily(docs, ops=self.model.ops, max_tokens=self.max_tokens, senter_name=self.senter_name)
         else:
             lens = sents2lens(docs, ops=self.model.ops)
         if lens.sum() == 0:
@@ -315,13 +314,14 @@ def sents2lens(docs: List[Doc], *, ops: Ops) -> Ints1d:
 
     return ops.asarray1i(lens)
 
-def split_lazily(docs: List[Doc], *, ops: Ops, max_tokens: int, senter: SentenceRecognizer) -> Ints1d:
+def split_lazily(docs: List[Doc], *, ops: Ops, max_tokens: int, senter_name: str) -> Ints1d:
     lens = []
     for doc in docs:
-        activations = doc.activations.get(senter.name, None)
+        activations = doc.activations.get(senter_name, None)
         if activations is None:
-            raise ValueError("Lazy splitting requires `senter` with `save_activations` enabled.\n"
-                             "During training, `senter` must be in the list of annotating components")
+            raise ValueError(f"Lazy splitting requires senter pipe `{senter_name}` to have ",
+                              "`save_activations` enabled.\nDuring training, `senter` must be "
+                              "in the list of annotating components.")
         scores = activations['probabilities']
         split_recursive(scores[:,1], ops, max_tokens, lens)
 
