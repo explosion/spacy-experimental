@@ -164,7 +164,7 @@ class ArcPredicter(TrainablePipe):
         docs = list(docs)
 
         if self.senter:
-            lengths = split_lazily(docs, ops=self.model.ops, max_tokens=self.max_tokens, senter=self.senter, is_train=False)
+            lengths = split_lazily(docs, ops=self.model.ops, max_tokens=self.max_tokens, senter=self.senter)
         else:
             lengths = sents2lens(docs, ops=self.model.ops)
         scores = self.model.predict((docs, lengths))
@@ -223,7 +223,7 @@ class ArcPredicter(TrainablePipe):
         docs = [eg.predicted for eg in examples]
 
         if self.senter:
-            lens = split_lazily(docs, ops=self.model.ops, max_tokens=self.max_tokens, senter=self.senter, is_train=True)
+            lens = split_lazily(docs, ops=self.model.ops, max_tokens=self.max_tokens, senter=self.senter)
         else:
             lens = sents2lens(docs, ops=self.model.ops)
         if lens.sum() == 0:
@@ -315,7 +315,7 @@ def sents2lens(docs: List[Doc], *, ops: Ops) -> Ints1d:
 
     return ops.asarray1i(lens)
 
-def split_lazily(docs: List[Doc], *, ops: Ops, max_tokens: int, senter: SentenceRecognizer, is_train: bool) -> Ints1d:
+def split_lazily(docs: List[Doc], *, ops: Ops, max_tokens: int, senter: SentenceRecognizer) -> Ints1d:
     lens = []
     for doc in docs:
         activations = doc.activations.get(senter.name, None)
