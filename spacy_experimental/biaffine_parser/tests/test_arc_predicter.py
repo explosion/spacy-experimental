@@ -75,7 +75,7 @@ def test_incomplete_data(lazy_splitting):
     arc_predicter = nlp.add_pipe("experimental_arc_predicter")
 
     if lazy_splitting:
-        arc_predicter.senter = senter
+        arc_predicter.senter_name = "senter"
         senter.save_activations = True
 
     train_examples = []
@@ -104,7 +104,7 @@ def test_overfitting_IO(lazy_splitting):
     arc_predicter = nlp.add_pipe("experimental_arc_predicter")
 
     if lazy_splitting:
-        arc_predicter.senter = senter
+        arc_predicter.senter_name = "senter"
         senter.save_activations = True
 
     train_examples = []
@@ -150,12 +150,8 @@ def test_overfitting_IO(lazy_splitting):
 
 def test_senter_check():
     nlp = English.from_config()
-    nlp.add_pipe("experimental_arc_predicter", config={"senter": "senter"})
-    nlp.initialize()
-
-    nlp = English.from_config()
     senter = nlp.add_pipe("senter")
-    nlp.add_pipe("experimental_arc_predicter", config={"senter": "senter"})
+    nlp.add_pipe("experimental_arc_predicter", config={"senter_name": "senter"})
     nlp.initialize()
 
     with pytest.raises(ValueError):
