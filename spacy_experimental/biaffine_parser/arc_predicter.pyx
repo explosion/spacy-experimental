@@ -58,13 +58,13 @@ def make_arc_predicter(
     senter_name: Optional[str],
     max_tokens: int,
 ):
-    return ArcPredicter(nlp, model, name, max_tokens=max_tokens, overwrite=overwrite, scorer=scorer, senter_name=senter_name)
+    return ArcPredicter(nlp.vocab, model, name, max_tokens=max_tokens, overwrite=overwrite, scorer=scorer, senter_name=senter_name)
 
 
 class ArcPredicter(TrainablePipe):
     def __init__(
         self,
-        nlp: Language,
+        vocab: Vocab,
         model: Model,
         name: str = "arc_predicter",
         *,
@@ -77,7 +77,7 @@ class ArcPredicter(TrainablePipe):
         self.model = model
         self.max_tokens = max_tokens
         self.senter_name = senter_name
-        self.vocab = nlp.vocab
+        self.vocab = vocab
         cfg = {"labels": [], "overwrite": overwrite}
         self.cfg = dict(sorted(cfg.items()))
         self.scorer = scorer
