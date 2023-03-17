@@ -314,6 +314,7 @@ def sents2lens(docs: List[Doc], *, ops: Ops) -> Ints1d:
 
     return ops.asarray1i(lens)
 
+
 def split_lazily(docs: List[Doc], *, ops: Ops, max_tokens: int, senter_name: str) -> Ints1d:
     lens = []
     for doc in docs:
@@ -328,6 +329,7 @@ def split_lazily(docs: List[Doc], *, ops: Ops, max_tokens: int, senter_name: str
     assert sum(lens) == sum([len(doc) for doc in docs])
 
     return ops.asarray1i(lens)
+
 
 def split_recursive(scores, ops, max_tokens, lengths):
     if len(scores) < max_tokens:
