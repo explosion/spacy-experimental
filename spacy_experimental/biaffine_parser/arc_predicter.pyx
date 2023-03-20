@@ -71,7 +71,7 @@ class ArcPredicter(TrainablePipe):
         max_tokens: int,
         overwrite: bool,
         scorer: Callable,
-        senter_name: Optional[str]=None,
+        senter_name: Optional[str] = None,
     ):
         self.name = name
         self.model = model
