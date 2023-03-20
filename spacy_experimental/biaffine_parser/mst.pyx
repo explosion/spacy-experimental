@@ -58,6 +58,8 @@ def mst_decode(scores):
     with_root = np.full((seq_len + 1, seq_len + 1), -10000, dtype=scores.dtype)
     with_root[1:, 1:] = scores
 
+    # Copy over scores from the diagonal to the newly-created tree root
+    # and then clear them out to avoid self-attachment in MST decoding.
     with_root[1:, 0] = scores.diagonal()
     with_root[np.diag_indices(with_root.shape[0])] = -10000
 

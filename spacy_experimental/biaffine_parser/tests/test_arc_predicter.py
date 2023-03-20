@@ -68,10 +68,16 @@ def test_initialize_examples():
         nlp.initialize(get_examples=train_examples)
 
 
-def test_incomplete_data():
+@pytest.mark.parametrize("lazy_splitting", [False, True])
+def test_incomplete_data(lazy_splitting):
     nlp = English.from_config()
-    nlp.add_pipe("sentencizer")
-    nlp.add_pipe("experimental_arc_predicter")
+    senter = nlp.add_pipe("senter")
+    arc_predicter = nlp.add_pipe("experimental_arc_predicter")
+
+    if lazy_splitting:
+        arc_predicter.senter_name = "senter"
+        senter.save_activations = True
+
     train_examples = []
     for t in PARTIAL_DATA:
         train_examples.append(Example.from_dict(nlp.make_doc(t[0]), t[1]))
@@ -80,7 +86,7 @@ def test_incomplete_data():
 
     for i in range(150):
         losses = {}
-        nlp.update(train_examples, sgd=optimizer, losses=losses, annotates=["sentencizer"])
+        nlp.update(train_examples, sgd=optimizer, losses=losses, annotates=["senter"])
     assert losses["experimental_arc_predicter"] < 0.00001
 
     test_text = "She likes green eggs"
@@ -91,10 +97,16 @@ def test_incomplete_data():
     assert doc[3].head == doc[1]
 
 
-def test_overfitting_IO():
+@pytest.mark.parametrize("lazy_splitting", [False, True])
+def test_overfitting_IO(lazy_splitting):
     nlp = English.from_config()
-    nlp.add_pipe("sentencizer")
-    nlp.add_pipe("experimental_arc_predicter")
+    senter = nlp.add_pipe("senter")
+    arc_predicter = nlp.add_pipe("experimental_arc_predicter")
+
+    if lazy_splitting:
+        arc_predicter.senter_name = "senter"
+        senter.save_activations = True
+
     train_examples = []
     for t in TRAIN_DATA:
         train_examples.append(Example.from_dict(nlp.make_doc(t[0]), t[1]))
@@ -103,7 +115,7 @@ def test_overfitting_IO():
 
     for i in range(150):
         losses = {}
-        nlp.update(train_examples, sgd=optimizer, losses=losses, annotates=["sentencizer"])
+        nlp.update(train_examples, sgd=optimizer, losses=losses, annotates=["senter"])
     assert losses["experimental_arc_predicter"] < 0.00001
 
     test_text = "She likes green eggs"
@@ -134,3 +146,16 @@ def test_overfitting_IO():
     assert doc3[1].head == doc3[1]
     assert doc3[2].head == doc3[3]
     assert doc3[3].head == doc3[1]
+
+
+def test_senter_check():
+    nlp = English.from_config()
+    senter = nlp.add_pipe("senter")
+    nlp.add_pipe("experimental_arc_predicter", config={"senter_name": "senter"})
+    nlp.initialize()
+
+    with pytest.raises(ValueError):
+        list(nlp.pipe([nlp.make_doc("Test")]))
+
+    senter.save_activations = True
+    list(nlp.pipe([nlp.make_doc("Test")]))

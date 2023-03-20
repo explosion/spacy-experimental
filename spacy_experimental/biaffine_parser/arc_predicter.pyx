@@ -45,6 +45,8 @@ DEFAULT_ARC_PREDICTER_MODEL = Config().from_str(default_model_config)["model"]
         "model": DEFAULT_ARC_PREDICTER_MODEL,
         "overwrite": False,
         "scorer": {"@scorers": "spacy.parser_scorer.v1"},
+        "senter_name": None,
+        "max_tokens": 100,
     },
 )
 def make_arc_predicter(
@@ -53,8 +55,10 @@ def make_arc_predicter(
     model: Model,
     overwrite: bool,
     scorer: Optional[Callable],
+    senter_name: Optional[str],
+    max_tokens: int,
 ):
-    return ArcPredicter(nlp.vocab, model, name, overwrite=overwrite, scorer=scorer)
+    return ArcPredicter(nlp.vocab, model, name, max_tokens=max_tokens, overwrite=overwrite, scorer=scorer, senter_name=senter_name)
 
 
 class ArcPredicter(TrainablePipe):
@@ -64,18 +68,24 @@ class ArcPredicter(TrainablePipe):
         model: Model,
         name: str = "arc_predicter",
         *,
+        max_tokens: int,
         overwrite: bool,
         scorer: Callable,
+        senter_name: Optional[str] = None,
     ):
         self.name = name
         self.model = model
+        self.max_tokens = max_tokens
+        self.senter_name = senter_name
         self.vocab = vocab
         cfg = {"labels": [], "overwrite": overwrite}
         self.cfg = dict(sorted(cfg.items()))
         self.scorer = scorer
 
-    def get_loss(self, examples: Iterable[Example], scores) -> Tuple[float, Floats2d]:
+    def get_loss(self, examples: Iterable[Example], scores, lengths) -> Tuple[float, Floats2d]:
         validate_examples(examples, "ArcPredicter.get_loss")
+
+        lengths = to_numpy(lengths)
 
         def loss_func(guesses, target, mask):
             d_scores = guesses - target
@@ -89,19 +99,21 @@ class ArcPredicter(TrainablePipe):
         offset = 0
         for eg in examples:
             aligned_heads, _ = eg.get_aligned_parse(projectivize=False)
-            # TODO: what if eg.predicted doesn't contain sents? (raise error?)
-            for sent in eg.predicted.sents:
-                for token in sent:
-                    gold_head = aligned_heads[token.i]
+            sent_start = 0
+            while sent_start != len(eg):
+                for i in range(lengths[0]):
+                    gold_head = aligned_heads[sent_start + i]
                     if gold_head is not None:
                         # We only use the loss for token for which the correct head
                         # lies within the sentence boundaries.
-                        if sent.start <= gold_head < sent.end:
-                            gold_head_idx = gold_head - sent.start
+                        if sent_start <= gold_head < sent_start + lengths[0]:
+                            gold_head_idx = gold_head - sent_start
                             target[offset, gold_head_idx] = 1.0
                             mask[offset] = 1
-
                     offset += 1
+
+                sent_start += lengths[0]
+                lengths = lengths[1:]
 
         assert offset == target.shape[0]
 
@@ -149,27 +161,33 @@ class ArcPredicter(TrainablePipe):
 
     def predict(self, docs: Iterable[Doc]):
         docs = list(docs)
-        lens = sents2lens(docs, ops=self.model.ops)
-        scores = self.model.predict((docs, lens))
 
-        lens = to_numpy(lens)
+        if self.senter_name:
+            lengths = split_lazily(docs, ops=self.model.ops, max_tokens=self.max_tokens, senter_name=self.senter_name)
+        else:
+            lengths = sents2lens(docs, ops=self.model.ops)
+        scores = self.model.predict((docs, lengths))
+
+        lengths = to_numpy(lengths)
         scores = to_numpy(scores)
 
         heads = []
-        sent_offset = 0
         for doc in docs:
+            sent_offset = 0
             doc_heads = []
-            for sent in doc.sents:
-                sent_heads = mst_decode(scores[sent_offset:sent_offset + lens[0], :lens[0]])
-                doc_heads.append(sent_heads)
+            while sent_offset != len(doc):
+                sent_heads = mst_decode(scores[:lengths[0], :lengths[0]])
+                sent_heads = [head - i for (i, head) in enumerate(sent_heads)]
+                doc_heads.extend(sent_heads)
 
-                sent_offset += lens[0]
-                lens = lens[1:]
+                sent_offset += lengths[0]
+                scores = scores[lengths[0]:]
+                lengths = lengths[1:]
 
             heads.append(doc_heads)
 
-        assert len(lens) == 0
-        assert sent_offset == scores.shape[0]
+        assert len(lengths) == 0
+        assert len(scores) == 0
 
         return heads
 
@@ -178,21 +196,11 @@ class ArcPredicter(TrainablePipe):
         cdef Token token
 
         for (doc, doc_heads) in zip(docs, heads):
-            for (sent, sent_heads) in zip(doc.sents, doc_heads):
-                for i, head in enumerate(sent_heads):
-                    dep_i = sent.start + i
-                    head_i = sent.start + head
-                    doc.c[dep_i].head = head_i - dep_i
-                    # FIXME: Set the dependency relation to a stub, so that
-                    # we can evaluate UAS.
-                    doc.c[dep_i].dep = self.vocab.strings['dep']
-
-            for i in range(doc.length):
-                if doc.c[i].head == 0:
-                    doc.c[i].dep = self.vocab.strings['ROOT']
-
-            # FIXME: we should enable this, but clears sentence boundaries
-            # set_children_from_heads(doc.c, 0, doc.length)
+            for token, head in zip(doc, doc_heads):
+                doc.c[token.i].head = head
+                # FIXME: Set the dependency relation to a stub, so that
+                # we can evaluate UAS.
+                doc.c[token.i].dep = self.vocab.strings['dep']
 
     def update(
         self,
@@ -213,12 +221,15 @@ class ArcPredicter(TrainablePipe):
 
         docs = [eg.predicted for eg in examples]
 
-        lens = sents2lens(docs, ops=self.model.ops)
+        if self.senter_name:
+            lens = split_lazily(docs, ops=self.model.ops, max_tokens=self.max_tokens, senter_name=self.senter_name)
+        else:
+            lens = sents2lens(docs, ops=self.model.ops)
         if lens.sum() == 0:
             return losses
 
         scores, backprop_scores = self.model.begin_update((docs, lens))
-        loss, d_scores = self.get_loss(examples, scores)
+        loss, d_scores = self.get_loss(examples, scores, lens)
         backprop_scores(d_scores)
 
         if sgd is not None:
@@ -302,3 +313,31 @@ def sents2lens(docs: List[Doc], *, ops: Ops) -> Ints1d:
             lens.append(sent.end - sent.start)
 
     return ops.asarray1i(lens)
+
+
+def split_lazily(docs: List[Doc], *, ops: Ops, max_tokens: int, senter_name: str) -> Ints1d:
+    lens = []
+    for doc in docs:
+        activations = doc.activations.get(senter_name, None)
+        if activations is None:
+            raise ValueError(f"Lazy splitting requires senter pipe `{senter_name}` to have ",
+                              "`save_activations` enabled.\nDuring training, `senter` must be "
+                              "in the list of annotating components.")
+        scores = activations['probabilities']
+        split_recursive(scores[:,1], ops, max_tokens, lens)
+
+    assert sum(lens) == sum([len(doc) for doc in docs])
+
+    return ops.asarray1i(lens)
+
+
+def split_recursive(scores, ops, max_tokens, lengths):
+    if len(scores) < max_tokens:
+        lengths.append(len(scores))
+    else:
+        # Find the best splitting point. Exclude the first token, because it
+        # wouldn't split the current partition (leading to infinite recursion).
+        start = ops.xp.argmax(scores[1:]) + 1
+
+        split_recursive(scores[:start], ops, max_tokens, lengths)
+        split_recursive(scores[start:], ops, max_tokens, lengths)

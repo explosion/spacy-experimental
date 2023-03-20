@@ -87,10 +87,7 @@ class ArcLabeler(TrainablePipe):
         offset = 0
         for eg in examples:
             aligned_heads, aligned_labels = eg.get_aligned_parse(projectivize=False)
-            for token in eg.predicted:
-                gold_head = aligned_heads[token.i]
-                gold_label = aligned_labels[token.i]
-
+            for gold_head, gold_label in zip(aligned_heads, aligned_labels):
                 # Do not learn from misaligned tokens, since we could no use
                 # their correct head representations.
                 if gold_head is not None and gold_label is not None:
@@ -172,11 +169,10 @@ class ArcLabeler(TrainablePipe):
 
         offset = 0
         for doc in docs:
-            for sent in doc.sents:
-                for token in sent:
-                    label = self.cfg["labels"][predictions[offset]]
-                    doc.c[token.i].dep = self.vocab.strings[label]
-                    offset += 1
+            for token in doc:
+                label = self.cfg["labels"][predictions[offset]]
+                doc.c[token.i].dep = self.vocab.strings[label]
+                offset += 1
 
             for i in range(doc.length):
                 if doc.c[i].head == 0:
