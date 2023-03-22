@@ -143,7 +143,7 @@ class CoreferenceResolver(TrainablePipe):
 
         DOCS: https://spacy.io/api/coref#predict
         """
-        out = []
+        out: List[MentionClusters] = []
         for doc in docs:
             if len(doc) < 2:
                 # no coref in docs with 0 or 1 token

@@ -1,17 +1,19 @@
-from thinc.types import Floats2d, Floats1d
-from typing import List
+from typing import Callable, List, Tuple, cast
 from thinc.api import Model, chain, with_array
+from thinc.types import Floats2d, Floats1d
 from spacy.tokens import Doc
 from numpy import float32
 
+InT = List[Doc]
+OutT = Floats2d
+
 
 def build_finder_model(
-    tok2vec: Model[List[Doc], List[Floats2d]], scorer: Model[Floats2d, Floats2d]
-) -> Model[List[Doc], Floats2d]:
+    tok2vec: Model[InT, List[Floats2d]], scorer: Model[OutT, OutT]
+) -> Model[InT, OutT]:
+    logistic_layer: Model[List[Floats2d], List[Floats2d]] = with_array(scorer)
 
-    logistic_layer = with_array(scorer)
-
-    model = chain(tok2vec, logistic_layer, flattener())
+    model: Model[InT, OutT] = chain(tok2vec, logistic_layer, flattener())
 
     model.set_ref("tok2vec", tok2vec)
     model.set_ref("scorer", scorer)
@@ -20,29 +22,18 @@ def build_finder_model(
     return model
 
 
-def flattener() -> Model[Floats1d, Floats1d]:
+def flattener() -> Model[List[Floats2d], Floats2d]:
     """Flattens the input to a 1-dimensional list of scores"""
 
     def forward(
-        model: Model[Floats1d, Floats1d], X: Floats1d, is_train: bool
-    ) -> Floats1d:
-        output = []
-        lengths = []
+        model: Model[Floats1d, Floats1d], X: List[Floats2d], is_train: bool
+    ) -> Tuple[Floats2d, Callable[[Floats2d], List[Floats2d]]]:
+        lens = model.ops.asarray1i([len(doc) for doc in X])
+        Y = model.ops.flatten(X)
 
-        for doc in X:
-            lengths.append(len(doc))
-            for token in doc:
-                output.append(token)
-        output = model.ops.asarray(output, dtype=float32)
+        def backprop(dY: Floats2d) -> List[Floats2d]:
+            return model.ops.unflatten(dY, lens)
 
-        def backprop(Y) -> Floats2d:
-            offset = 0
-            original = []
-            for length in lengths:
-                original.append(Y[offset : offset + length])
-                offset += length
-            return original
-
-        return output, backprop
+        return Y, backprop
 
     return Model("Flattener", forward=forward)

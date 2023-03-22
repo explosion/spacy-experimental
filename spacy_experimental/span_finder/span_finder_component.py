@@ -67,7 +67,7 @@ DEFAULT_TRAINING_KEY = "sc"  # TODO: define in spancat
 def make_span_finder(
     nlp: Language,
     name: str,
-    model: Model[List[Doc], Floats2d],
+    model: Model[Iterable[Doc], Floats2d],
     scorer: Optional[Callable],
     threshold: float,
     max_length: int,
@@ -91,7 +91,7 @@ def make_span_finder(
         set to 0)
     """
     return SpanFinder(
-        nlp.vocab,
+        nlp,
         model=model,
         threshold=threshold,
         name=name,
@@ -150,7 +150,7 @@ class SpanFinder(TrainablePipe):
     def __init__(
         self,
         nlp: Language,
-        model: Model[List[Doc], Floats2d],
+        model: Model[Iterable[Doc], Floats2d],
         name: str = "span_finder",
         *,
         threshold: float = 0.5,
@@ -176,7 +176,7 @@ class SpanFinder(TrainablePipe):
         max_length (int): Max length of the produced spans (unlimited when set to 0)
         min_length (int): Min length of the produced spans (unlimited when set to 0)
         """
-        self.vocab = nlp
+        self.vocab = nlp.vocab
         self.threshold = threshold
         self.max_length = max_length
         self.min_length = min_length
@@ -259,7 +259,7 @@ class SpanFinder(TrainablePipe):
         losses[self.name] += loss
         return losses
 
-    def get_loss(self, examples, scores) -> Tuple[float, float]:
+    def get_loss(self, examples, scores) -> Tuple[float, Floats2d]:
         """Find the loss and gradient of loss for the batch of documents and
         their predicted scores.
         examples (Iterable[Examples]): The batch of examples.
@@ -267,11 +267,11 @@ class SpanFinder(TrainablePipe):
         RETURNS (Tuple[float, float]): The loss and the gradient.
         """
         reference_truths = self._get_aligned_truth_scores(examples)
-        d_scores = scores - self.model.ops.asarray(reference_truths, dtype=float32)
+        d_scores = scores - self.model.ops.asarray2f(reference_truths)
         loss = float((d_scores**2).sum())
         return loss, d_scores
 
-    def _get_aligned_truth_scores(self, examples) -> Tuple[Floats2d, Floats2d]:
+    def _get_aligned_truth_scores(self, examples) -> List[Tuple[int, int]]:
         """Align scores of the predictions to the references for calculating the loss"""
         # TODO: handle misaligned (None) alignments
         # TODO: handle cases with differing whitespace in texts
@@ -298,7 +298,7 @@ class SpanFinder(TrainablePipe):
 
         return reference_truths
 
-    def _get_reference(self, docs) -> Floats2d:
+    def _get_reference(self, docs) -> List[Tuple[int, int]]:
         """Create a reference list of token probabilities"""
         reference_probabilities = []
         for doc in docs:
@@ -340,7 +340,7 @@ class SpanFinder(TrainablePipe):
 
         if subbatch:
             docs = [eg.reference for eg in subbatch]
-            Y = self.model.ops.asarray(self._get_reference(docs), dtype=float32)
+            Y = self.model.ops.asarray2f(self._get_reference(docs))
             self.model.initialize(X=docs, Y=Y)
         else:
             self.model.initialize()

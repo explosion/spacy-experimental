@@ -10,6 +10,7 @@ from thinc.types import ArgsKwargs, Floats2d, Ints1d
 
 # Ensure that the spacy-experimental package can register entry points without
 # Torch installed.
+PyTorchBilinearModel: Optional[type]
 try:
     from .pytorch_bilinear import BilinearModel as PyTorchBilinearModel
 except ImportError:
@@ -47,7 +48,7 @@ def build_bilinear(
         },
     )
 
-    model = chain(
+    model: Model[Tuple[List[Doc], Ints1d], Floats2d] = chain(
         cast(
             Model[Tuple[List[Doc], Ints1d], Tuple[Floats2d, Ints1d]],
             with_getitem(
@@ -62,6 +63,9 @@ def build_bilinear(
 
 
 def bilinear_init(model: Model, X=None, Y=None):
+    if PyTorchBilinearModel is None:
+        raise ImportError("BiLinear layer requires PyTorch: pip install thinc[torch]")
+
     if model.layers:
         return
 

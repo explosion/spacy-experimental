@@ -1,4 +1,4 @@
-from typing import List, Tuple, Dict
+from typing import Dict, List, Optional, Tuple
 from thinc.types import Ints1d, Ints2d, Floats2d
 from thinc.api import NumpyOps
 from spacy.language import Language
@@ -98,7 +98,7 @@ def get_predicted_clusters(
     span_ends: Ints1d,
     antecedent_idx: Ints2d,
     antecedent_scores: Floats2d,
-):
+) -> MentionClusters:
     """Convert predictions to usable cluster data.
 
     return values:
@@ -115,8 +115,8 @@ def get_predicted_clusters(
     ).tolist()
 
     # Get predicted clusters
-    mention_to_cluster_id = {}
-    predicted_clusters = []
+    mention_to_cluster_id: Dict[Tuple[int, int], int] = {}
+    predicted_clusters: MentionClusters = []
     for i, predicted_idx in enumerate(predicted_antecedents):
         if predicted_idx < 0:
             continue
@@ -133,7 +133,6 @@ def get_predicted_clusters(
         predicted_clusters[antecedent_cluster_id].append(mention)
         mention_to_cluster_id[mention] = antecedent_cluster_id
 
-    predicted_clusters = [tuple(c) for c in predicted_clusters]
     return predicted_clusters
 
 
@@ -145,7 +144,7 @@ def create_head_span_idxs(ops, doclen: int):
 
 
 def get_clusters_from_doc(
-    doc: Doc, *, use_heads: bool = False, prefix: str = None
+    doc: Doc, *, use_heads: bool = False, prefix: Optional[str] = None
 ) -> List[List[Tuple[int, int]]]:
     """Convert the span clusters in a Doc to simple integer tuple lists. The
     ints are char spans, to be tokenization independent.
@@ -200,6 +199,7 @@ def create_gold_scores(
     cpu_ments = ops.asarray(ments)
 
     out = ops.alloc2f(ll, ll)
+    cid: Optional[int]
     for ii, ment in enumerate(cpu_ments):
         cid = ment2cid.get((int(ment[0]), int(ment[1])))
         if cid is None:
