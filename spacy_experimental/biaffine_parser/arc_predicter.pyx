@@ -334,14 +334,16 @@ def split_lazily(docs: List[Doc], *, ops: Ops, max_tokens: int, senter_name: str
 
 
 def _split_lazily_doc(ops: Ops, scores: Floats2d, max_tokens: int, lens: List[int]):
-    q = deque([scores])
-    while q:
-        scores = q.popleft()
+    stack = deque([scores])
+    while stack:
+        scores = stack.pop()
         if len(scores) <= max_tokens:
             lens.append(len(scores))
         else:
             # Find the best splitting point. Exclude the first token, because it
             # wouldn't split the current partition (leading to infinite recursion).
             start = ops.xp.argmax(scores[1:]) + 1
-            q.appendleft(scores[start:])
-            q.appendleft(scores[:start])
+            # Initial split goes last, so that it is taken off the stack first
+            # in the next iteration.
+            stack.append(scores[start:])
+            stack.append(scores[:start])
