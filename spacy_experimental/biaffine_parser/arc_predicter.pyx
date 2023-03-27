@@ -333,7 +333,7 @@ def split_lazily(docs: List[Doc], *, ops: Ops, max_tokens: int, senter_name: str
     return ops.asarray1i(lens)
 
 
-def _split_lazily_doc(ops: Ops, scores: Floats2d,  max_tokens: int, lens: List[int]):
+def _split_lazily_doc(ops: Ops, scores: Floats2d, max_tokens: int, lens: List[int]):
     q = deque([scores])
     while q:
         scores = q.popleft()
