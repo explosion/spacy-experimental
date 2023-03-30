@@ -1,9 +1,9 @@
 # cython: infer_types=True, profile=True, binding=True
 
+from typing import Callable, Dict, Iterable, List, Optional
 from itertools import islice
 from collections import deque
 import numpy as np
-from typing import Callable, Dict, Iterable, List, Optional
 import spacy
 from spacy import Language, Vocab
 from spacy.errors import Errors
@@ -14,11 +14,15 @@ from spacy.tokens.doc cimport Doc
 from spacy.training import Example, validate_get_examples, validate_examples
 from spacy.util import minibatch
 import srsly
-from thinc.api import Config, Model, Ops, Optimizer
+from thinc.api import Config, Model, NumpyOps, Ops, Optimizer
 from thinc.api import to_numpy
-from thinc.types import Floats2d, Ints1d, Tuple
+from thinc.types import Floats1d, Floats2d, Ints1d, Tuple
 
 from .mst import mst_decode
+from ._util import lengths2offsets
+
+
+NUMPY_OPS = NumpyOps()
 
 
 default_model_config = """
@@ -83,10 +87,8 @@ class ArcPredicter(TrainablePipe):
         self.cfg = dict(sorted(cfg.items()))
         self.scorer = scorer
 
-    def get_loss(self, examples: Iterable[Example], scores, lengths) -> Tuple[float, Floats2d]:
+    def get_loss(self, examples: Iterable[Example], scores, docs_split_lengths) -> Tuple[float, Floats2d]:
         validate_examples(examples, "ArcPredicter.get_loss")
-
-        lengths = to_numpy(lengths)
 
         def loss_func(guesses, target, mask):
             d_scores = guesses - target
@@ -94,36 +96,41 @@ class ArcPredicter(TrainablePipe):
             loss = (d_scores ** 2).sum()
             return d_scores, loss
 
+        # We want to compute all the losses at once to avoid too many kernel runs.
+        scores = self.model.ops.flatten([split_scores.reshape(-1) for split_scores in scores])
+
         target = np.zeros(scores.shape, dtype=scores.dtype)
-        mask = np.zeros(scores.shape[0], dtype=scores.dtype)
+        mask = np.zeros(scores.shape, dtype=scores.dtype)
 
         offset = 0
-        for eg in examples:
+        for eg, doc_split_lengths in zip(examples, docs_split_lengths):
             aligned_heads, _ = eg.get_aligned_parse(projectivize=False)
             sent_start = 0
-            while sent_start != len(eg):
-                for i in range(lengths[0]):
-                    gold_head = aligned_heads[sent_start + i]
+            split_offsets = lengths2offsets(doc_split_lengths)
+            for split_offset, split_length in zip(split_offsets, doc_split_lengths):
+                for i in range(split_length):
+                    gold_head = aligned_heads[split_offset + i]
                     if gold_head is not None:
                         # We only use the loss for token for which the correct head
                         # lies within the sentence boundaries.
-                        if sent_start <= gold_head < sent_start + lengths[0]:
-                            gold_head_idx = gold_head - sent_start
-                            target[offset, gold_head_idx] = 1.0
-                            mask[offset] = 1
-                    offset += 1
+                        if split_offset <= gold_head < split_offset + split_length:
+                            gold_head_idx = gold_head - split_offset
+                            target[offset + gold_head_idx] = 1.0
+                            mask[offset:offset + split_length] = 1
+                    offset += split_length
 
-                sent_start += lengths[0]
-                lengths = lengths[1:]
+                sent_start += split_length
 
         assert offset == target.shape[0]
 
-        target = self.model.ops.asarray2f(target)
-        mask = self.model.ops.asarray2f(np.expand_dims(mask, -1))
+        target = self.model.ops.asarray1f(target)
+        mask = self.model.ops.asarray1f(mask)
 
         d_scores, loss = loss_func(scores, target, mask)
 
-        return float(loss), d_scores
+
+        split_lengths = [split_length for doc_split_lengths in docs_split_lengths for split_length in doc_split_lengths]
+        return float(loss), unflatten_matrix(d_scores, split_lengths)
 
     def initialize(
         self, get_examples: Callable[[], Iterable[Example]], *, nlp: Language = None
@@ -135,7 +142,7 @@ class ArcPredicter(TrainablePipe):
             doc_sample.append(example.predicted)
 
         # For initialization, we don't need correct sentence boundaries.
-        lengths_sample = self.model.ops.asarray1i([len(doc) for doc in doc_sample])
+        lengths_sample = [NUMPY_OPS.asarray1i([len(doc)]) for doc in doc_sample]
         self.model.initialize(X=(doc_sample, lengths_sample))
 
         # Store the input dimensionality. nI and nO are not stored explicitly
@@ -164,30 +171,29 @@ class ArcPredicter(TrainablePipe):
         docs = list(docs)
 
         if self.senter_name:
-            lengths = split_lazily(docs, ops=self.model.ops, max_tokens=self.max_tokens, senter_name=self.senter_name)
+            docs_split_lengths = split_lazily(docs, ops=self.model.ops, max_tokens=self.max_tokens, senter_name=self.senter_name)
         else:
-            lengths = sents2lens(docs, ops=self.model.ops)
-        scores = self.model.predict((docs, lengths))
+            docs_split_lengths = sents2lens(docs, ops=self.model.ops)
 
-        lengths = to_numpy(lengths)
+        scores = self.model.predict((docs, docs_split_lengths))
+
+        # Flatten once when on GPU and do one d2h transfer.
+        scores = self.model.ops.flatten([split_scores.reshape(-1) for split_scores in scores])
         scores = to_numpy(scores)
 
         heads = []
-        for doc in docs:
-            sent_offset = 0
+        for doc_split_lengths in docs_split_lengths:
             doc_heads = []
-            while sent_offset != len(doc):
-                sent_heads = mst_decode(scores[:lengths[0], :lengths[0]])
-                sent_heads = [head - i for (i, head) in enumerate(sent_heads)]
-                doc_heads.extend(sent_heads)
+            for split_length in doc_split_lengths:
+                split_scores = scores[:split_length*split_length].reshape(split_length, split_length)
+                split_heads = mst_decode(split_scores)
+                split_heads = [head - i for (i, head) in enumerate(split_heads)]
+                doc_heads.extend(split_heads)
 
-                sent_offset += lengths[0]
-                scores = scores[lengths[0]:]
-                lengths = lengths[1:]
+                scores = scores[split_length*split_length:]
 
             heads.append(doc_heads)
 
-        assert len(lengths) == 0
         assert len(scores) == 0
 
         return heads
@@ -226,7 +232,7 @@ class ArcPredicter(TrainablePipe):
             lens = split_lazily(docs, ops=self.model.ops, max_tokens=self.max_tokens, senter_name=self.senter_name)
         else:
             lens = sents2lens(docs, ops=self.model.ops)
-        if lens.sum() == 0:
+        if sum([sum(doc_lens) for doc_lens in lens]) == 0:
             return losses
 
         scores, backprop_scores = self.model.begin_update((docs, lens))
@@ -236,6 +242,12 @@ class ArcPredicter(TrainablePipe):
         if sgd is not None:
             self.finish_update(sgd)
         losses[self.name] += loss
+
+        # Hmpf, this is horrible, just for the experiments. I promise...
+        cdef Token token
+        for eg in examples:
+            for token in eg.predicted:
+                token.c.sent_start = 0
 
         return losses
 
@@ -307,17 +319,18 @@ class ArcPredicter(TrainablePipe):
         self.model.initialize()
 
 
-def sents2lens(docs: List[Doc], *, ops: Ops) -> Ints1d:
+def sents2lens(docs: List[Doc], *, ops: Ops) -> List[Ints1d]:
     """Get the lengths of sentences."""
     lens = []
     for doc in docs:
+        doc_lens = []
         for sent in doc.sents:
-            lens.append(sent.end - sent.start)
+            doc_lens.append(sent.end - sent.start)
+        lens.append(NUMPY_OPS.asarray1i(doc_lens))
+    return lens
 
-    return ops.asarray1i(lens)
 
-
-def split_lazily(docs: List[Doc], *, ops: Ops, max_tokens: int, senter_name: str) -> Ints1d:
+def split_lazily(docs: List[Doc], *, ops: Ops, max_tokens: int, senter_name: str) -> List[Ints1d]:
     lens = []
     for doc in docs:
         activations = doc.activations.get(senter_name, None)
@@ -325,15 +338,17 @@ def split_lazily(docs: List[Doc], *, ops: Ops, max_tokens: int, senter_name: str
             raise ValueError(f"Lazy splitting requires senter pipe `{senter_name}` to have ",
                               "`save_activations` enabled.\nDuring training, `senter` must be "
                               "in the list of annotating components.")
-        scores = activations['probabilities'][:, 1]
-        _split_lazily_doc(ops, scores, max_tokens, lens)
+        scores = activations['probabilities']
+        doc_lens = _split_lazily_doc(ops, scores[:, 1], max_tokens)
+        lens.append(NUMPY_OPS.asarray1i(doc_lens))
 
-    assert sum(lens) == sum([len(doc) for doc in docs])
+    assert sum([sum(split_lens) for split_lens in lens]) == sum([len(doc) for doc in docs])
 
-    return ops.asarray1i(lens)
+    return lens
 
 
-def _split_lazily_doc(ops: Ops, scores: Floats2d, max_tokens: int, lens: List[int]):
+def _split_lazily_doc(ops: Ops, scores: Floats2d, max_tokens: int):
+    lens = []
     stack = deque([scores])
     while stack:
         scores = stack.pop()
@@ -347,3 +362,13 @@ def _split_lazily_doc(ops: Ops, scores: Floats2d, max_tokens: int, lens: List[in
             # in the next iteration.
             stack.append(scores[start:])
             stack.append(scores[:start])
+    return lens
+
+
+def unflatten_matrix(scores: Floats1d, lengths: List[Ints1d]) -> List[Floats2d]:
+    d_scores_matrix = []
+    for length in lengths:
+        d_scores_matrix.append(scores[:length * length].reshape((length, length)))
+        scores = scores[length * length:]
+    assert scores.size == 0
+    return d_scores_matrix

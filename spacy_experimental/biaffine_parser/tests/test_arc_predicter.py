@@ -13,11 +13,23 @@ pytest.importorskip("torch")
 
 TRAIN_DATA = [
     (
-        "She likes green eggs",
+        "She likes green eggs. She is eating them today.",
         {
-            "heads": [1, 1, 3, 1],
-            "deps": ["nsubj", "ROOT", "amod", "dobj"],
-            "sent_starts": [1, 0, 0, 0],
+            "heads": [1, 1, 3, 1, 1, 7, 7, 7, 7, 7, 7],
+            "deps": [
+                "nsubj",
+                "ROOT",
+                "amod",
+                "dobj",
+                "punct",
+                "nsubj",
+                "aux",
+                "ROOT",
+                "dobj",
+                "npadvmod",
+                "punct",
+            ],
+            "sent_starts": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
         },
     ),
     (
@@ -167,18 +179,14 @@ def test_senter_check():
 def test_split_lazily():
     ops = NumpyOps()
 
-    lens = []
-    _split_lazily_doc(ops, ops.xp.arange(5.0), 2, lens)
+    lens = _split_lazily_doc(ops, ops.xp.arange(5.0), 2)
     assert lens == [2, 1, 1, 1]
 
-    lens = []
-    _split_lazily_doc(ops, ops.xp.arange(5.0, 0.0, -1.0), 2, lens)
+    lens = _split_lazily_doc(ops, ops.xp.arange(5.0, 0.0, -1.0), 2)
     assert lens == [1, 1, 1, 2]
 
-    lens = []
-    _split_lazily_doc(ops, ops.asarray1f([0.0, 1.0, 0.0, 1.0, 0.0]), 2, lens)
+    lens = _split_lazily_doc(ops, ops.asarray1f([0.0, 1.0, 0.0, 1.0, 0.0]), 2)
     assert lens == [1, 2, 2]
 
-    lens = []
-    _split_lazily_doc(ops, ops.asarray1f([1.0, 0.0, 1.0, 0.0, 1.0]), 2, lens)
+    lens = _split_lazily_doc(ops, ops.asarray1f([1.0, 0.0, 1.0, 0.0, 1.0]), 2)
     assert lens == [2, 2, 1]
