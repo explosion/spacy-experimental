@@ -1,6 +1,7 @@
 # cython: infer_types=True, profile=True, binding=True
 
 from itertools import islice
+from collections import deque
 import numpy as np
 from typing import Callable, Dict, Iterable, List, Optional
 import spacy
@@ -305,6 +306,7 @@ class ArcPredicter(TrainablePipe):
 
         self.model.initialize()
 
+
 def sents2lens(docs: List[Doc], *, ops: Ops) -> Ints1d:
     """Get the lengths of sentences."""
     lens = []
@@ -323,21 +325,25 @@ def split_lazily(docs: List[Doc], *, ops: Ops, max_tokens: int, senter_name: str
             raise ValueError(f"Lazy splitting requires senter pipe `{senter_name}` to have ",
                               "`save_activations` enabled.\nDuring training, `senter` must be "
                               "in the list of annotating components.")
-        scores = activations['probabilities']
-        split_recursive(scores[:,1], ops, max_tokens, lens)
+        scores = activations['probabilities'][:, 1]
+        _split_lazily_doc(ops, scores, max_tokens, lens)
 
     assert sum(lens) == sum([len(doc) for doc in docs])
 
     return ops.asarray1i(lens)
 
 
-def split_recursive(scores, ops, max_tokens, lengths):
-    if len(scores) < max_tokens:
-        lengths.append(len(scores))
-    else:
-        # Find the best splitting point. Exclude the first token, because it
-        # wouldn't split the current partition (leading to infinite recursion).
-        start = ops.xp.argmax(scores[1:]) + 1
-
-        split_recursive(scores[:start], ops, max_tokens, lengths)
-        split_recursive(scores[start:], ops, max_tokens, lengths)
+def _split_lazily_doc(ops: Ops, scores: Floats2d, max_tokens: int, lens: List[int]):
+    stack = deque([scores])
+    while stack:
+        scores = stack.pop()
+        if len(scores) <= max_tokens:
+            lens.append(len(scores))
+        else:
+            # Find the best splitting point. Exclude the first token, because it
+            # wouldn't split the current partition (leading to infinite recursion).
+            start = ops.xp.argmax(scores[1:]) + 1
+            # Initial split goes last, so that it is taken off the stack first
+            # in the next iteration.
+            stack.append(scores[start:])
+            stack.append(scores[:start])

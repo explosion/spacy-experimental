@@ -3,6 +3,9 @@ from spacy import util
 from spacy.lang.en import English
 from spacy.language import Language
 from spacy.training import Example
+from thinc.api import NumpyOps
+
+from spacy_experimental.biaffine_parser.arc_predicter import _split_lazily_doc
 
 
 pytest.importorskip("torch")
@@ -159,3 +162,23 @@ def test_senter_check():
 
     senter.save_activations = True
     list(nlp.pipe([nlp.make_doc("Test")]))
+
+
+def test_split_lazily():
+    ops = NumpyOps()
+
+    lens = []
+    _split_lazily_doc(ops, ops.xp.arange(5.0), 2, lens)
+    assert lens == [2, 1, 1, 1]
+
+    lens = []
+    _split_lazily_doc(ops, ops.xp.arange(5.0, 0.0, -1.0), 2, lens)
+    assert lens == [1, 1, 1, 2]
+
+    lens = []
+    _split_lazily_doc(ops, ops.asarray1f([0.0, 1.0, 0.0, 1.0, 0.0]), 2, lens)
+    assert lens == [1, 2, 2]
+
+    lens = []
+    _split_lazily_doc(ops, ops.asarray1f([1.0, 0.0, 1.0, 0.0, 1.0]), 2, lens)
+    assert lens == [2, 2, 1]
