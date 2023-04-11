@@ -148,15 +148,15 @@ def pairwise_bilinear_forward(model: Model, X, is_train: bool):
 
 def convert_inputs(
     model: Model, X_lenghts: Tuple[Floats2d, Ints1d], is_train: bool = False
-) -> Tuple[ArgsKwargs, Callable[[ArgsKwargs], Floats3d]]:
+) -> Tuple[ArgsKwargs, Callable[[ArgsKwargs], Tuple[Floats3d, Ints1d]]]:
     X, L = X_lenghts
 
     Xt = xp2torch(X, requires_grad=is_train)
     Lt = xp2torch(L)
 
-    def convert_from_torch_backward(d_inputs: ArgsKwargs) -> Floats3d:
+    def convert_from_torch_backward(d_inputs: ArgsKwargs) -> Tuple[Floats3d, Ints1d]:
         dX = cast(Floats3d, torch2xp(d_inputs.args[0]))
-        return dX
+        return dX, L
 
     output = ArgsKwargs(args=(Xt, Lt), kwargs={})
 
