@@ -4,7 +4,12 @@ from torch import nn
 
 class Bilinear(nn.Module):
     def __init__(
-        self, in_features: int, out_features: int, *, bias_u=True, bias_v=True
+        self,
+        in_features: int,
+        out_features: int,
+        *,
+        bias_u: bool = True,
+        bias_v: bool = True,
     ):
         super(Bilinear, self).__init__()
 
