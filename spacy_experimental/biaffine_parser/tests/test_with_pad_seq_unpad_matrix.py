@@ -1,6 +1,5 @@
 from typing import Callable, Tuple
 from thinc.api import Model
-from thinc.types import Floats3d, Ints1d
 
 from spacy_experimental.biaffine_parser.with_pad_seq_unpad_matrix import (
     InnerInT,
