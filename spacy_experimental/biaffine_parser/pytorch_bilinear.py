@@ -3,11 +3,13 @@ from torch import nn
 
 
 class Bilinear(nn.Module):
-    """Apply a bilinear transformation to the data: uAv + b
+    """Apply a bilinear transformation to the data: uAv
 
-    This module provides the same functionality as torch.nn.Bilinear,
-    but is more efficient. See:
+    This module provides functionality similar torch.nn.Bilinear.
+    Differences are that this version uses a separate bias for
+    both inputs and it more efficient. See:
     https://github.com/explosion/spacy-experimental/pull/47"""
+
     def __init__(
         self,
         in_features: int,
