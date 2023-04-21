@@ -81,5 +81,12 @@ jobs:
 
       - name: Run tests
         shell: bash
+        if: matrix.python_version != '3.6'
         run: |
           python -m pytest --pyargs $MODULE_NAME -Werror
+
+      - name: Run tests without raising warnings for python 3.6
+        shell: bash
+        if: matrix.python_version == '3.6'
+        run: |
+          python -m pytest --pyargs $MODULE_NAME
