@@ -1,4 +1,5 @@
 from typing import List, Tuple
+from thinc.util import use_nvtx_range
 
 import torch
 from torch import nn
@@ -62,39 +63,44 @@ class CorefClusterer(nn.Module):
             coref_scores: n_words x rough_k floats.
             top_indices: n_words x rough_k integers.
         """
-        self.lstm.flatten_parameters()  # XXX without this there's a warning
-        word_features = torch.unsqueeze(word_features, dim=0)
-        words, _ = self.lstm(word_features)
-        words = words.squeeze()
+        with use_nvtx_range("__lstm", 3):
+            self.lstm.flatten_parameters()  # XXX without this there's a warning
+            word_features = torch.unsqueeze(word_features, dim=0)
+            words, _ = self.lstm(word_features)
+            words = words.squeeze()
         # words: n_words x dim
         words = self.dropout(words)
         # Obtain bilinear scores and leave only top-k antecedents for each word
         # top_rough_scores: (n_words x rough_k)
         # top_indices: (n_words x rough_k)
-        top_rough_scores, top_indices = self.rough_scorer(words)
-        # Get pairwise features
-        # (n_words x rough_k x n_pairwise_features)
-        pairwise = self.pairwise(top_indices)
+        with use_nvtx_range("__rough_pairwise", 4):
+            top_rough_scores, top_indices = self.rough_scorer(words)
+            # Get pairwise features
+            # (n_words x rough_k x n_pairwise_features)
+            pairwise = self.pairwise(top_indices)
+
         batch_size = self.batch_size
         a_scores_lst: List[torch.Tensor] = []
 
-        for i in range(0, len(words), batch_size):
-            pairwise_batch = pairwise[i : i + batch_size]
-            words_batch = words[i : i + batch_size]
-            top_indices_batch = top_indices[i : i + batch_size]
-            top_rough_scores_batch = top_rough_scores[i : i + batch_size]
+        with use_nvtx_range("__ana_loop", 5):
+            for i in range(0, len(words), batch_size):
+                pairwise_batch = pairwise[i : i + batch_size]
+                words_batch = words[i : i + batch_size]
+                top_indices_batch = top_indices[i : i + batch_size]
+                top_rough_scores_batch = top_rough_scores[i : i + batch_size]
 
-            # a_scores_batch    [batch_size, n_ants]
-            a_scores_batch = self.ana_scorer(
-                all_mentions=words,
-                mentions_batch=words_batch,
-                pairwise_batch=pairwise_batch,
-                top_indices_batch=top_indices_batch,
-                top_rough_scores_batch=top_rough_scores_batch,
-            )
-            a_scores_lst.append(a_scores_batch)
+                # a_scores_batch    [batch_size, n_ants]
+                a_scores_batch = self.ana_scorer(
+                    all_mentions=words,
+                    mentions_batch=words_batch,
+                    pairwise_batch=pairwise_batch,
+                    top_indices_batch=top_indices_batch,
+                    top_rough_scores_batch=top_rough_scores_batch,
+                )
+                a_scores_lst.append(a_scores_batch)
 
-        coref_scores = torch.cat(a_scores_lst, dim=0)
+            coref_scores = torch.cat(a_scores_lst, dim=0)
+
         return coref_scores, top_indices
 
 
