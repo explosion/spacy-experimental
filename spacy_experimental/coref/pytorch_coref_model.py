@@ -50,7 +50,9 @@ class CorefClusterer(nn.Module):
 
         self.rough_scorer = RoughScorer(dim, dropout, rough_k)
 
-    def forward(self, word_features: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(
+        self, word_features: torch.Tensor, lengths: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         1. LSTM encodes the incoming word_features.
         2. The RoughScorer scores and prunes the candidates.
@@ -65,9 +67,9 @@ class CorefClusterer(nn.Module):
         """
         with use_nvtx_range("__lstm", 3):
             self.lstm.flatten_parameters()  # XXX without this there's a warning
-            word_features = torch.unsqueeze(word_features, dim=0)
+            # word_features = torch.unsqueeze(word_features, dim=0)
             words, _ = self.lstm(word_features)
-            words = words.squeeze()
+            # words = words.squeeze()
         # words: n_words x dim
         words = self.dropout(words)
         # Obtain bilinear scores and leave only top-k antecedents for each word
@@ -83,11 +85,11 @@ class CorefClusterer(nn.Module):
         a_scores_lst: List[torch.Tensor] = []
 
         with use_nvtx_range("__ana_loop", 5):
-            for i in range(0, len(words), batch_size):
-                pairwise_batch = pairwise[i : i + batch_size]
-                words_batch = words[i : i + batch_size]
-                top_indices_batch = top_indices[i : i + batch_size]
-                top_rough_scores_batch = top_rough_scores[i : i + batch_size]
+            for i in range(0, words.size(1), batch_size):
+                pairwise_batch = pairwise[:, i : i + batch_size]
+                words_batch = words[:, i : i + batch_size]
+                top_indices_batch = top_indices[:, i : i + batch_size]
+                top_rough_scores_batch = top_rough_scores[:, i : i + batch_size]
 
                 # a_scores_batch    [batch_size, n_ants]
                 a_scores_batch = self.ana_scorer(
@@ -99,7 +101,7 @@ class CorefClusterer(nn.Module):
                 )
                 a_scores_lst.append(a_scores_batch)
 
-            coref_scores = torch.cat(a_scores_lst, dim=0)
+            coref_scores = torch.cat(a_scores_lst, dim=1)
 
         return coref_scores, top_indices
 
@@ -179,7 +181,7 @@ class AnaphoricityScorer(nn.Module):
         returns: tensor of shape (batch_size x antecedent_limit)
         """
         x = self.out(self.hidden(x))
-        return x.squeeze(2)
+        return x.squeeze(-1)
 
     @staticmethod
     def _get_pair_matrix(
@@ -204,14 +206,21 @@ class AnaphoricityScorer(nn.Module):
         Returns:
             out: pairwise features (batch_size x n_ants x pair_emb)
         """
-        emb_size = mentions_batch.shape[1]
-        n_ants = pairwise_batch.shape[1]
+        emb_size = mentions_batch.size(-1)
+        n_ants = pairwise_batch.size(-2)
+        batch_size = mentions_batch.size(0)
 
-        a_mentions = mentions_batch.unsqueeze(1).expand(-1, n_ants, emb_size)
-        b_mentions = all_mentions[top_indices_batch]
+        a_mentions = mentions_batch.unsqueeze(2).expand(-1, -1, n_ants, emb_size)
+        # (batch_size x inner_batch x n_ants x emb_size)
+        #     basically a stack of the representations for the top-k antecedents per token
+        #     TODO: find a way to do this without a loop
+        b_mentions = []
+        for i in range(batch_size):
+            b_mentions.append(all_mentions[i][top_indices_batch[i]])
+        b_mentions = torch.stack(b_mentions).to(a_mentions.device)
         similarity = a_mentions * b_mentions
 
-        out = torch.cat((a_mentions, b_mentions, similarity, pairwise_batch), dim=2)
+        out = torch.cat((a_mentions, b_mentions, similarity, pairwise_batch), dim=-1)
         return out
 
 
@@ -237,14 +246,17 @@ class RoughScorer(nn.Module):
         the bilinear output of the current model summed with mention scores.
         """
         # [n_mentions, n_mentions]
-        pair_mask = torch.arange(mentions.shape[0])
+        pair_mask = torch.arange(mentions.shape[1])
         pair_mask = pair_mask.unsqueeze(1) - pair_mask.unsqueeze(0)
         pair_mask = torch.log((pair_mask > 0).to(torch.float))
         pair_mask = pair_mask.to(mentions.device)
-        bilinear_scores = self.dropout(self.bilinear(mentions)).mm(mentions.T)
+        bilinear_scores = self.dropout(self.bilinear(mentions)).matmul(
+            mentions.transpose(-1, -2)
+        )
         rough_scores = pair_mask + bilinear_scores
+        assert rough_scores.size(-1) == rough_scores.size(-2)
         top_scores, indices = torch.topk(
-            rough_scores, k=min(self.k, len(rough_scores)), dim=1, sorted=False
+            rough_scores, k=min(self.k, rough_scores.size(-1)), dim=-1, sorted=False
         )
 
         return top_scores, indices
@@ -271,7 +283,7 @@ class DistancePairwiseEncoder(nn.Module):
         self.shape = emb_size
 
     def forward(self, top_indices: torch.Tensor) -> torch.Tensor:
-        word_ids = torch.arange(0, top_indices.size(0), device=top_indices.device)
+        word_ids = torch.arange(0, top_indices.size(-2), device=top_indices.device)
         distance = (word_ids.unsqueeze(1) - word_ids[top_indices]).clamp_min_(min=1)
         log_distance = distance.to(torch.float).log2().floor_()
         log_distance = log_distance.clamp_max_(max=6).to(torch.long)

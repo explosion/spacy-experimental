@@ -2,7 +2,7 @@ from typing import Callable, List, Optional, Tuple, cast
 
 from thinc.api import Model, chain, get_width
 from thinc.api import PyTorchWrapper, ArgsKwargs
-from thinc.types import Floats2d, Ints2d
+from thinc.types import Floats2d, Floats3d, Ints2d, Ints1d
 from thinc.util import xp2torch, torch2xp
 
 from spacy.tokens import Doc
@@ -91,19 +91,22 @@ def coref_forward(model: Model, X, is_train: bool):
     return model.layers[0](X, is_train)
 
 
-def convert_coref_clusterer_inputs(model: Model, X_: List[Floats2d], is_train: bool):
+def convert_coref_clusterer_inputs(model: Model, X: List[Floats2d], is_train: bool):
     # The input here is List[Floats2d], one for each doc
     # just use the first
     # TODO real batching
-    X = X_[0]
-    word_features = xp2torch(X, requires_grad=is_train)
+    pad = model.ops.pad
+    unpad = model.ops.unpad
+
+    L: List[Ints1d] = [i.shape[0] for i in X]
+    Xt = xp2torch(pad(X), requires_grad=is_train)
 
     def backprop(args: ArgsKwargs) -> List[Floats2d]:
         # convert to xp and wrap in list
-        gradients = cast(Floats2d, torch2xp(args.args[0]))
-        return [gradients]
+        dX = cast(Floats3d, torch2xp(args.args[0]))
+        return cast(List[Floats2d], unpad(dX, L))
 
-    return ArgsKwargs(args=(word_features,), kwargs={}), backprop
+    return ArgsKwargs(args=(Xt, L), kwargs={}), backprop
 
 
 def convert_coref_clusterer_outputs(

@@ -147,23 +147,17 @@ class CoreferenceResolver(TrainablePipe):
         """
         with use_nvtx_range("__full_coref", -1):
             out: List[MentionClusters] = []
-            for doc in docs:
-                if len(doc) < 2:
-                    # no coref in docs with 0 or 1 token
-                    out.append([])
-                    continue
+            with use_nvtx_range("__coref_predict", 1):
+                # TODO: skip documents with 0 or 1 tokens
+                _scores, _idxs = self.model.predict(docs)
 
-                with use_nvtx_range("__coref_predict", 1):
-                    scores, idxs = self.model.predict([doc])
-                    # idxs is a list of mentions (start / end idxs)
-                    # each item in scores includes scores and a mapping from scores to mentions
-                    ant_idxs = idxs
+            for scores, idxs, doc in zip(_scores, _idxs, docs):
+                ant_idxs = idxs
+                # TODO batching
+                xp = self.model.ops.xp
 
-                    # TODO batching
-                    xp = self.model.ops.xp
-
-                    starts = xp.arange(0, len(doc))
-                    ends = xp.arange(0, len(doc)) + 1
+                starts = xp.arange(0, len(doc))
+                ends = xp.arange(0, len(doc)) + 1
 
                 with use_nvtx_range("__coref_clusters", 2):
                     predicted = get_predicted_clusters(
