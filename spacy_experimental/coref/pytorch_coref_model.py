@@ -113,12 +113,12 @@ def add_dummy(tensor: torch.Tensor, eps: bool = False):
     """
     kwargs = dict(device=tensor.device, dtype=tensor.dtype)
     shape: List[int] = list(tensor.shape)
-    shape[1] = 1
+    shape[-1] = 1
     if not eps:
         dummy = torch.zeros(shape, **kwargs)  # type: ignore
     else:
         dummy = torch.full(shape, EPSILON, **kwargs)  # type: ignore
-    output = torch.cat((dummy, tensor), dim=1)
+    output = torch.cat((dummy, tensor), dim=-1)
     return output
 
 

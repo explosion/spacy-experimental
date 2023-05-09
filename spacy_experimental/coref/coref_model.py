@@ -2,7 +2,7 @@ from typing import Callable, List, Optional, Tuple, cast
 
 from thinc.api import Model, chain, get_width
 from thinc.api import PyTorchWrapper, ArgsKwargs
-from thinc.types import Floats2d, Floats3d, Ints2d, Ints1d
+from thinc.types import Floats2d, Floats3d, Ints3d, Ints2d, Ints1d
 from thinc.util import xp2torch, torch2xp
 
 from spacy.tokens import Doc
@@ -111,9 +111,12 @@ def convert_coref_clusterer_inputs(model: Model, X: List[Floats2d], is_train: bo
 
 def convert_coref_clusterer_outputs(
     model: Model, inputs_outputs, is_train: bool
-) -> Tuple[Tuple[Floats2d, Ints2d], Callable]:
-    _, outputs = inputs_outputs
+) -> Tuple[Tuple[List[Floats2d], List[Ints2d]], Callable]:
+    unpad = model.ops.unpad
+    inputs, outputs = inputs_outputs
     scores, indices = outputs
+
+    lengths: List[int] = [i.shape[0] for i in inputs]
 
     def convert_for_torch_backward(dY: Floats2d) -> ArgsKwargs:
         dY_t = xp2torch(dY[0])
@@ -122,6 +125,6 @@ def convert_coref_clusterer_outputs(
             kwargs={"grad_tensors": [dY_t]},
         )
 
-    scores_xp = cast(Floats2d, torch2xp(scores))
-    indices_xp = cast(Ints2d, torch2xp(indices))
+    scores_xp = unpad(cast(Floats3d, torch2xp(scores)), lengths)
+    indices_xp = unpad(cast(Ints3d, torch2xp(indices)), lengths)
     return (scores_xp, indices_xp), convert_for_torch_backward
