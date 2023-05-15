@@ -1,8 +1,12 @@
 from typing import Dict, List, Optional, Tuple
+
+import numpy as np
+
 from thinc.types import Ints1d, Ints2d, Floats2d
 from thinc.api import NumpyOps
 from spacy.language import Language
 from spacy.tokens import Doc
+from thinc.util import use_nvtx_range
 
 # type alias to make writing this less tedious
 MentionClusters = List[List[Tuple[int, int]]]
@@ -109,20 +113,33 @@ def get_predicted_clusters(
     antecedent or referrent are omitted from clusters and mention2cluster.
     """
     # Get predicted antecedents
-    ops = NumpyOps()
-    predicted_antecedents = ops.asarray(
-        get_predicted_antecedents(xp, antecedent_idx, antecedent_scores)
+    # with use_nvtx_range("get_antecedents", 5):
+    # ops = NumpyOps()
+    # predicted_antecedents = ops.asarray(
+    #     get_predicted_antecedents(xp, antecedent_idx, antecedent_scores)
+    # ).tolist()
+
+    # DEBUG
+    probability = xp.random.uniform(0.05, 0.10)
+    predicted_antecedents = xp.random.choice(
+        [-1, 0], size=(antecedent_scores.shape[0]), p=[1 - probability, probability]
     ).tolist()
+    predicted_antecedents[0] = -1
+    # ---
 
     # Get predicted clusters
     mention_to_cluster_id: Dict[Tuple[int, int], int] = {}
     predicted_clusters: MentionClusters = []
+
     for i, predicted_idx in enumerate(predicted_antecedents):
         if predicted_idx < 0:
             continue
         assert i > predicted_idx, f"span idx: {i}; antecedent idx: {predicted_idx}"
         # Check antecedent's cluster
-        antecedent = (int(span_starts[predicted_idx]), int(span_ends[predicted_idx]))
+        antecedent = (
+            int(span_starts[predicted_idx]),
+            int(span_ends[predicted_idx]),
+        )
         antecedent_cluster_id = mention_to_cluster_id.get(antecedent, -1)
         if antecedent_cluster_id == -1:
             antecedent_cluster_id = len(predicted_clusters)

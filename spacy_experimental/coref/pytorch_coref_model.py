@@ -67,9 +67,7 @@ class CorefClusterer(nn.Module):
         """
         with use_nvtx_range("__lstm", 3):
             self.lstm.flatten_parameters()  # XXX without this there's a warning
-            # word_features = torch.unsqueeze(word_features, dim=0)
             words, _ = self.lstm(word_features)
-            # words = words.squeeze()
         # words: n_words x dim
         words = self.dropout(words)
         # Obtain bilinear scores and leave only top-k antecedents for each word

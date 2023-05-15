@@ -1,7 +1,10 @@
-from typing import Iterable, Optional, Dict, Callable, Any, List
+from typing import Iterable, Iterator, Optional, Dict, Callable, Any, List
+import timeit
+import numpy as np
 from functools import partial
 import warnings
-import torch
+
+import torch.cuda
 
 from thinc.util import use_nvtx_range
 from thinc.types import Floats2d, Ints2d
@@ -16,7 +19,7 @@ from spacy.training import Example, validate_examples, validate_get_examples
 from spacy.errors import Errors
 from spacy.tokens import Doc
 from spacy.vocab import Vocab
-from spacy.util import from_disk, from_bytes
+from spacy.util import from_disk, from_bytes, minibatch
 
 from .coref_util import create_gold_scores, MentionClusters, create_head_span_idxs
 from .coref_util import get_clusters_from_doc, get_predicted_clusters
@@ -136,6 +139,34 @@ class CoreferenceResolver(TrainablePipe):
         self.cfg: Dict[str, Any] = {}
         self.scorer = scorer
 
+    def pipe(self, stream: Iterable[Doc], *, batch_size: int) -> Iterator[Doc]:
+        error_handler = self.get_error_handler()
+        for batch in minibatch(stream, size=batch_size):
+            batch_in_order = list(batch)
+            try:
+                by_length = sorted(batch, key=lambda doc: len(doc), reverse=True)
+                subbatch_sizes = []
+                current = []
+                max_tokens = 0
+                for i in [len(i) for i in by_length]:
+                    if max(sum(current) + i, sum(current) + max_tokens) > 3000:
+                        subbatch_sizes.append(len(current))
+                        current = []
+                    if not current:
+                        max_tokens = i
+                    current.append(max_tokens)
+                subbatch_sizes.append(len(current))
+                # necessary to avoid breaking iteration
+                subbatch_sizes.append(0)
+
+                for subbatch in minibatch(by_length, size=iter(subbatch_sizes)):
+                    subbatch = list(subbatch)
+                    predictions = self.predict(subbatch)
+                    self.set_annotations(subbatch, predictions)
+                yield from batch_in_order
+            except Exception as e:
+                error_handler(self.name, self, batch_in_order, e)
+
     def predict(self, docs: Iterable[Doc]) -> List[MentionClusters]:
         """Apply the pipeline's model to a batch of docs, without modifying them.
         Return the list of predicted clusters.
@@ -147,24 +178,34 @@ class CoreferenceResolver(TrainablePipe):
         """
         with use_nvtx_range("__full_coref", -1):
             out: List[MentionClusters] = []
+            xp = self.model.ops.xp
             with use_nvtx_range("__coref_predict", 1):
                 # TODO: skip documents with 0 or 1 tokens
                 _scores, _idxs = self.model.predict(docs)
+                torch.cuda.synchronize()
 
+                # DEBUG
+                # _scores, _idxs = [], []
+                # for doc in docs:
+                #     score = xp.tril(xp.random.rand(len(doc), 51))
+                #     idx = xp.random.randint(0, len(doc), (len(doc), 51))
+                #     _scores.append(score)
+                #     _idxs.append(idx)
+                # ---
+
+            start = timeit.default_timer()
             for scores, idxs, doc in zip(_scores, _idxs, docs):
                 ant_idxs = idxs
                 # TODO batching
-                xp = self.model.ops.xp
 
                 starts = xp.arange(0, len(doc))
                 ends = xp.arange(0, len(doc)) + 1
 
-                with use_nvtx_range("__coref_clusters", 2):
-                    predicted = get_predicted_clusters(
-                        xp, starts, ends, ant_idxs, scores
-                    )
-                    out.append(predicted)
+                predicted = get_predicted_clusters(xp, starts, ends, ant_idxs, scores)
+                out.append(predicted)
 
+            end = timeit.default_timer()
+        # print(end - start)
         return out
 
     def set_annotations(
