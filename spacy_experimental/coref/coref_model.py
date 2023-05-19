@@ -121,8 +121,8 @@ def convert_coref_clusterer_outputs(
     def convert_for_torch_backward(dY: Floats2d) -> ArgsKwargs:
         dY_t = xp2torch(dY[0])
         return ArgsKwargs(
-            args=([scores],),
-            kwargs={"grad_tensors": [dY_t]},
+            args=(scores[0],),
+            kwargs={"grad_tensors": dY_t},
         )
 
     scores_xp = unpad(cast(Floats3d, torch2xp(scores)), lengths)

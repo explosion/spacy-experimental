@@ -149,7 +149,7 @@ class CoreferenceResolver(TrainablePipe):
                 current = []
                 max_tokens = 0
                 for i in [len(i) for i in by_length]:
-                    if max(sum(current) + i, sum(current) + max_tokens) > 3000:
+                    if max(sum(current) + i, sum(current) + max_tokens) > 10000:
                         subbatch_sizes.append(len(current))
                         current = []
                     if not current:
@@ -182,7 +182,7 @@ class CoreferenceResolver(TrainablePipe):
             with use_nvtx_range("__coref_predict", 1):
                 # TODO: skip documents with 0 or 1 tokens
                 _scores, _idxs = self.model.predict(docs)
-                torch.cuda.synchronize()
+                # torch.cuda.synchronize()
 
                 # DEBUG
                 # _scores, _idxs = [], []
@@ -193,18 +193,20 @@ class CoreferenceResolver(TrainablePipe):
                 #     _idxs.append(idx)
                 # ---
 
-            start = timeit.default_timer()
-            for scores, idxs, doc in zip(_scores, _idxs, docs):
-                ant_idxs = idxs
-                # TODO batching
+            with use_nvtx_range("__coref_cluster", 2):
+                start = timeit.default_timer()
+                for scores, idxs, doc in zip(_scores, _idxs, docs):
+                    ant_idxs = idxs
+                    # TODO batching
 
-                starts = xp.arange(0, len(doc))
-                ends = xp.arange(0, len(doc)) + 1
+                    starts = xp.arange(0, len(doc))
+                    ends = xp.arange(0, len(doc)) + 1
 
-                predicted = get_predicted_clusters(xp, starts, ends, ant_idxs, scores)
-                out.append(predicted)
-
-            end = timeit.default_timer()
+                    predicted = get_predicted_clusters(
+                        xp, starts, ends, ant_idxs, scores
+                    )
+                    out.append(predicted)
+                end = timeit.default_timer()
         # print(end - start)
         return out
 
@@ -284,7 +286,7 @@ class CoreferenceResolver(TrainablePipe):
                 continue
             preds, backprop = self.model.begin_update([eg.predicted])
             score_matrix, mention_idx = preds
-            loss, d_scores = self.get_loss([eg], score_matrix, mention_idx)
+            loss, d_scores = self.get_loss([eg], score_matrix[0], mention_idx[0])
             total_loss += loss
             backprop((d_scores, mention_idx))
 

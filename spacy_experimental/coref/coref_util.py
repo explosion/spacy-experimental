@@ -113,18 +113,17 @@ def get_predicted_clusters(
     antecedent or referrent are omitted from clusters and mention2cluster.
     """
     # Get predicted antecedents
-    # with use_nvtx_range("get_antecedents", 5):
-    # ops = NumpyOps()
-    # predicted_antecedents = ops.asarray(
-    #     get_predicted_antecedents(xp, antecedent_idx, antecedent_scores)
-    # ).tolist()
+    ops = NumpyOps()
+    predicted_antecedents = ops.asarray(
+        get_predicted_antecedents(xp, antecedent_idx, antecedent_scores)
+    ).tolist()
 
     # DEBUG
-    probability = xp.random.uniform(0.05, 0.10)
-    predicted_antecedents = xp.random.choice(
-        [-1, 0], size=(antecedent_scores.shape[0]), p=[1 - probability, probability]
-    ).tolist()
-    predicted_antecedents[0] = -1
+    # probability = xp.random.uniform(0.05, 0.10)
+    # predicted_antecedents = xp.random.choice(
+    #     [-1, 0], size=(antecedent_scores.shape[0]), p=[1 - probability, probability]
+    # ).tolist()
+    # predicted_antecedents[0] = -1
     # ---
 
     # Get predicted clusters
