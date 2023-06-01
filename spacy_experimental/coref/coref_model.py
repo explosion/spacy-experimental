@@ -9,7 +9,7 @@ from spacy.tokens import Doc
 
 CorefClusterer: Optional[type]
 try:
-    from .pytorch_coref_model import CorefClusterer
+    from .pytorch_coref_model import MiniClusterer as CorefClusterer
 except ImportError:
     CorefClusterer = None
 
