@@ -6,7 +6,6 @@ import warnings
 
 import torch.cuda
 
-from thinc.util import use_nvtx_range
 from thinc.types import Floats2d, Ints2d
 from thinc.api import Model, Config, Optimizer
 from thinc.api import set_dropout_rate
@@ -176,38 +175,30 @@ class CoreferenceResolver(TrainablePipe):
 
         DOCS: https://spacy.io/api/coref#predict
         """
-        with use_nvtx_range("__full_coref", -1):
-            out: List[MentionClusters] = []
-            xp = self.model.ops.xp
-            with use_nvtx_range("__coref_predict", 1):
-                # TODO: skip documents with 0 or 1 tokens
-                _scores, _idxs = self.model.predict(docs)
-                # torch.cuda.synchronize()
+        out: List[MentionClusters] = []
+        xp = self.model.ops.xp
+        # TODO: skip documents with 0 or 1 tokens
+        _scores, _idxs = self.model.predict(docs)
 
-                # DEBUG
-                # _scores, _idxs = [], []
-                # for doc in docs:
-                #     score = xp.tril(xp.random.rand(len(doc), 51))
-                #     idx = xp.random.randint(0, len(doc), (len(doc), 51))
-                #     _scores.append(score)
-                #     _idxs.append(idx)
-                # ---
+        # DEBUG
+        # _scores, _idxs = [], []
+        # for doc in docs:
+        #     score = xp.tril(xp.random.rand(len(doc), 51))
+        #     idx = xp.random.randint(0, len(doc), (len(doc), 51))
+        #     _scores.append(score)
+        #     _idxs.append(idx)
+        # ---
 
-            with use_nvtx_range("__coref_cluster", 2):
-                start = timeit.default_timer()
-                for scores, idxs, doc in zip(_scores, _idxs, docs):
-                    ant_idxs = idxs
-                    # TODO batching
+        for scores, idxs, doc in zip(_scores, _idxs, docs):
+            ant_idxs = idxs
+            # TODO batching
 
-                    starts = xp.arange(0, len(doc))
-                    ends = xp.arange(0, len(doc)) + 1
+            starts = xp.arange(0, len(doc))
+            ends = xp.arange(0, len(doc)) + 1
 
-                    predicted = get_predicted_clusters(
-                        xp, starts, ends, ant_idxs, scores
-                    )
-                    out.append(predicted)
-                end = timeit.default_timer()
-        # print(end - start)
+            predicted = get_predicted_clusters(xp, starts, ends, ant_idxs, scores)
+            out.append(predicted)
+
         return out
 
     def set_annotations(

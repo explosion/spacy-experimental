@@ -6,7 +6,6 @@ from thinc.types import Ints1d, Ints2d, Floats2d
 from thinc.api import NumpyOps
 from spacy.language import Language
 from spacy.tokens import Doc
-from thinc.util import use_nvtx_range
 
 # type alias to make writing this less tedious
 MentionClusters = List[List[Tuple[int, int]]]
