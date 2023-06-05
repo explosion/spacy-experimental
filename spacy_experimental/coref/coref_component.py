@@ -190,6 +190,10 @@ class CoreferenceResolver(TrainablePipe):
         # ---
 
         for scores, idxs, doc in zip(_scores, _idxs, docs):
+            if len(doc) < 2:
+                out.append([])
+                continue
+
             ant_idxs = idxs
             # TODO batching
 
