@@ -244,12 +244,6 @@ class ArcPredicter(TrainablePipe):
             self.finish_update(sgd)
         losses[self.name] += loss
 
-        # Hmpf, this is horrible, just for the experiments. I promise...
-        cdef Token token
-        for eg in examples:
-            for token in eg.predicted:
-                token.c.sent_start = 0
-
         return losses
 
     def from_bytes(self, bytes_data, *, exclude=tuple()):
