@@ -184,14 +184,18 @@ class ArcPredicter(TrainablePipe):
 
         heads = []
         for doc_split_lengths in docs_split_lengths:
+            # Flat score array to per-split score matrices.
+            scores_len = (doc_split_lengths ** 2).sum()
+            scores_matrix = unflatten_matrix(scores[:scores_len], doc_split_lengths)
+
+            # Decode split score matrices.
             doc_heads = []
-            for split_length in doc_split_lengths:
-                split_scores = scores[:split_length*split_length].reshape(split_length, split_length)
+            for split_scores in scores_matrix:
                 split_heads = mst_decode(split_scores)
                 split_heads = [head - i for (i, head) in enumerate(split_heads)]
                 doc_heads.extend(split_heads)
 
-                scores = scores[split_length*split_length:]
+            scores = scores[scores_len:]
 
             heads.append(doc_heads)
 
@@ -360,10 +364,10 @@ def _split_lazily_doc(ops: Ops, scores: Floats2d, max_tokens: int) -> List[int]:
     return lens
 
 
-def unflatten_matrix(scores: Floats1d, lengths: List[Ints1d]) -> List[Floats2d]:
-    d_scores_matrix = []
+def unflatten_matrix(scores: Floats1d, lengths: Iterable[int]) -> List[Floats2d]:
+    scores_matrix = []
     for length in lengths:
-        d_scores_matrix.append(scores[:length * length].reshape((length, length)))
+        scores_matrix.append(scores[:length * length].reshape((length, length)))
         scores = scores[length * length:]
     assert scores.size == 0
-    return d_scores_matrix
+    return scores_matrix
