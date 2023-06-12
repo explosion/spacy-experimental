@@ -87,7 +87,8 @@ class ArcPredicter(TrainablePipe):
         self.cfg = dict(sorted(cfg.items()))
         self.scorer = scorer
 
-    def get_loss(self, examples: Iterable[Example], scores, docs_split_lengths) -> Tuple[float, Floats2d]:
+    def get_loss(self, examples: Iterable[Example], scores: List[Floats2d],
+                 docs_split_lengths: List[Ints1d]) -> Tuple[float, Floats2d]:
         validate_examples(examples, "ArcPredicter.get_loss")
 
         def loss_func(guesses, target, mask):
@@ -347,7 +348,7 @@ def split_lazily(docs: List[Doc], *, ops: Ops, max_tokens: int, senter_name: str
     return lens
 
 
-def _split_lazily_doc(ops: Ops, scores: Floats2d, max_tokens: int):
+def _split_lazily_doc(ops: Ops, scores: Floats2d, max_tokens: int) -> List[int]:
     lens = []
     stack = deque([scores])
     while stack:
