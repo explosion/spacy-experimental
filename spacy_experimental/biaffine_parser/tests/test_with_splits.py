@@ -1,3 +1,4 @@
+import numpy
 from spacy_experimental.biaffine_parser.with_splits import with_splits
 
 from .util import memoize
@@ -18,14 +19,14 @@ def test_with_splits():
     ]
 
     X_inner = model.layers[0].attrs["X"]
-    model.ops.xp.testing.assert_equal(
+    numpy.testing.assert_equal(
         X_inner,
         [check_output],
     )
 
     backprop(check_output)
     dY_inner = model.layers[0].attrs["dY"]
-    model.ops.xp.testing.assert_equal(
+    numpy.testing.assert_equal(
         dY_inner,
         [check_output],
     )

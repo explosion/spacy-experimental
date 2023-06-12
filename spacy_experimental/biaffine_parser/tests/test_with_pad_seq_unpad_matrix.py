@@ -1,4 +1,5 @@
 from typing import Callable, Tuple
+import numpy
 from thinc.api import Model
 
 from spacy_experimental.biaffine_parser.with_pad_seq_unpad_matrix import (
@@ -38,7 +39,7 @@ def test_with_pad_seq_unpad_matrix():
         True,
     )
 
-    model.ops.xp.testing.assert_equal(
+    numpy.testing.assert_equal(
         Y,
         [
             model.ops.asarray2f([[1, 3, 5], [3, 13, 23], [5, 23, 41]], dtype="float32"),
@@ -53,8 +54,8 @@ def test_with_pad_seq_unpad_matrix():
 
     dX = backprop(dY)
 
-    model.ops.xp.testing.assert_equal(dX, [X[0] + 1.0, X[1] + 1.0])
-    model.ops.xp.testing.assert_equal(
+    numpy.testing.assert_equal(dX, [X[0] + 1.0, X[1] + 1.0])
+    numpy.testing.assert_equal(
         model.layers[0].attrs["last_dY"],
         [dY[0], model.ops.asarray2f([[0, 1, 0], [2, 3, 0], [0, 0, 0]])],
     )
