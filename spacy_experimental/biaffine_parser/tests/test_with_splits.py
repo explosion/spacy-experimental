@@ -1,23 +1,10 @@
-from thinc.api import Model, noop
 from spacy_experimental.biaffine_parser.with_splits import with_splits
 
-
-def _memoize():
-    return Model("memoize", memoize_forward, attrs={"X": [], "dY": []})
-
-
-def memoize_forward(model: Model, X, is_train):
-    model.attrs["X"].append(X)
-
-    def backprop(dY):
-        model.attrs["dY"].append(dY)
-        return dY
-
-    return X, backprop
+from .util import memoize
 
 
 def test_with_splits():
-    model = with_splits(_memoize())
+    model = with_splits(memoize())
     doc1 = model.ops.xp.arange(9, dtype="float32").reshape(3, 3)
     doc2 = model.ops.xp.arange(6, dtype="float32").reshape(2, 3)
     _, backprop = model(

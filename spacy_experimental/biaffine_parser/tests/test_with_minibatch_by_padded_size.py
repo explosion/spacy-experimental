@@ -1,25 +1,12 @@
-from thinc.api import Model, noop
-from spacy_experimental.biaffine_parser.with_minibatch_by_padded_size import (
-    with_minibatch_by_padded_size,
-)
+from thinc.api import noop
 
+from spacy_experimental.biaffine_parser.with_minibatch_by_padded_size import with_minibatch_by_padded_size
 
-def _memoize():
-    return Model("memoize", memoize_forward, attrs={"X": [], "dY": []})
-
-
-def memoize_forward(model: Model, X, is_train):
-    model.attrs["X"].append(X)
-
-    def backprop(dY):
-        model.attrs["dY"].append(dY)
-        return dY
-
-    return X, backprop
+from .util import memoize
 
 
 def test_batching():
-    model = with_minibatch_by_padded_size(_memoize(), size=18)
+    model = with_minibatch_by_padded_size(memoize(), size=18)
     X = ["peach", "banana", "apple", "pineapple"]
     _, backprop = model(X, True)
     backprop(["a", "b", "c", "d"])
