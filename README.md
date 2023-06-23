@@ -6,7 +6,7 @@ This package includes experimental components and features for
 [spaCy](https://spacy.io) v3.x, for example model architectures, pipeline
 components and utilities.
 
-[![Azure Pipelines](https://img.shields.io/azure-devops/build/explosion-ai/public/26/master.svg?logo=azure-pipelines&style=flat-square&label=build)](https://dev.azure.com/explosion-ai/public/_build?definitionId=26)
+[![tests](https://github.com/explosion/spacy-experimental/actions/workflows/tests.yml/badge.svg)](https://github.com/explosion/spacy-experimental/actions/workflows/tests.yml)
 [![pypi Version](https://img.shields.io/pypi/v/spacy-experimental.svg?style=flat-square&logo=pypi&logoColor=white)](https://pypi.org/project/spacy-experimental/)
 
 ## Installation
@@ -66,10 +66,10 @@ respectively in the process of retokenizing.
 #### Character-based tagger tokenizer
 
 In the tagger version `experimental_char_tagger_tokenizer`, the tagging problem
-is represented internally with character-level tags for token start (`T`),
-token internal (`I`), and outside a token (`O`). This representation comes from
-[Elephant: Sequence Labeling for Word and Sentence
-Segmentation](https://aclanthology.org/D13-1146/) (Evang et al., 2013).
+is represented internally with character-level tags for token start (`T`), token
+internal (`I`), and outside a token (`O`). This representation comes from
+[Elephant: Sequence Labeling for Word and Sentence Segmentation](https://aclanthology.org/D13-1146/)
+(Evang et al., 2013).
 
 ```none
 This is a sentence.
@@ -205,8 +205,8 @@ factory = "experimental_arc_labeler"
 ```
 
 The arc predicter requires that a previous component (such as `senter`) sets
-sentence boundaries during training. Therefore, such a component must be
-added to `annotating_components`:
+sentence boundaries during training. Therefore, such a component must be added
+to `annotating_components`:
 
 ```ini
 [training]
@@ -225,10 +225,14 @@ candidate spans with higher precision.
 `SpanFinder` uses the following parameters:
 
 - `threshold`: Probability threshold for predicted spans.
-- `predicted_key`: Name of the [SpanGroup](https://spacy.io/api/spangroup) the predicted spans are saved to.
-- `training_key`: Name of the [SpanGroup](https://spacy.io/api/spangroup) the training spans are read from.
-- `max_length`: Max length of the predicted spans. No limit when set to `0`. Defaults to `0`.
-- `min_length`: Min length of the predicted spans. No limit when set to `0`. Defaults to `0`.
+- `predicted_key`: Name of the [SpanGroup](https://spacy.io/api/spangroup) the
+  predicted spans are saved to.
+- `training_key`: Name of the [SpanGroup](https://spacy.io/api/spangroup) the
+  training spans are read from.
+- `max_length`: Max length of the predicted spans. No limit when set to `0`.
+  Defaults to `0`.
+- `min_length`: Min length of the predicted spans. No limit when set to `0`.
+  Defaults to `0`.
 
 Here is a config excerpt for the `SpanFinder` together with a `SpanCategorizer`:
 
@@ -316,13 +320,20 @@ width = ${components.tok2vec.model.encode.width}
 predicted_key = ${components.span_finder.predicted_key}
 ```
 
-This package includes a [spaCy project](./projects/span_finder) which shows how to train and use the `SpanFinder` together with `SpanCategorizer`.
+This package includes a [spaCy project](./projects/span_finder) which shows how
+to train and use the `SpanFinder` together with `SpanCategorizer`.
 
 ### Coreference Components
 
-The [CoreferenceResolver](https://spacy.io/api/coref) and [SpanResolver](https://spacy.io/api/span-resolver) are designed to be used together to build a corerefence pipeline, which allows you to identify which spans in a document refer to the same thing. Each component also includes an architecture and scorer. For more details, see their pages in the main spaCy docs.
+The [CoreferenceResolver](https://spacy.io/api/coref) and
+[SpanResolver](https://spacy.io/api/span-resolver) are designed to be used
+together to build a corerefence pipeline, which allows you to identify which
+spans in a document refer to the same thing. Each component also includes an
+architecture and scorer. For more details, see their pages in the main spaCy
+docs.
 
-For an example of how to build a pipeline with the components, see the [example coref project](https://github.com/explosion/projects/tree/v3/experimental/coref).
+For an example of how to build a pipeline with the components, see the
+[example coref project](https://github.com/explosion/projects/tree/v3/experimental/coref).
 
 ## Architectures
 
@@ -345,12 +356,14 @@ None currently.
 
 Suggester functions for spancat:
 
-**Subtree suggester**: Uses dependency annotation to suggest tokens with their syntactic descendants.
+**Subtree suggester**: Uses dependency annotation to suggest tokens with their
+syntactic descendants.
 
 - `spacy-experimental.subtree_suggester.v1`
 - `spacy-experimental.ngram_subtree_suggester.v1`
 
-**Chunk suggester**: Suggests noun chunks using the noun chunk iterator, which requires POS and dependency annotation.
+**Chunk suggester**: Suggests noun chunks using the noun chunk iterator, which
+requires POS and dependency annotation.
 
 - `spacy-experimental.chunk_suggester.v1`
 - `spacy-experimental.ngram_chunk_suggester.v1`
@@ -360,9 +373,12 @@ Suggester functions for spancat:
 - `spacy-experimental.sentence_suggester.v1`
 - `spacy-experimental.ngram_sentence_suggester.v1`
 
-The package also contains a [`merge_suggesters`](spacy_experimental/span_suggesters/merge_suggesters.py) function which can be used to combine suggestions from multiple suggesters.
+The package also contains a
+[`merge_suggesters`](spacy_experimental/span_suggesters/merge_suggesters.py)
+function which can be used to combine suggestions from multiple suggesters.
 
-Here are two config excerpts for using the `subtree suggester` with and without the ngram functionality:
+Here are two config excerpts for using the `subtree suggester` with and without
+the ngram functionality:
 
 ```
 [components.spancat.suggester]
@@ -379,13 +395,13 @@ Note that all the suggester functions are registered in `@misc`.
 
 ## Bug reports and issues
 
-Please report bugs in the [spaCy issue
-tracker](https://github.com/explosion/spaCy/issues) or open a new thread on the
-[discussion board](https://github.com/explosion/spaCy/discussions) for other
-issues.
+Please report bugs in the
+[spaCy issue tracker](https://github.com/explosion/spaCy/issues) or open a new
+thread on the [discussion board](https://github.com/explosion/spaCy/discussions)
+for other issues.
 
 ## Older documentation
 
-See the READMEs in earlier [tagged
-versions](https://github.com/explosion/spacy-experimental/tags) for details
-about components in earlier releases.
+See the READMEs in earlier
+[tagged versions](https://github.com/explosion/spacy-experimental/tags) for
+details about components in earlier releases.
