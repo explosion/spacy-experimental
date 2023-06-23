@@ -1,4 +1,5 @@
 import pytest
+from thinc.api import fix_random_seed
 from spacy import util
 from spacy.lang.en import English
 from spacy.language import Language
@@ -80,7 +81,9 @@ def test_incomplete_data():
 
     for i in range(150):
         losses = {}
-        nlp.update(train_examples, sgd=optimizer, losses=losses, annotates=["sentencizer"])
+        nlp.update(
+            train_examples, sgd=optimizer, losses=losses, annotates=["sentencizer"]
+        )
     assert losses["experimental_arc_predicter"] < 0.00001
 
     test_text = "She likes green eggs"
@@ -106,9 +109,12 @@ def test_overfitting_IO():
 
     optimizer = nlp.initialize(get_examples=lambda: train_examples)
 
+    fix_random_seed(0)
     for i in range(150):
         losses = {}
-        nlp.update(train_examples, sgd=optimizer, losses=losses, annotates=["sentencizer"])
+        nlp.update(
+            train_examples, sgd=optimizer, losses=losses, annotates=["sentencizer"]
+        )
     assert losses["experimental_arc_labeler"] < 0.00001
 
     test_text = "She likes green eggs"

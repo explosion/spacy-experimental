@@ -3,7 +3,7 @@ from spacy import util
 from spacy.lang.en import English
 from spacy.language import Language
 from spacy.training import Example
-from thinc.api import NumpyOps
+from thinc.api import NumpyOps, fix_random_seed
 
 from spacy_experimental.biaffine_parser.arc_predicter import _split_lazily_doc
 
@@ -128,6 +128,7 @@ def test_overfitting_IO(lazy_splitting):
 
     optimizer = nlp.initialize(get_examples=lambda: train_examples)
 
+    fix_random_seed(0)
     for i in range(150):
         losses = {}
         nlp.update(train_examples, sgd=optimizer, losses=losses, annotates=["senter"])
