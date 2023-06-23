@@ -107,7 +107,7 @@ class CharTaggerTokenizer(Tagger):
             while j < doc.length:
                 text = doc[j].text
                 if len(text) > 1 and text.endswith(" "):
-                    lex = doc.vocab.get(doc.vocab.mem, text[:-1])
+                    lex = doc.vocab.get(text[:-1])
                     doc.c[j].lex = lex
                     doc.c[j].spacy = True
                 if self.cfg["annotate_sents"]:
