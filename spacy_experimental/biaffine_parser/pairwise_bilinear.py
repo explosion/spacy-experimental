@@ -154,7 +154,7 @@ def convert_inputs(
         X_lengths[0] - (n_splits, max_split_len, hidden_size)
         X_lengths[1] - (n_splits,)
     """
-    X, L = X_lenghts
+    X, L = X_lengths
 
     Xt = xp2torch(X, requires_grad=is_train)
     Lt = xp2torch(L)
