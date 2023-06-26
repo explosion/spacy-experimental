@@ -1,11 +1,22 @@
-from typing import List, Optional, Tuple, Union, cast
-
+from typing import Callable, List, Optional, Tuple, TypeVar, Union
+from typing import cast
 from spacy import registry
 from spacy.tokens.doc import Doc
-from thinc.api import Model, chain, get_width, list2array, torch2xp
+from thinc.api import Model, chain, get_width, torch2xp
 from thinc.api import with_getitem, xp2torch
 from thinc.shims.pytorch_grad_scaler import PyTorchGradScaler
-from thinc.types import ArgsKwargs, Floats2d, Floats3d, Floats4d, Ints1d
+from thinc.types import (
+    ArgsKwargs,
+    Floats2d,
+    Floats3d,
+    Floats4d,
+    Ints1d,
+)
+
+
+from .with_minibatch_by_padded_size import with_minibatch_by_padded_size
+from .with_pad_seq_unpad_matrix import with_pad_seq_unpad_matrix
+from .with_splits import with_splits
 
 # Ensure that the spacy-experimental package can register entry points without
 # Torch installed.
@@ -18,15 +29,44 @@ except ImportError:
     PyTorchPairwiseBilinearModel = None
 
 
+# Model notes
+#
+# The Thinc part of the pairwire bilinear model used to be fairly simple: we
+# would collect the splits from all documents and then pad them. However, this
+# would run the parser out of GPU memory on very large docs. So instead, we do
+# the following:
+#
+# - Get all splits and flatten to a list of split representations.
+#   (with_splits)
+# - Batch the splits by their padded sizes. This ensures that memory
+#   use is constant when splits have a maximum size. This also permits
+#   some buffering, so that we get more equisized batches.
+#   (with_minibatch_by_padded_size)
+# - The splits in the batches are padded and passed to the Torch model.
+#   Since the outputs of the Torch model are matrices, we unpad taking
+#   this into account. (with_pad_seq_unpad_matrix)
+#
+# In contrast to most with_* layers, with_splits is not symmetric. It
+# takes at its input representations for each document (List[Floats2d]),
+# however it outputs pairwise score matrices per split. The reason is that
+# since the dimensions of the score matrices differ per split, we cannot
+# concatenate them at a document level.
+
+
+InT = TypeVar("InT")
+OutT = TypeVar("OutT")
+
+
 def build_pairwise_bilinear(
     tok2vec: Model[List[Doc], List[Floats2d]],
     nO=None,
     *,
     dropout: float = 0.1,
     hidden_width: int = 128,
+    max_items: int = 4096,
     mixed_precision: bool = False,
     grad_scaler: Optional[PyTorchGradScaler] = None
-) -> Model[Tuple[List[Doc], Ints1d], Floats2d]:
+) -> Model[Tuple[List[Doc], List[Ints1d]], List[Floats2d]]:
     if PyTorchPairwiseBilinearModel is None:
         raise ImportError(
             "PairwiseBiLinear layer requires PyTorch: pip install thinc[torch]"
@@ -36,7 +76,7 @@ def build_pairwise_bilinear(
     if tok2vec.has_dim("nO") is True:
         nI = tok2vec.get_dim("nO")
 
-    pairwise_bilinear: Model[Tuple[Floats2d, Ints1d], Floats2d] = Model(
+    pairwise_bilinear: Model[Tuple[Floats3d, Ints1d], Floats3d] = Model(
         "pairwise_bilinear",
         forward=pairwise_bilinear_forward,
         init=pairwise_bilinear_init,
@@ -51,14 +91,16 @@ def build_pairwise_bilinear(
         },
     )
 
-    model: Model[Tuple[List[Doc], Ints1d], Floats2d] = chain(
+    model: Model[Tuple[List[Doc], List[Ints1d]], List[Floats2d]] = chain(
         cast(
-            Model[Tuple[List[Doc], Ints1d], Tuple[Floats2d, Ints1d]],
-            with_getitem(
-                0, chain(tok2vec, cast(Model[List[Floats2d], Floats2d], list2array()))
-            ),
+            Model[Tuple[List[Doc], List[Ints1d]], Tuple[List[Floats2d], List[Ints1d]]],
+            with_getitem(0, tok2vec),
         ),
-        pairwise_bilinear,
+        with_splits(
+            with_minibatch_by_padded_size(
+                with_pad_seq_unpad_matrix(pairwise_bilinear), size=max_items
+            )
+        ),
     )
     model.set_ref("pairwise_bilinear", pairwise_bilinear)
 
@@ -105,43 +147,48 @@ def pairwise_bilinear_forward(model: Model, X, is_train: bool):
 
 
 def convert_inputs(
-    model: Model, X_lenghts: Tuple[Floats2d, Ints1d], is_train: bool = False
-):
-    flatten = model.ops.flatten
-    unflatten = model.ops.unflatten
-    pad = model.ops.pad
-    unpad = model.ops.unpad
+    model: Model, X_lengths: Tuple[Floats3d, Ints1d], is_train: bool = False
+) -> Tuple[ArgsKwargs, Callable[[ArgsKwargs], Tuple[Floats3d, Ints1d]]]:
+    """
+    Shapes:
+        X_lengths[0] - (n_splits, max_split_len, hidden_size)
+        X_lengths[1] - (n_splits,)
+    """
+    X, L = X_lengths
 
-    X, L = X_lenghts
-
-    Xt = xp2torch(pad(unflatten(X, L)), requires_grad=is_train)
+    Xt = xp2torch(X, requires_grad=is_train)
     Lt = xp2torch(L)
 
-    def convert_from_torch_backward(d_inputs: ArgsKwargs) -> Tuple[Floats2d, Ints1d]:
+    def convert_from_torch_backward(d_inputs: ArgsKwargs) -> Tuple[Floats3d, Ints1d]:
         dX = cast(Floats3d, torch2xp(d_inputs.args[0]))
-        return cast(Floats2d, flatten(unpad(dX, list(L)))), L
+        return dX, L
 
     output = ArgsKwargs(args=(Xt, Lt), kwargs={})
 
     return output, convert_from_torch_backward
 
 
-def convert_outputs(model, inputs_outputs, is_train):
-    flatten = model.ops.flatten
-    unflatten = model.ops.unflatten
-    pad = model.ops.pad
-    unpad = model.ops.unpad
-
+def convert_outputs(
+    model, inputs_outputs, is_train: bool
+) -> Tuple[
+    Union[Floats3d, Floats4d], Callable[[Union[Floats3d, Floats4d]], ArgsKwargs]
+]:
+    """
+    Shapes:
+        inputs_outputs[0][0] - (n_splits, max_split_len, hidden_size)
+        inputs_outputs[0][1] - (n_splits,)
+        inputs_outputs[1]    - (n_splits, max_split_len, max_split_len) or
+                               (n_splits, max_split_len, max_split_len, n_class)
+    """
     (_, lengths), Y_t = inputs_outputs
 
     def convert_for_torch_backward(dY: Union[Floats3d, Floats4d]) -> ArgsKwargs:
-        dY_t = xp2torch(pad(unflatten(dY, lengths)))
+        dY_t = xp2torch(dY)
         return ArgsKwargs(
             args=([Y_t],),
             kwargs={"grad_tensors": [dY_t]},
         )
 
-    Y = cast(Floats4d, torch2xp(Y_t))
-    Y = flatten(unpad(Y, lengths))
+    Y = cast(Union[Floats3d, Floats4d], torch2xp(Y_t))
 
     return Y, convert_for_torch_backward
