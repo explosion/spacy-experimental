@@ -147,12 +147,12 @@ def pairwise_bilinear_forward(model: Model, X, is_train: bool):
 
 
 def convert_inputs(
-    model: Model, X_lenghts: Tuple[Floats3d, Ints1d], is_train: bool = False
+    model: Model, X_lengths: Tuple[Floats3d, Ints1d], is_train: bool = False
 ) -> Tuple[ArgsKwargs, Callable[[ArgsKwargs], Tuple[Floats3d, Ints1d]]]:
     """
     Shapes:
-        X_lenghts[0] - (n_splits, max_split_len, hidden_size)
-        X_lenghts[1] - (n_splits,)
+        X_lengths[0] - (n_splits, max_split_len, hidden_size)
+        X_lengths[1] - (n_splits,)
     """
     X, L = X_lenghts
 
