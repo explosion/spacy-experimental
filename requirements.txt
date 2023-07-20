@@ -1,4 +1,6 @@
 spacy>=3.3.0,<3.7.0
+numpy>=1.15.0; python_version < "3.9"
+numpy>=1.19.0; python_version >= "3.9"
 
 # Development dependencies
 cython>=0.25,<3.0
