@@ -1,4 +1,4 @@
-# cython: infer_types=True, profile=True, binding=True
+# cython: infer_types=True, binding=True
 
 # Copyright 2018-2020 Daniël de Kok and Tobias Pütz
 # Copyright 2021 ExplosionAI GmbH
