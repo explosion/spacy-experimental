@@ -189,33 +189,6 @@ maxout_pieces = 2
 The NER version does not currently support sentence boundaries, but it would be
 easy to extend using a `B-SENT` entity type.
 
-### Biaffine parser
-
-A biaffine dependency parser, similar to that proposed in [Deep Biaffine
-Attention for Neural Dependency Parsing](Deep Biaffine Attention for Neural
-Dependency Parsing) (Dozat & Manning, 2016). The parser consists of two parts:
-an edge predicter and an edge labeler. For example:
-
-```ini
-[components.experimental_arc_predicter]
-factory = "experimental_arc_predicter"
-
-[components.experimental_arc_labeler]
-factory = "experimental_arc_labeler"
-```
-
-The arc predicter requires that a previous component (such as `senter`) sets
-sentence boundaries during training. Therefore, such a component must be added
-to `annotating_components`:
-
-```ini
-[training]
-annotating_components = ["senter"]
-```
-
-The [biaffine parser sample project](projects/biaffine_parser) provides an
-example biaffine parser pipeline.
-
 ### Span Finder
 
 The SpanFinder is a new experimental component that identifies span boundaries
@@ -392,6 +365,13 @@ sizes = [1, 2, 3]
 ```
 
 Note that all the suggester functions are registered in `@misc`.
+
+## Former components
+
+- The edit tree lemmatizer is
+  [in spaCy since version 3.3](https://spacy.io/usage/v3-3#trainable-lemmatizer).
+- The biaffine parser has moved into the standalone package
+  [`spacy-biaffine-parser`](https://github.com/explosion/spacy-biaffine-parser).
 
 ## Bug reports and issues
 
